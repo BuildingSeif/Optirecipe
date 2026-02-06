@@ -1,0 +1,205 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* OptiRecipe Design System - Professional recipe extraction platform */
+
+@layer base {
+  :root {
+    /* OptiPro/OptiMenu Brand Colors */
+    --background: 210 20% 98%;
+    --foreground: 220 30% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 30% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 30% 10%;
+
+    /* Primary: Dark Blue #1E3A5F */
+    --primary: 212 52% 24%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary: Light gray */
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 30% 10%;
+
+    /* Muted */
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 10% 46%;
+
+    /* Accent: Orange #FF6B35 */
+    --accent: 18 100% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Status colors */
+    --success: 160 84% 39%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 212 52% 24%;
+
+    --radius: 0.75rem;
+
+    /* Sidebar */
+    --sidebar-background: 212 52% 24%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 18 100% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 212 52% 30%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 212 52% 30%;
+    --sidebar-ring: 18 100% 60%;
+    --sidebar-muted-foreground: 212 30% 80%;
+  }
+
+  .dark {
+    --background: 220 20% 8%;
+    --foreground: 0 0% 95%;
+
+    --card: 220 20% 10%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 220 20% 10%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 212 60% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 20% 16%;
+    --secondary-foreground: 0 0% 95%;
+
+    --muted: 220 20% 16%;
+    --muted-foreground: 220 10% 60%;
+
+    --accent: 18 100% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --success: 160 84% 39%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 20% 18%;
+    --input: 220 20% 18%;
+    --ring: 212 60% 50%;
+
+    --sidebar-background: 220 20% 6%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 18 100% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 20% 14%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 220 20% 14%;
+    --sidebar-ring: 18 100% 60%;
+    --sidebar-muted-foreground: 220 10% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-muted rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/30 rounded-full hover:bg-muted-foreground/50;
+  }
+}
+
+@layer components {
+  /* Status badges */
+  .badge-pending {
+    @apply bg-warning/10 text-warning border-warning/20;
+  }
+
+  .badge-processing {
+    @apply bg-primary/10 text-primary border-primary/20;
+  }
+
+  .badge-completed {
+    @apply bg-success/10 text-success border-success/20;
+  }
+
+  .badge-failed {
+    @apply bg-destructive/10 text-destructive border-destructive/20;
+  }
+
+  .badge-approved {
+    @apply bg-success/10 text-success border-success/20;
+  }
+
+  .badge-rejected {
+    @apply bg-destructive/10 text-destructive border-destructive/20;
+  }
+
+  /* Card hover effect */
+  .card-hover {
+    @apply transition-all duration-200 hover:shadow-md hover:border-primary/20;
+  }
+
+  /* Gradient background */
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(212 52% 24%) 0%, hsl(212 52% 34%) 100%);
+  }
+
+  .gradient-accent {
+    background: linear-gradient(135deg, hsl(18 100% 60%) 0%, hsl(28 100% 55%) 100%);
+  }
+
+  /* Glass effect */
+  .glass {
+    @apply bg-card/80 backdrop-blur-sm;
+  }
+}
+
+@layer utilities {
+  /* Animation utilities */
+  .animate-in {
+    animation: animateIn 0.2s ease-out;
+  }
+
+  @keyframes animateIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .stagger-1 { animation-delay: 50ms; }
+  .stagger-2 { animation-delay: 100ms; }
+  .stagger-3 { animation-delay: 150ms; }
+  .stagger-4 { animation-delay: 200ms; }
+  .stagger-5 { animation-delay: 250ms; }
+}

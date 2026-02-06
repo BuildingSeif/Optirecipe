@@ -1,0 +1,158 @@
+import { Hono } from "hono";
+import { zValidator } from "@hono/zod-validator";
+import { prisma } from "../prisma";
+import { auth } from "../auth";
+import { StartProcessingSchema } from "../types";
+import { extractRecipesFromPDF } from "../services/extraction";
+
+const processingRouter = new Hono<{
+  Variables: {
+    user: typeof auth.$Infer.Session.user | null;
+    session: typeof auth.$Infer.Session.session | null;
+  };
+}>();
+
+// Get all processing jobs for user
+processingRouter.get("/", async (c) => {
+  const user = c.get("user");
+  if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
+
+  const jobs = await prisma.processingJob.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "desc" },
+    include: {
+      cookbook: {
+        select: { id: true, name: true },
+      },
+    },
+  });
+
+  // Parse JSON fields
+  const parsedJobs = jobs.map((job) => ({
+    ...job,
+    errorLog: JSON.parse(job.errorLog),
+    processingLog: JSON.parse(job.processingLog),
+  }));
+
+  return c.json({ data: parsedJobs });
+});
+
+// Get single processing job
+processingRouter.get("/:id", async (c) => {
+  const user = c.get("user");
+  if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
+
+  const { id } = c.req.param();
+
+  const job = await prisma.processingJob.findFirst({
+    where: { id, userId: user.id },
+    include: {
+      cookbook: {
+        select: { id: true, name: true, status: true, totalPages: true },
+      },
+    },
+  });
+
+  if (!job) {
+    return c.json({ error: { message: "Processing job not found" } }, 404);
+  }
+
+  return c.json({
+    data: {
+      ...job,
+      errorLog: JSON.parse(job.errorLog),
+      processingLog: JSON.parse(job.processingLog),
+    },
+  });
+});
+
+// Start processing a cookbook
+processingRouter.post("/start", zValidator("json", StartProcessingSchema), async (c) => {
+  const user = c.get("user");
+  if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
+
+  const { cookbookId } = c.req.valid("json");
+
+  // Verify cookbook ownership
+  const cookbook = await prisma.cookbook.findFirst({
+    where: { id: cookbookId, userId: user.id },
+  });
+
+  if (!cookbook) {
+    return c.json({ error: { message: "Cookbook not found" } }, 404);
+  }
+
+  // Check if there's already an active job for this cookbook
+  const existingJob = await prisma.processingJob.findFirst({
+    where: {
+      cookbookId,
+      status: { in: ["pending", "processing"] },
+    },
+  });
+
+  if (existingJob) {
+    return c.json({ error: { message: "Cookbook is already being processed" } }, 400);
+  }
+
+  // Create a new processing job
+  const job = await prisma.processingJob.create({
+    data: {
+      cookbookId,
+      userId: user.id,
+      totalPages: cookbook.totalPages,
+      status: "pending",
+    },
+  });
+
+  // Update cookbook status
+  await prisma.cookbook.update({
+    where: { id: cookbookId },
+    data: { status: "processing" },
+  });
+
+  // Start async processing (non-blocking)
+  extractRecipesFromPDF(job.id).catch((error) => {
+    console.error("Processing error:", error);
+  });
+
+  return c.json({ data: job }, 201);
+});
+
+// Cancel processing job
+processingRouter.post("/:id/cancel", async (c) => {
+  const user = c.get("user");
+  if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
+
+  const { id } = c.req.param();
+
+  const job = await prisma.processingJob.findFirst({
+    where: { id, userId: user.id },
+  });
+
+  if (!job) {
+    return c.json({ error: { message: "Processing job not found" } }, 404);
+  }
+
+  if (job.status === "completed" || job.status === "failed" || job.status === "cancelled") {
+    return c.json({ error: { message: "Job is already finished" } }, 400);
+  }
+
+  // Update job status
+  await prisma.processingJob.update({
+    where: { id },
+    data: {
+      status: "cancelled",
+      completedAt: new Date(),
+    },
+  });
+
+  // Update cookbook status
+  await prisma.cookbook.update({
+    where: { id: job.cookbookId },
+    data: { status: "failed", errorMessage: "Processing cancelled by user" },
+  });
+
+  return c.json({ data: { message: "Processing cancelled" } });
+});
+
+export { processingRouter };
