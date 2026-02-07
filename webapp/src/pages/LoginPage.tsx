@@ -37,17 +37,12 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-black p-4 relative overflow-hidden">
-      {/* Spline 3D Background */}
+      {/* Lightweight CSS gradient background */}
       <div className="absolute inset-0 z-0">
-        <iframe
-          src="https://my.spline.design/celestialflowabstractdigitalform-ObUlVgj70g2y4bbx5vBKSfxN/"
-          frameBorder="0"
-          width="100%"
-          height="100%"
-          id="aura-spline"
-          title="Background Animation"
-          style={{ pointerEvents: "none" }}
-        />
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 via-black to-blue-900/30" />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-blue-600/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-500/10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '0.5s' }} />
       </div>
 
       <div className="w-full max-w-md animate-fade-in relative z-10">
