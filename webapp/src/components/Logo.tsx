@@ -30,11 +30,12 @@ export function Logo({ size = "md", showText = false, className }: LogoProps) {
       />
       {showText && (
         <div>
-          <h1 className={cn("font-bold text-white", textSizeClasses[size])}>
-            OptiRecipe
+          <h1 className={cn("font-bold", textSizeClasses[size])}>
+            <span className="text-white">Opti</span>
+            <span className="bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">Recipe</span>
           </h1>
           {size !== "sm" && (
-            <p className="text-sm text-gray-400">Extraction de recettes</p>
+            <p className="text-sm text-white/60">Extraction de recettes</p>
           )}
         </div>
       )}

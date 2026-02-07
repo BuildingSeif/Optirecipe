@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/Logo";
 import {
@@ -77,9 +77,19 @@ export function Sidebar() {
         {/* User */}
         <div className="p-4 border-t border-primary/20">
           <div className="flex items-center gap-3 px-2">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-semibold text-sm">{initials}</span>
-            </div>
+            <Link to="/settings" className="flex-shrink-0">
+              {user?.image ? (
+                <img
+                  src={user.image}
+                  alt={user.name || "Profile"}
+                  className="w-10 h-10 rounded-full object-cover border-2 border-primary/30 hover:border-primary/60 transition-colors"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center hover:from-primary/80 hover:to-accent/80 transition-colors">
+                  <span className="text-white font-semibold text-sm">{initials}</span>
+                </div>
+              )}
+            </Link>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-white truncate">
                 {user?.name || "Utilisateur"}

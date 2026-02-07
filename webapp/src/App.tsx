@@ -9,6 +9,7 @@ import { GuestRoute } from "@/components/auth/GuestRoute";
 // Pages
 import LoginPage from "@/pages/LoginPage";
 import VerifyOtpPage from "@/pages/VerifyOtpPage";
+import CompleteProfilePage from "@/pages/CompleteProfilePage";
 import DashboardPage from "@/pages/DashboardPage";
 import UploadPage from "@/pages/UploadPage";
 import CookbooksPage from "@/pages/CookbooksPage";
@@ -54,6 +55,14 @@ const App = () => (
           />
 
           {/* Protected routes */}
+          <Route
+            path="/complete-profile"
+            element={
+              <ProtectedRoute>
+                <CompleteProfilePage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/dashboard"
             element={
