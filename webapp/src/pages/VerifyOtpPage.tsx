@@ -34,12 +34,13 @@ export default function VerifyOtpPage() {
 
       if (result.error) {
         setError(result.error.message || "Code de vérification invalide");
+        setIsLoading(false);
       } else {
-        navigate("/dashboard");
+        // Use window.location for a full page reload to ensure cookies are properly set
+        window.location.href = "/dashboard";
       }
     } catch {
       setError("Une erreur est survenue. Veuillez réessayer.");
-    } finally {
       setIsLoading(false);
     }
   };

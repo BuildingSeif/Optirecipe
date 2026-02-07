@@ -23,15 +23,20 @@ export const auth = betterAuth({
   plugins: [
     emailOTP({
       async sendVerificationOTP({ email, otp, type }) {
-        // Only send OTPs for sign-in
-        if (type !== "sign-in") return;
+        console.log(`[Auth] Sending OTP to ${email}, type: ${type}`);
 
-        await vibecode.email.sendOTP({
-          to: email,
-          code: String(otp),
-          fromName: "OptiRecipe",
-          lang: "fr",
-        });
+        try {
+          await vibecode.email.sendOTP({
+            to: email,
+            code: String(otp),
+            fromName: "OptiRecipe",
+            lang: "fr",
+          });
+          console.log(`[Auth] OTP sent successfully to ${email}`);
+        } catch (error) {
+          console.error(`[Auth] Failed to send OTP to ${email}:`, error);
+          throw error;
+        }
       },
     }),
   ],
