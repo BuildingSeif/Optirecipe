@@ -11,6 +11,11 @@ const uploadRouter = new Hono<{
 
 const vibecode = createVibecodeSDK();
 
+// Constants for file limits
+const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB max
+const FORM_PARSE_TIMEOUT = 120000; // 2 minutes for parsing large files
+const UPLOAD_TIMEOUT = 600000; // 10 minutes for uploading large files
+
 // Helper to add timeout to promises
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
   return Promise.race([
@@ -21,35 +26,58 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: st
   ]);
 }
 
-// Upload PDF file
+// Format file size for logging
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// Upload PDF file - optimized for large files up to 500MB
 uploadRouter.post("/pdf", async (c) => {
   const user = c.get("user");
   if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
 
+  const startTime = Date.now();
+  let fileName = "unknown";
+  let fileSize = 0;
+
   try {
-    // Add timeout for form data parsing (30 seconds)
+    console.log(`[Upload] Starting PDF upload for user: ${user.id}`);
+
+    // Parse form data with extended timeout for large files
     const formData = await withTimeout(
       c.req.formData(),
-      30000,
-      "Request timeout while reading file data"
+      FORM_PARSE_TIMEOUT,
+      "Request timeout while reading file data. Please try again with a stable connection."
     );
+
     const file = formData.get("file") as File | null;
 
     if (!file) {
       return c.json({ error: { message: "No file provided" } }, 400);
     }
 
-    console.log(`Received PDF upload: ${file.name}, size: ${file.size} bytes`);
+    fileName = file.name;
+    fileSize = file.size;
+
+    console.log(`[Upload] Received: ${fileName}, Size: ${formatFileSize(fileSize)}`);
 
     // Validate file type
-    if (!file.type.includes("pdf") && !file.name.toLowerCase().endsWith(".pdf")) {
+    const isPDF = file.type.includes("pdf") || file.name.toLowerCase().endsWith(".pdf");
+    if (!isPDF) {
+      console.log(`[Upload] Rejected: Invalid file type - ${file.type}`);
       return c.json({ error: { message: "Only PDF files are allowed" } }, 400);
     }
 
-    // Validate file size (100MB max)
-    const MAX_SIZE = 100 * 1024 * 1024;
-    if (file.size > MAX_SIZE) {
-      return c.json({ error: { message: "File size must be less than 100MB" } }, 400);
+    // Validate file size (500MB max)
+    if (file.size > MAX_FILE_SIZE) {
+      console.log(`[Upload] Rejected: File too large - ${formatFileSize(file.size)}`);
+      return c.json({
+        error: {
+          message: `File size (${formatFileSize(file.size)}) exceeds maximum of 500MB`
+        }
+      }, 400);
     }
 
     // Generate unique file reference
@@ -57,14 +85,17 @@ uploadRouter.post("/pdf", async (c) => {
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
     const filePath = `cookbooks/${user.id}/${timestamp}-${sanitizedName}`;
 
-    // Upload to Vibecode storage with timeout (2 minutes for large files)
-    console.log(`Uploading to Vibecode storage: ${filePath}`);
+    // Upload to Vibecode storage with extended timeout for large files
+    console.log(`[Upload] Uploading to storage: ${filePath}`);
+
     const uploadResult = await withTimeout(
       vibecode.storage.upload(file),
-      120000,
-      "Upload timeout - the file may be too large or the connection is slow"
+      UPLOAD_TIMEOUT,
+      "Upload timeout - please check your connection and try again"
     );
-    console.log(`Upload successful: ${uploadResult.id}`);
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`[Upload] Success: ${uploadResult.id} in ${duration}s`);
 
     return c.json({
       data: {
@@ -76,8 +107,21 @@ uploadRouter.post("/pdf", async (c) => {
       },
     });
   } catch (error) {
-    console.error("Upload error:", error);
-    const message = error instanceof Error ? error.message : "Failed to upload file";
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.error(`[Upload] Failed after ${duration}s:`, error);
+
+    // Provide helpful error messages
+    let message = "Failed to upload file";
+    if (error instanceof Error) {
+      if (error.message.includes("timeout")) {
+        message = `Upload timed out for ${formatFileSize(fileSize)}. Please try again with a stable internet connection.`;
+      } else if (error.message.includes("network") || error.message.includes("fetch")) {
+        message = "Network error during upload. Please check your connection and try again.";
+      } else {
+        message = error.message;
+      }
+    }
+
     return c.json({ error: { message } }, 500);
   }
 });

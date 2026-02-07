@@ -175,7 +175,7 @@ export default function UploadPage() {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: { "application/pdf": [".pdf"] },
-    maxSize: 100 * 1024 * 1024,
+    maxSize: 500 * 1024 * 1024, // 500MB max
     multiple: true,
   });
 
@@ -197,51 +197,73 @@ export default function UploadPage() {
     setFiles([]);
   };
 
+  // Upload with real progress tracking using XMLHttpRequest
   const uploadSingleFile = async (fileState: FileUploadState): Promise<string> => {
-    const formData = new FormData();
-    formData.append("file", fileState.file);
+    return new Promise((resolve, reject) => {
+      const formData = new FormData();
+      formData.append("file", fileState.file);
 
-    updateFileState(fileState.id, { status: "uploading", progress: 0 });
+      updateFileState(fileState.id, { status: "uploading", progress: 0 });
 
-    const progressInterval = setInterval(() => {
-      setFiles((prev) =>
-        prev.map((f) =>
-          f.id === fileState.id && f.progress < 90
-            ? { ...f, progress: f.progress + 10 }
-            : f
-        )
-      );
-    }, 200);
+      const xhr = new XMLHttpRequest();
 
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/upload/pdf`, {
-        method: "POST",
-        body: formData,
-        credentials: "include",
+      // Track upload progress
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          const progress = Math.round((event.loaded / event.total) * 100);
+          updateFileState(fileState.id, { progress });
+        }
       });
 
-      clearInterval(progressInterval);
+      xhr.addEventListener("load", () => {
+        try {
+          const result = JSON.parse(xhr.responseText);
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error?.message || "Upload failed");
-      }
+          if (xhr.status >= 200 && xhr.status < 300 && result.data) {
+            updateFileState(fileState.id, {
+              status: "uploaded",
+              progress: 100,
+              uploadedPath: result.data.filePath,
+            });
+            resolve(result.data.filePath);
+          } else {
+            const errorMessage = result.error?.message || "Upload failed";
+            updateFileState(fileState.id, {
+              status: "error",
+              error: errorMessage,
+            });
+            reject(new Error(errorMessage));
+          }
+        } catch {
+          updateFileState(fileState.id, {
+            status: "error",
+            error: "Failed to parse server response",
+          });
+          reject(new Error("Failed to parse server response"));
+        }
+      });
 
-      const result = await response.json();
-      updateFileState(fileState.id, {
-        status: "uploaded",
-        progress: 100,
-        uploadedPath: result.data.filePath,
+      xhr.addEventListener("error", () => {
+        updateFileState(fileState.id, {
+          status: "error",
+          error: "Network error - please check your connection",
+        });
+        reject(new Error("Network error"));
       });
-      return result.data.filePath;
-    } catch (error) {
-      clearInterval(progressInterval);
-      updateFileState(fileState.id, {
-        status: "error",
-        error: error instanceof Error ? error.message : "Upload failed",
+
+      xhr.addEventListener("timeout", () => {
+        updateFileState(fileState.id, {
+          status: "error",
+          error: "Upload timed out - please try again",
+        });
+        reject(new Error("Upload timed out"));
       });
-      throw error;
-    }
+
+      xhr.open("POST", `${API_BASE_URL}/api/upload/pdf`);
+      xhr.withCredentials = true;
+      xhr.timeout = 600000; // 10 minute timeout for large files
+      xhr.send(formData);
+    });
   };
 
   const createCookbookForFile = async (fileState: FileUploadState): Promise<Cookbook> => {
