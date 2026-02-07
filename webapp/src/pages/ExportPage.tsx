@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -96,32 +94,32 @@ export default function ExportPage() {
     >
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Step 1: Select Recipes */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm">
+        <div className="glass-card-static p-8 rounded-2xl">
+          <div className="mb-6">
+            <h3 className="flex items-center gap-2 text-lg font-semibold text-white">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full gradient-primary text-white text-sm">
                 1
               </span>
               Sélectionner les recettes
-            </CardTitle>
-            <CardDescription>
+            </h3>
+            <p className="text-gray-400 mt-1">
               Choisissez les recettes à inclure dans l'export
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+            </p>
+          </div>
+          <div className="space-y-4">
             <RadioGroup
               value={exportMode}
               onValueChange={(v) => setExportMode(v as "all" | "select")}
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="all" id="all" />
-                <Label htmlFor="all" className="cursor-pointer">
+                <Label htmlFor="all" className="cursor-pointer text-white">
                   Toutes les recettes approuvées ({approvedRecipes.length})
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="select" id="select" />
-                <Label htmlFor="select" className="cursor-pointer">
+                <Label htmlFor="select" className="cursor-pointer text-white">
                   Sélectionner manuellement
                 </Label>
               </div>
@@ -131,15 +129,15 @@ export default function ExportPage() {
               <div className="mt-4">
                 {recipesLoading ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
                   </div>
                 ) : approvedRecipes.length > 0 ? (
-                  <ScrollArea className="h-[300px] rounded-lg border p-4">
+                  <ScrollArea className="h-[300px] glass-card-static rounded-lg p-4">
                     <div className="space-y-2">
                       {approvedRecipes.map((recipe) => (
                         <div
                           key={recipe.id}
-                          className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50"
+                          className="flex items-center space-x-3 p-2 rounded-lg hover:bg-white/5"
                         >
                           <Checkbox
                             id={recipe.id}
@@ -158,8 +156,8 @@ export default function ExportPage() {
                             htmlFor={recipe.id}
                             className="flex-1 cursor-pointer"
                           >
-                            <span className="font-medium">{recipe.title}</span>
-                            <span className="text-muted-foreground ml-2 text-sm">
+                            <span className="font-medium text-white">{recipe.title}</span>
+                            <span className="text-gray-500 ml-2 text-sm">
                               {recipe.category || "Non catégorisé"}
                             </span>
                           </Label>
@@ -168,13 +166,13 @@ export default function ExportPage() {
                     </div>
                   </ScrollArea>
                 ) : (
-                  <div className="text-center py-8 text-muted-foreground">
+                  <div className="text-center py-8 text-gray-500">
                     <ChefHat className="h-10 w-10 mx-auto mb-2 opacity-50" />
                     Aucune recette approuvée à exporter
                   </div>
                 )}
                 {selectedRecipes.length > 0 && (
-                  <p className="text-sm text-muted-foreground mt-2">
+                  <p className="text-sm text-gray-500 mt-2">
                     {selectedRecipes.length} recette
                     {selectedRecipes.length > 1 ? "s" : ""} sélectionnée
                     {selectedRecipes.length > 1 ? "s" : ""}
@@ -182,20 +180,20 @@ export default function ExportPage() {
                 )}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Step 2: Choose Format */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm">
+        <div className="glass-card-static p-8 rounded-2xl">
+          <div className="mb-6">
+            <h3 className="flex items-center gap-2 text-lg font-semibold text-white">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full gradient-primary text-white text-sm">
                 2
               </span>
               Choisir le format
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </h3>
+          </div>
+          <div>
             <RadioGroup
               value={format}
               onValueChange={(v) => setFormat(v as "json" | "csv")}
@@ -205,15 +203,15 @@ export default function ExportPage() {
                 htmlFor="json"
                 className={`flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
                   format === "json"
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50"
+                    ? "border-primary bg-primary/10"
+                    : "border-white/10 hover:border-white/20"
                 }`}
               >
                 <RadioGroupItem value="json" id="json" className="sr-only" />
                 <FileJson className="h-8 w-8 text-primary" />
                 <div>
-                  <p className="font-medium">JSON</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="font-medium text-white">JSON</p>
+                  <p className="text-sm text-gray-400">
                     Recommandé pour 1000CHEFS
                   </p>
                 </div>
@@ -226,15 +224,15 @@ export default function ExportPage() {
                 htmlFor="csv"
                 className={`flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
                   format === "csv"
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50"
+                    ? "border-primary bg-primary/10"
+                    : "border-white/10 hover:border-white/20"
                 }`}
               >
                 <RadioGroupItem value="csv" id="csv" className="sr-only" />
                 <FileSpreadsheet className="h-8 w-8 text-success" />
                 <div>
-                  <p className="font-medium">CSV</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="font-medium text-white">CSV</p>
+                  <p className="text-sm text-gray-400">
                     Compatible Excel
                   </p>
                 </div>
@@ -243,60 +241,58 @@ export default function ExportPage() {
                 )}
               </Label>
             </RadioGroup>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Preview */}
         {exportData && format === "json" && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm">
+          <div className="glass-card-static p-8 rounded-2xl">
+            <div className="mb-6">
+              <h3 className="flex items-center gap-2 text-lg font-semibold text-white">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full gradient-primary text-white text-sm">
                   3
                 </span>
                 Aperçu
-              </CardTitle>
-              <CardDescription>
+              </h3>
+              <p className="text-gray-400 mt-1">
                 {exportData.recipe_count} recette
                 {exportData.recipe_count > 1 ? "s" : ""} prête
                 {exportData.recipe_count > 1 ? "s" : ""} à l'export
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[300px] rounded-lg border bg-muted/30">
-                <pre className="p-4 text-xs">
+              </p>
+            </div>
+            <div>
+              <ScrollArea className="h-[300px] glass-card-static rounded-lg">
+                <pre className="p-4 text-xs text-gray-400">
                   {JSON.stringify(exportData.recipes.slice(0, 3), null, 2)}
                   {exportData.recipes.length > 3 && (
-                    <span className="text-muted-foreground">
+                    <span className="text-gray-500">
                       {"\n"}... et {exportData.recipes.length - 3} autres recettes
                     </span>
                   )}
                 </pre>
               </ScrollArea>
-              <Button onClick={handleDownloadJson} className="mt-4 w-full">
+              <Button onClick={handleDownloadJson} className="mt-4 w-full gradient-primary">
                 <Download className="mr-2 h-4 w-4" />
                 Télécharger le fichier JSON
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
 
         {/* Info Box */}
-        <Card className="bg-primary/5 border-primary/20">
-          <CardContent className="p-4">
-            <div className="flex gap-3">
-              <Info className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <p className="font-medium text-primary">Format 1000CHEFS</p>
-                <p className="text-muted-foreground mt-1">
-                  Le format JSON est optimisé pour l'import dans la base de données 1000CHEFS
-                  d'OptiMenu. Toutes les quantités sont en grammes et les instructions sont
-                  reformulées pour éviter les problèmes de droits d'auteur.
-                </p>
-              </div>
+        <div className="glass-card-static p-8 rounded-2xl border-primary/30">
+          <div className="flex gap-3">
+            <Info className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-medium text-primary">Format 1000CHEFS</p>
+              <p className="text-gray-400 mt-1">
+                Le format JSON est optimisé pour l'import dans la base de données 1000CHEFS
+                d'OptiMenu. Toutes les quantités sont en grammes et les instructions sont
+                reformulées pour éviter les problèmes de droits d'auteur.
+              </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Export Button */}
         <Button
@@ -306,7 +302,7 @@ export default function ExportPage() {
             selectedCount === 0 ||
             (exportMode === "select" && selectedRecipes.length === 0)
           }
-          className="w-full"
+          className="w-full gradient-primary"
           size="lg"
         >
           {exportMutation.isPending ? (

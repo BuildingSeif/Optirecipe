@@ -103,11 +103,38 @@ The app runs automatically on Vibecode:
 
 ## Design System
 
-Brand colors (OptiPro/OptiMenu):
-- Primary: #1E3A5F (dark blue)
-- Accent: #FF6B35 (orange)
-- Success: #10B981 (green)
-- Warning: #F59E0B (amber)
-- Error: #EF4444 (red)
+### AuraOS Studio Glassmorphism Theme
 
-Typography: Inter font family
+The app features a premium dark-mode glassmorphism design inspired by AuraOS Studio:
+
+**Visual Effects:**
+- Glassmorphic cards with backdrop blur and subtle transparency
+- Ambient floating orbs with animated gradients
+- Smooth entrance animations (fade-in, slide-up, blur-in)
+- Hover states with lift and scale effects
+
+**Glass Classes:**
+- `.glass-container` - Main container with heavy blur
+- `.glass-sidebar` - Sidebar with vertical gradient
+- `.glass-chrome` - Header/nav bar styling
+- `.glass-card` - Interactive cards with hover effects
+- `.glass-card-static` - Static glass panels
+- `.glass-input` - Input fields with glass effect
+- `.icon-container` - Icon backgrounds with glass
+
+**Color Palette:**
+- Primary: Indigo (#6366F1)
+- Accent: Purple (#A855F7)
+- Success: Green (#10B981)
+- Warning: Amber (#F59E0B)
+- Error: Red (#EF4444)
+- Background: Dark slate gradient
+
+**Typography:** Inter font family (300-700 weights)
+
+**Animations:**
+- `animate-fade-in` - Simple fade
+- `animate-slide-up` - Fade with upward motion
+- `animate-blur-in` - Fade with blur effect
+- `animate-slide-left/right` - Directional slides
+- `float-ambient` - Ambient orb floating

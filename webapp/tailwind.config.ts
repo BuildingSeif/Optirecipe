@@ -77,6 +77,9 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        xl: "1rem",
+        "2xl": "1.5rem",
+        "3xl": "2rem",
       },
       fontFamily: {
         inter: ["Inter", "sans-serif"],
@@ -98,6 +101,28 @@ export default {
           from: { opacity: "0", transform: "translateY(10px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        "slide-up": {
+          from: { opacity: "0", transform: "translateY(30px) scale(0.96)" },
+          to: { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
+        "blur-in": {
+          from: { opacity: "0", filter: "blur(10px)", transform: "scale(0.94)" },
+          to: { opacity: "1", filter: "blur(0)", transform: "scale(1)" },
+        },
+        "slide-in-left": {
+          from: { opacity: "0", transform: "translateX(-40px)" },
+          to: { opacity: "1", transform: "translateX(0)" },
+        },
+        "slide-in-right": {
+          from: { opacity: "0", transform: "translateX(40px)" },
+          to: { opacity: "1", transform: "translateX(0)" },
+        },
+        "float-ambient": {
+          "0%, 100%": { transform: "translateY(0px) rotate(0deg)", opacity: "0.4" },
+          "25%": { transform: "translateY(-40px) rotate(90deg)", opacity: "0.6" },
+          "50%": { transform: "translateY(20px) rotate(180deg)", opacity: "0.3" },
+          "75%": { transform: "translateY(-20px) rotate(270deg)", opacity: "0.5" },
+        },
         "spin-slow": {
           from: { transform: "rotate(0deg)" },
           to: { transform: "rotate(360deg)" },
@@ -106,14 +131,32 @@ export default {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.7" },
         },
+        pulse: {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.5" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "fade-in": "fade-in 0.3s ease-out",
+        "fade-in": "fade-in 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards",
         "fade-in-up": "fade-in-up 0.3s ease-out",
+        "slide-up": "slide-up 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards",
+        "blur-in": "blur-in 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards",
+        "slide-left": "slide-in-left 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards",
+        "slide-right": "slide-in-right 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards",
+        "float-ambient": "float-ambient 25s ease-in-out infinite",
         "spin-slow": "spin-slow 3s linear infinite",
         "pulse-subtle": "pulse-subtle 2s ease-in-out infinite",
+        pulse: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+      },
+      backdropBlur: {
+        xs: "2px",
+      },
+      boxShadow: {
+        glass: "0 20px 40px rgba(0, 0, 0, 0.6)",
+        "glass-hover": "0 30px 80px rgba(0, 0, 0, 0.7), 0 0 100px rgba(99, 102, 241, 0.15)",
+        glow: "0 0 120px rgba(99, 102, 241, 0.1)",
       },
     },
   },

@@ -2,10 +2,8 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -143,70 +141,68 @@ export default function RecipesPage() {
     >
       <div className="space-y-6">
         {/* Filters */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Rechercher une recette..."
-                  value={search}
-                  onChange={(e) => updateFilter("search", e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-              <Select value={status} onValueChange={(v) => updateFilter("status", v)}>
-                <SelectTrigger className="w-[180px]">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Statut" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={category} onValueChange={(v) => updateFilter("category", v)}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Catégorie" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>
-                      {c.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="flex items-center gap-1 border rounded-lg p-1">
-                <Button
-                  variant={viewMode === "grid" ? "secondary" : "ghost"}
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setViewMode("grid")}
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === "list" ? "secondary" : "ghost"}
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setViewMode("list")}
-                >
-                  <List className="h-4 w-4" />
-                </Button>
-              </div>
+        <div className="glass-card-static p-4 rounded-xl">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="glass-input flex items-center gap-3 rounded-xl px-4 flex-1 min-w-[200px]">
+              <Search className="h-4 w-4 text-gray-400" />
+              <input
+                placeholder="Rechercher une recette..."
+                value={search}
+                onChange={(e) => updateFilter("search", e.target.value)}
+                className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-gray-400 py-2"
+              />
             </div>
-          </CardContent>
-        </Card>
+            <Select value={status} onValueChange={(v) => updateFilter("status", v)}>
+              <SelectTrigger className="w-[180px] glass-input border-none">
+                <Filter className="h-4 w-4 mr-2 text-gray-400" />
+                <SelectValue placeholder="Statut" />
+              </SelectTrigger>
+              <SelectContent>
+                {statuses.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={category} onValueChange={(v) => updateFilter("category", v)}>
+              <SelectTrigger className="w-[180px] glass-input border-none">
+                <SelectValue placeholder="Catégorie" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((c) => (
+                  <SelectItem key={c.value} value={c.value}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex items-center gap-1 glass-card-static rounded-lg p-1">
+              <Button
+                variant={viewMode === "grid" ? "secondary" : "ghost"}
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setViewMode("grid")}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setViewMode("list")}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
 
         {/* Bulk Actions */}
         {selectedRecipes.length > 0 && (
-          <Card className="border-primary/20 bg-primary/5">
-            <CardContent className="p-4 flex items-center justify-between">
-              <p className="font-medium">
+          <div className="glass-card-static p-4 rounded-xl border border-primary/20">
+            <div className="flex items-center justify-between">
+              <p className="font-medium text-white">
                 {selectedRecipes.length} recette{selectedRecipes.length > 1 ? "s" : ""} sélectionnée{selectedRecipes.length > 1 ? "s" : ""}
               </p>
               <div className="flex items-center gap-2">
@@ -228,14 +224,14 @@ export default function RecipesPage() {
                   Rejeter
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
 
         {/* Results */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
           </div>
         ) : data?.recipes && data.recipes.length > 0 ? (
           <>
@@ -246,7 +242,7 @@ export default function RecipesPage() {
                   checked={selectedRecipes.length === data.recipes.length && data.recipes.length > 0}
                   onCheckedChange={toggleAllRecipes}
                 />
-                <span className="text-sm text-muted-foreground">
+                <span className="text-sm text-gray-400">
                   {data.pagination.total} recette{data.pagination.total > 1 ? "s" : ""}
                 </span>
               </div>
@@ -256,57 +252,55 @@ export default function RecipesPage() {
             {viewMode === "grid" ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {data.recipes.map((recipe) => (
-                  <Card key={recipe.id} className="card-hover overflow-hidden">
-                    <CardContent className="p-0">
-                      <div className="p-4">
-                        <div className="flex items-start gap-3">
-                          <Checkbox
-                            checked={selectedRecipes.includes(recipe.id)}
-                            onCheckedChange={() => toggleRecipeSelection(recipe.id)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <Link to={`/recipes/${recipe.id}`} className="flex-1 min-w-0">
-                            <h3 className="font-semibold line-clamp-1">{recipe.title}</h3>
-                            <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                              {recipe.description || "Pas de description"}
-                            </p>
-                          </Link>
-                        </div>
-                        <div className="flex items-center justify-between mt-4">
-                          <Badge variant="secondary" className="text-xs">
-                            {recipe.category || "Non catégorisé"}
-                          </Badge>
-                          <StatusBadge status={recipe.status} />
-                        </div>
-                        <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
-                          {recipe.prepTimeMinutes && (
-                            <span>Prépa: {recipe.prepTimeMinutes}min</span>
-                          )}
-                          {recipe.cookTimeMinutes && (
-                            <span>Cuisson: {recipe.cookTimeMinutes}min</span>
-                          )}
-                          {recipe.servings && <span>{recipe.servings} pers.</span>}
-                        </div>
+                  <div key={recipe.id} className="glass-card p-0 rounded-xl overflow-hidden">
+                    <div className="p-4">
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          checked={selectedRecipes.includes(recipe.id)}
+                          onCheckedChange={() => toggleRecipeSelection(recipe.id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <Link to={`/recipes/${recipe.id}`} className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-white line-clamp-1">{recipe.title}</h3>
+                          <p className="text-sm text-gray-400 line-clamp-2 mt-1">
+                            {recipe.description || "Pas de description"}
+                          </p>
+                        </Link>
                       </div>
-                    </CardContent>
-                  </Card>
+                      <div className="flex items-center justify-between mt-4">
+                        <Badge variant="secondary" className="text-xs">
+                          {recipe.category || "Non catégorisé"}
+                        </Badge>
+                        <StatusBadge status={recipe.status} />
+                      </div>
+                      <div className="flex items-center gap-4 mt-3 text-xs text-gray-400">
+                        {recipe.prepTimeMinutes && (
+                          <span>Prépa: {recipe.prepTimeMinutes}min</span>
+                        )}
+                        {recipe.cookTimeMinutes && (
+                          <span>Cuisson: {recipe.cookTimeMinutes}min</span>
+                        )}
+                        {recipe.servings && <span>{recipe.servings} pers.</span>}
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : (
               <div className="space-y-2">
                 {data.recipes.map((recipe) => (
-                  <Card key={recipe.id} className="card-hover">
-                    <CardContent className="p-4 flex items-center gap-4">
+                  <div key={recipe.id} className="glass-card rounded-xl">
+                    <div className="p-4 flex items-center gap-4">
                       <Checkbox
                         checked={selectedRecipes.includes(recipe.id)}
                         onCheckedChange={() => toggleRecipeSelection(recipe.id)}
                       />
-                      <div className="rounded-lg bg-muted p-2">
-                        <ChefHat className="h-5 w-5 text-muted-foreground" />
+                      <div className="icon-container rounded-lg p-2">
+                        <ChefHat className="h-5 w-5 text-gray-400" />
                       </div>
                       <Link to={`/recipes/${recipe.id}`} className="flex-1 min-w-0">
-                        <h3 className="font-medium">{recipe.title}</h3>
-                        <p className="text-sm text-muted-foreground">
+                        <h3 className="font-medium text-white">{recipe.title}</h3>
+                        <p className="text-sm text-gray-400">
                           {recipe.category || "Non catégorisé"}
                         </p>
                       </Link>
@@ -318,8 +312,8 @@ export default function RecipesPage() {
                         )}
                         <StatusBadge status={recipe.status} />
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -327,40 +321,40 @@ export default function RecipesPage() {
             {/* Pagination */}
             {data.pagination.totalPages > 1 && (
               <div className="flex items-center justify-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
+                <button
+                  className="glass-card-static px-4 py-2 rounded-xl text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/10 transition-colors"
                   disabled={page <= 1}
                   onClick={() => updateFilter("page", (page - 1).toString())}
                 >
                   Précédent
-                </Button>
-                <span className="text-sm text-muted-foreground">
+                </button>
+                <span className="text-sm text-gray-400">
                   Page {page} sur {data.pagination.totalPages}
                 </span>
-                <Button
-                  variant="outline"
-                  size="sm"
+                <button
+                  className="glass-card-static px-4 py-2 rounded-xl text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/10 transition-colors"
                   disabled={page >= data.pagination.totalPages}
                   onClick={() => updateFilter("page", (page + 1).toString())}
                 >
                   Suivant
-                </Button>
+                </button>
               </div>
             )}
           </>
         ) : (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <ChefHat className="h-12 w-12 text-muted-foreground/50 mb-4" />
-              <h3 className="text-lg font-medium mb-2">Aucune recette trouvée</h3>
-              <p className="text-muted-foreground text-center">
+          <div className="glass-card-static rounded-xl">
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="icon-container rounded-full p-4 mb-4">
+                <ChefHat className="h-12 w-12 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-white mb-2">Aucune recette trouvée</h3>
+              <p className="text-gray-400 text-center">
                 {search || status !== "all" || category !== "all"
                   ? "Essayez de modifier vos filtres"
                   : "Commencez par uploader un livre de recettes"}
               </p>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
       </div>
     </DashboardLayout>

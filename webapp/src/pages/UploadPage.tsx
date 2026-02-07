@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useDropzone } from "react-dropzone";
 import { useMutation } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -140,43 +139,47 @@ export default function UploadPage() {
     >
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Upload Zone */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Fichier PDF</CardTitle>
-            <CardDescription>
+        <div className="glass-card-static p-8 rounded-2xl">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-white">Fichier PDF</h3>
+            <p className="text-sm text-gray-400">
               Glissez un fichier PDF ou cliquez pour sélectionner (max 100 Mo)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+            </p>
+          </div>
+          <div>
             {!file ? (
               <div
                 {...getRootProps()}
                 className={`
-                  border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors
-                  ${isDragActive ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}
+                  glass-card p-12 text-center cursor-pointer border-2 border-dashed border-white/20 rounded-xl transition-all
+                  ${isDragActive ? "border-primary bg-primary/10" : "hover:border-primary/50"}
                 `}
               >
                 <input {...getInputProps()} />
-                <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-lg font-medium">
-                  {isDragActive ? "Déposez le fichier ici" : "Glissez un fichier PDF ici"}
+                <div className="icon-container w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-xl">
+                  <Upload className="h-8 w-8 text-white/70" />
+                </div>
+                <p className="text-lg font-medium text-white">
+                  {isDragActive ? "Deposez le fichier ici" : "Glissez un fichier PDF ici"}
                 </p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  ou cliquez pour sélectionner
+                <p className="text-sm text-gray-400 mt-2">
+                  ou cliquez pour selectionner
                 </p>
               </div>
             ) : (
               <div className="space-y-4">
                 {/* File Info */}
-                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10">
                   <div className="flex items-center gap-3">
-                    <FileText className="h-10 w-10 text-primary" />
+                    <div className="icon-container w-12 h-12 flex items-center justify-center rounded-xl">
+                      <FileText className="h-6 w-6 text-primary" />
+                    </div>
                     <div>
-                      <p className="font-medium">{file.name}</p>
-                      <p className="text-sm text-muted-foreground">{formatFileSize(file.size)}</p>
+                      <p className="font-medium text-white">{file.name}</p>
+                      <p className="text-sm text-gray-400">{formatFileSize(file.size)}</p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={clearFile}>
+                  <Button variant="ghost" size="icon" onClick={clearFile} className="text-white/70 hover:text-white">
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
@@ -185,8 +188,8 @@ export default function UploadPage() {
                 {uploadMutation.isPending && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
-                      <span>Upload en cours...</span>
-                      <span>{uploadProgress}%</span>
+                      <span className="text-white">Upload en cours...</span>
+                      <span className="text-gray-400">{uploadProgress}%</span>
                     </div>
                     <Progress value={uploadProgress} />
                   </div>
@@ -194,14 +197,14 @@ export default function UploadPage() {
 
                 {/* Upload Status */}
                 {uploadMutation.isSuccess && (
-                  <div className="flex items-center gap-2 text-success">
+                  <div className="flex items-center gap-2 text-green-400">
                     <CheckCircle2 className="h-5 w-5" />
-                    <span className="text-sm font-medium">Fichier uploadé avec succès</span>
+                    <span className="text-sm font-medium">Fichier uploade avec succes</span>
                   </div>
                 )}
 
                 {uploadMutation.isError && (
-                  <div className="flex items-center gap-2 text-destructive">
+                  <div className="flex items-center gap-2 text-red-400">
                     <AlertCircle className="h-5 w-5" />
                     <span className="text-sm font-medium">
                       {uploadMutation.error?.message || "Erreur lors de l'upload"}
@@ -218,30 +221,31 @@ export default function UploadPage() {
                 )}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Configuration */}
         {uploadedPath && (
           <>
-            <Card>
-              <CardHeader>
-                <CardTitle>Nom du livre</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <div className="glass-card-static p-8 rounded-2xl">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-white">Nom du livre</h3>
+              </div>
+              <div>
                 <Input
                   value={cookbookName}
                   onChange={(e) => setCookbookName(e.target.value)}
-                  placeholder="Ex: Les classiques de la cuisine française"
+                  placeholder="Ex: Les classiques de la cuisine francaise"
+                  className="glass-input"
                 />
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Options de traitement</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <div className="glass-card-static p-8 rounded-2xl">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-white">Options de traitement</h3>
+              </div>
+              <div className="space-y-4">
                 <div className="flex items-start space-x-3">
                   <Checkbox
                     id="descriptions"
@@ -251,11 +255,11 @@ export default function UploadPage() {
                     }
                   />
                   <div className="grid gap-1.5 leading-none">
-                    <Label htmlFor="descriptions" className="font-medium">
-                      Générer des descriptions
+                    <Label htmlFor="descriptions" className="font-medium text-white">
+                      Generer des descriptions
                     </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Créer automatiquement une description appétissante pour chaque recette
+                    <p className="text-sm text-gray-400">
+                      Creer automatiquement une description appetissante pour chaque recette
                     </p>
                   </div>
                 </div>
@@ -269,11 +273,11 @@ export default function UploadPage() {
                     }
                   />
                   <div className="grid gap-1.5 leading-none">
-                    <Label htmlFor="reformulate" className="font-medium">
+                    <Label htmlFor="reformulate" className="font-medium text-white">
                       Reformuler pour droits d'auteur
                     </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Réécrire les instructions dans un style différent pour éviter le plagiat
+                    <p className="text-sm text-gray-400">
+                      Reecrire les instructions dans un style different pour eviter le plagiat
                     </p>
                   </div>
                 </div>
@@ -287,33 +291,33 @@ export default function UploadPage() {
                     }
                   />
                   <div className="grid gap-1.5 leading-none">
-                    <Label htmlFor="convert" className="font-medium">
+                    <Label htmlFor="convert" className="font-medium text-white">
                       Convertir en grammes
                     </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Convertir toutes les quantités (cuillères, pièces, etc.) en grammes exacts
+                    <p className="text-sm text-gray-400">
+                      Convertir toutes les quantites (cuilleres, pieces, etc.) en grammes exacts
                     </p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
             {/* Info Box */}
-            <Card className="bg-primary/5 border-primary/20">
-              <CardContent className="p-4">
-                <div className="flex gap-3">
-                  <Info className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                  <div className="text-sm">
-                    <p className="font-medium text-primary">Comment ça marche ?</p>
-                    <p className="text-muted-foreground mt-1">
-                      OptiRecipe analyse chaque page du PDF avec l'IA pour identifier et extraire
-                      les recettes. Les quantités sont automatiquement converties en grammes pour
-                      faciliter le calcul des coûts dans OptiMenu.
-                    </p>
-                  </div>
+            <div className="glass-card-static p-8 rounded-2xl border-primary/30">
+              <div className="flex gap-3">
+                <div className="icon-container w-10 h-10 flex items-center justify-center rounded-xl flex-shrink-0">
+                  <Info className="h-5 w-5 text-primary" />
                 </div>
-              </CardContent>
-            </Card>
+                <div className="text-sm">
+                  <p className="font-medium text-primary">Comment ca marche ?</p>
+                  <p className="text-gray-400 mt-1">
+                    OptiRecipe analyse chaque page du PDF avec l'IA pour identifier et extraire
+                    les recettes. Les quantites sont automatiquement converties en grammes pour
+                    faciliter le calcul des couts dans OptiMenu.
+                  </p>
+                </div>
+              </div>
+            </div>
 
             {/* Start Button */}
             <Button
@@ -325,7 +329,7 @@ export default function UploadPage() {
               {createCookbookMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Démarrage...
+                  Demarrage...
                 </>
               ) : (
                 "Lancer le traitement"
