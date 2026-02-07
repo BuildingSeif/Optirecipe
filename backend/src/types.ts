@@ -292,3 +292,16 @@ export interface ChefExport {
   recipe_count: number;
   recipes: ChefExportRecipe[];
 }
+
+// ==================== Image Generation Schemas ====================
+export const GenerateImageRequestSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().optional(),
+});
+
+export type GenerateImageRequest = z.infer<typeof GenerateImageRequestSchema>;
+
+export interface GenerateImageResponse {
+  imageBase64: string;
+  mimeType: string;
+}

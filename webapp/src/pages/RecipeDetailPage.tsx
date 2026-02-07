@@ -28,8 +28,10 @@ import {
   AlertCircle,
   BookOpen,
   MapPin,
+  ImagePlus,
+  Sparkles,
 } from "lucide-react";
-import type { Recipe, Ingredient, Instruction } from "../../../backend/src/types";
+import type { Recipe, Ingredient, Instruction, GenerateImageResponse } from "../../../backend/src/types";
 
 const categories = [
   { value: "entree", label: "Entree" },
@@ -108,6 +110,23 @@ export default function RecipeDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recipes"] });
       navigate("/recipes");
+    },
+  });
+
+  const generateImageMutation = useMutation({
+    mutationFn: async () => {
+      if (!recipe) throw new Error("No recipe");
+      const result = await api.post<GenerateImageResponse>("/api/images/generate", {
+        title: recipe.title,
+        description: recipe.description || undefined,
+      });
+      // Convert base64 to data URL and save to recipe
+      const imageUrl = `data:${result.mimeType};base64,${result.imageBase64}`;
+      await api.patch(`/api/recipes/${id}`, { imageUrl });
+      return imageUrl;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recipe", id] });
     },
   });
 
@@ -217,6 +236,54 @@ export default function RecipeDetailPage() {
               </>
             )}
           </div>
+        </div>
+
+        {/* Recipe Image */}
+        <div className="glass-card-static rounded-2xl overflow-hidden">
+          {recipe.imageUrl ? (
+            <div className="relative aspect-video">
+              <img
+                src={recipe.imageUrl}
+                alt={recipe.title}
+                className="w-full h-full object-cover"
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                className="absolute bottom-4 right-4"
+                onClick={() => generateImageMutation.mutate()}
+                disabled={generateImageMutation.isPending}
+              >
+                {generateImageMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-2 h-4 w-4" />
+                )}
+                Regenerer
+              </Button>
+            </div>
+          ) : (
+            <div className="aspect-video flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+              <ImagePlus className="h-12 w-12 text-gray-500 mb-4" />
+              <p className="text-gray-400 mb-4">Pas d'image</p>
+              <Button
+                onClick={() => generateImageMutation.mutate()}
+                disabled={generateImageMutation.isPending}
+              >
+                {generateImageMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generation...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Generer une image
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
