@@ -13,10 +13,10 @@ import {
   ArrowRight,
   Loader2,
   TrendingUp,
-  Sparkles,
   Zap,
   Target,
 } from "lucide-react";
+import { Logo } from "@/components/Logo";
 import type { DashboardStats, ProcessingJob, Recipe } from "../../../backend/src/types";
 
 function formatDate(date: string | Date) {
@@ -295,9 +295,7 @@ export default function DashboardPage() {
         {/* AI Assistant Section */}
         <div className="glass-card-static p-8 rounded-2xl">
           <div className="flex items-center gap-4 mb-6">
-            <div className="icon-container p-3 rounded-xl">
-              <Sparkles className="w-8 h-8 text-primary" />
-            </div>
+            <Logo size="md" />
             <div>
               <h3 className="text-2xl font-bold text-white">Assistant IA</h3>
               <p className="text-gray-400">Extraction intelligente de recettes avec IA</p>

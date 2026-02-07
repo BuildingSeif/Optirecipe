@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Sparkles, Loader2, Mail } from "lucide-react";
+import { Logo } from "@/components/Logo";
+import { Loader2, Mail } from "lucide-react";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -43,8 +44,8 @@ export default function LoginPage() {
         <div className="glass-card-static p-8 rounded-2xl animate-slide-up">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="icon-container mx-auto mb-4 w-16 h-16 rounded-xl flex items-center justify-center">
-              <Sparkles className="h-8 w-8 text-white" />
+            <div className="flex justify-center mb-4">
+              <Logo size="lg" />
             </div>
             <h1 className="text-2xl font-semibold text-white animate-blur-in">OptiRecipe</h1>
             <p className="text-gray-400 mt-2">

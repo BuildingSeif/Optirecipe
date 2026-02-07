@@ -4,7 +4,8 @@ import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ChefHat, Loader2, ArrowLeft, KeyRound } from "lucide-react";
+import { Logo } from "@/components/Logo";
+import { Loader2, ArrowLeft, KeyRound } from "lucide-react";
 
 export default function VerifyOtpPage() {
   const navigate = useNavigate();
@@ -72,8 +73,8 @@ export default function VerifyOtpPage() {
         <div className="glass-card-static p-8 rounded-2xl max-w-md w-full animate-slide-up">
           {/* Header */}
           <div className="text-center pb-6">
-            <div className="icon-container mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl">
-              <ChefHat className="h-7 w-7 text-white" />
+            <div className="flex justify-center mb-4">
+              <Logo size="lg" />
             </div>
             <h1 className="text-2xl font-semibold text-white">Vérification</h1>
             <p className="text-gray-400 mt-2">

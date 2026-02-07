@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/Logo";
 import {
   LayoutDashboard,
   Upload,
@@ -9,7 +10,6 @@ import {
   Settings,
   LogOut,
   Bell,
-  Sparkles,
 } from "lucide-react";
 import { signOut, useSession } from "@/lib/auth-client";
 
@@ -46,15 +46,7 @@ export function Sidebar() {
         {/* Logo Header */}
         <div className="p-6 border-b border-white/5">
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <div className="icon-container p-3 rounded-xl">
-                <Sparkles className="w-7 h-7 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white">OptiRecipe</h1>
-                <p className="text-sm text-gray-400">Extraction de recettes</p>
-              </div>
-            </div>
+            <Logo size="md" showText />
             <button className="icon-container p-2.5 rounded-lg transition-all duration-200 hover:scale-105">
               <Bell className="w-4 h-4 text-gray-300" />
             </button>
