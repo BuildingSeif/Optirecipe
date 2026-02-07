@@ -57,42 +57,47 @@ function FeatureItem({ text }: { text: string }) {
 
 function CKBKTab() {
   return (
-    <div className="max-w-lg mx-auto text-center space-y-6 py-8">
-      {/* Icon */}
-      <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto">
-        <BookOpen className="h-8 w-8 text-primary" />
-      </div>
+    <div className="max-w-lg mx-auto py-8">
+      {/* Main Card Container */}
+      <div className="glass-card-static p-8 rounded-2xl space-y-6">
+        {/* Icon */}
+        <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto">
+          <BookOpen className="h-8 w-8 text-primary" />
+        </div>
 
-      {/* Badge */}
-      <ComingSoonBadge />
+        {/* Badge */}
+        <div className="text-center">
+          <ComingSoonBadge />
+        </div>
 
-      {/* Heading */}
-      <div className="space-y-2">
-        <h2 className="text-2xl font-bold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">Import CKBK</h2>
-        <p className="text-white/70 max-w-md mx-auto">
-          Importez directement depuis la base de donnees CKBK, la plus grande collection de livres de cuisine premium au monde. Les recettes en anglais seront automatiquement traduites et converties en grammes.
-        </p>
-      </div>
+        {/* Heading */}
+        <div className="space-y-3 text-center">
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">Import CKBK</h2>
+          <p className="text-white/80 max-w-md mx-auto leading-relaxed">
+            Importez directement depuis la base de donnees CKBK, la plus grande collection de livres de cuisine premium au monde. Les recettes en anglais seront automatiquement traduites et converties en grammes.
+          </p>
+        </div>
 
-      {/* Disabled Preview */}
-      <div className="glass-card-static p-6 rounded-xl space-y-4 opacity-50 pointer-events-none">
-        <Input
-          placeholder="https://app.ckbk.com/recipe/..."
-          disabled
-          className="bg-white/5 border-white/10 text-white/50"
-        />
-        <Button disabled className="w-full">
-          Importer
-        </Button>
-      </div>
+        {/* Disabled Preview */}
+        <div className="bg-white/5 p-5 rounded-xl space-y-4 opacity-60 pointer-events-none">
+          <Input
+            placeholder="https://app.ckbk.com/recipe/..."
+            disabled
+            className="bg-white/10 border-white/20 text-white/50"
+          />
+          <Button disabled className="w-full">
+            Importer
+          </Button>
+        </div>
 
-      {/* Features */}
-      <div className="glass-card-static p-6 rounded-xl text-left space-y-3">
-        <h3 className="text-sm font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent mb-3">Fonctionnalites</h3>
-        <FeatureItem text="Traduction automatique anglais -> francais" />
-        <FeatureItem text="Conversion cups/oz -> grammes" />
-        <FeatureItem text="Import en lot (plusieurs recettes)" />
-        <FeatureItem text="Reformulation automatique (droits d'auteur)" />
+        {/* Features */}
+        <div className="bg-gradient-to-br from-[#0a1628] to-[#0d1f3c] p-5 rounded-xl text-left space-y-3 border border-white/10">
+          <h3 className="text-sm font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent mb-3">Fonctionnalites</h3>
+          <FeatureItem text="Traduction automatique anglais -> francais" />
+          <FeatureItem text="Conversion cups/oz -> grammes" />
+          <FeatureItem text="Import en lot (plusieurs recettes)" />
+          <FeatureItem text="Reformulation automatique (droits d'auteur)" />
+        </div>
       </div>
     </div>
   );
@@ -107,57 +112,62 @@ function WebSitesTab() {
   ];
 
   return (
-    <div className="max-w-lg mx-auto text-center space-y-6 py-8">
-      {/* Icon */}
-      <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto">
-        <Globe className="h-8 w-8 text-primary" />
-      </div>
+    <div className="max-w-lg mx-auto py-8">
+      {/* Main Card Container */}
+      <div className="glass-card-static p-8 rounded-2xl space-y-6">
+        {/* Icon */}
+        <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto">
+          <Globe className="h-8 w-8 text-primary" />
+        </div>
 
-      {/* Badge */}
-      <ComingSoonBadge />
+        {/* Badge */}
+        <div className="text-center">
+          <ComingSoonBadge />
+        </div>
 
-      {/* Heading */}
-      <div className="space-y-2">
-        <h2 className="text-2xl font-bold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">Import depuis sites web</h2>
-        <p className="text-white/70 max-w-md mx-auto">
-          Extrayez des recettes depuis les meilleurs sites culinaires francais. Contenu editorial de qualite, sans les publicites.
+        {/* Heading */}
+        <div className="space-y-3 text-center">
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">Import depuis sites web</h2>
+          <p className="text-white/80 max-w-md mx-auto leading-relaxed">
+            Extrayez des recettes depuis les meilleurs sites culinaires francais. Contenu editorial de qualite, sans les publicites.
+          </p>
+        </div>
+
+        {/* Supported Sites Grid */}
+        <div className="bg-gradient-to-br from-[#0a1628] to-[#0d1f3c] p-5 rounded-xl border border-white/10">
+          <h3 className="text-sm font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent mb-4 text-center">Sites supportes</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {sites.map((site) => (
+              <div
+                key={site.name}
+                className="bg-white/10 p-4 rounded-xl flex items-center gap-3"
+              >
+                <div className={`w-8 h-8 rounded-lg ${site.color} flex items-center justify-center text-white text-xs font-bold`}>
+                  {site.initials}
+                </div>
+                <span className="text-sm text-white font-medium">{site.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Disabled Preview */}
+        <div className="bg-white/5 p-5 rounded-xl space-y-4 opacity-60 pointer-events-none">
+          <Input
+            placeholder="https://www.ellatable.fr/recettes/..."
+            disabled
+            className="bg-white/10 border-white/20 text-white/50"
+          />
+          <Button disabled className="w-full">
+            Importer
+          </Button>
+        </div>
+
+        {/* Footer Note */}
+        <p className="text-sm text-white/60 text-center">
+          Les recettes seront automatiquement reformulees pour respecter les droits d'auteur.
         </p>
       </div>
-
-      {/* Supported Sites Grid */}
-      <div className="glass-card-static p-6 rounded-xl">
-        <h3 className="text-sm font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent mb-4">Sites supportes</h3>
-        <div className="grid grid-cols-2 gap-3">
-          {sites.map((site) => (
-            <div
-              key={site.name}
-              className="bg-white/5 p-4 rounded-xl flex items-center gap-3"
-            >
-              <div className={`w-8 h-8 rounded-lg ${site.color} flex items-center justify-center text-white text-xs font-bold`}>
-                {site.initials}
-              </div>
-              <span className="text-sm text-white font-medium">{site.name}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Disabled Preview */}
-      <div className="glass-card-static p-6 rounded-xl space-y-4 opacity-50 pointer-events-none">
-        <Input
-          placeholder="https://www.ellatable.fr/recettes/..."
-          disabled
-          className="bg-white/5 border-white/10 text-white/50"
-        />
-        <Button disabled className="w-full">
-          Importer
-        </Button>
-      </div>
-
-      {/* Footer Note */}
-      <p className="text-sm text-white/50">
-        Les recettes seront automatiquement reformulees pour respecter les droits d'auteur.
-      </p>
     </div>
   );
 }
