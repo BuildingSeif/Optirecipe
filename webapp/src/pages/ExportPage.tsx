@@ -88,10 +88,7 @@ export default function ExportPage() {
     exportMode === "all" ? approvedRecipes.length : selectedRecipes.length;
 
   return (
-    <DashboardLayout
-      title="Exporter les recettes"
-      description="Exportez vos recettes au format 1000CHEFS"
-    >
+    <DashboardLayout title="Exporter">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Step 1: Select Recipes */}
         <div className="glass-card-static p-8 rounded-2xl">

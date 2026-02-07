@@ -13,7 +13,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <DashboardLayout title="Parametres" description="Gerez votre compte et vos preferences">
+    <DashboardLayout title="Parametres">
       <div className="max-w-2xl space-y-6">
         {/* Profile */}
         <div className="glass-card-static p-8 rounded-2xl">

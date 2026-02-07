@@ -5,8 +5,6 @@ import { useMutation } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { api } from "@/lib/api";
 import {
@@ -15,7 +13,6 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
-  Info,
   X,
 } from "lucide-react";
 import type { Cookbook } from "../../../backend/src/types";
@@ -28,12 +25,6 @@ export default function UploadPage() {
   const [cookbookName, setCookbookName] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedPath, setUploadedPath] = useState<string | null>(null);
-
-  const [options, setOptions] = useState({
-    generateDescriptions: true,
-    reformulateForCopyright: true,
-    convertToGrams: true,
-  });
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const pdfFile = acceptedFiles[0];
@@ -48,7 +39,7 @@ export default function UploadPage() {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: { "application/pdf": [".pdf"] },
-    maxSize: 100 * 1024 * 1024, // 100MB
+    maxSize: 100 * 1024 * 1024,
     multiple: false,
   });
 
@@ -57,7 +48,6 @@ export default function UploadPage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      // Simulate upload progress
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => Math.min(prev + 10, 90));
       }, 200);
@@ -97,30 +87,22 @@ export default function UploadPage() {
         name: cookbookName,
         filePath: uploadedPath,
         fileSize: file?.size,
-        totalPages: 10, // This would be determined by actual PDF processing
-        ...options,
+        totalPages: 10,
+        generateDescriptions: true,
+        reformulateForCopyright: true,
+        convertToGrams: true,
       });
 
-      // Start processing after cookbook is created
       await api.post("/api/processing/start", { cookbookId: cookbook.id });
-
       return cookbook;
     },
     onSuccess: (cookbook) => {
       navigate(`/cookbooks/${cookbook.id}`);
     },
-    onError: (error) => {
-      console.error("Error creating cookbook:", error);
-    },
   });
 
-  const handleUpload = async () => {
-    if (!file) return;
-    uploadMutation.mutate(file);
-  };
-
-  const handleStartProcessing = async () => {
-    createCookbookMutation.mutate();
+  const handleUpload = () => {
+    if (file) uploadMutation.mutate(file);
   };
 
   const clearFile = () => {
@@ -132,211 +114,98 @@ export default function UploadPage() {
   };
 
   const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   return (
-    <DashboardLayout
-      title="Uploader un livre de recettes"
-      description="Importez un PDF pour extraire automatiquement les recettes"
-    >
-      <div className="max-w-2xl mx-auto space-y-6">
+    <DashboardLayout title="Uploader">
+      <div className="max-w-lg mx-auto space-y-6">
         {/* Upload Zone */}
-        <div className="glass-card-static p-8 rounded-2xl">
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold text-white">Fichier PDF</h3>
-            <p className="text-sm text-gray-400">
-              Glissez un fichier PDF ou cliquez pour sélectionner (max 100 Mo)
+        {!file ? (
+          <div
+            {...getRootProps()}
+            className={`glass-card-static p-12 text-center cursor-pointer border-2 border-dashed rounded-xl transition-all ${
+              isDragActive ? "border-primary bg-primary/10" : "border-white/20 hover:border-primary/50"
+            }`}
+          >
+            <input {...getInputProps()} />
+            <Upload className="h-10 w-10 mx-auto text-gray-500 mb-4" />
+            <p className="text-white font-medium">
+              {isDragActive ? "Deposez ici" : "Glissez un PDF"}
             </p>
+            <p className="text-sm text-gray-500 mt-1">ou cliquez pour selectionner</p>
           </div>
-          <div>
-            {!file ? (
-              <div
-                {...getRootProps()}
-                className={`
-                  glass-card p-12 text-center cursor-pointer border-2 border-dashed border-white/20 rounded-xl transition-all
-                  ${isDragActive ? "border-primary bg-primary/10" : "hover:border-primary/50"}
-                `}
-              >
-                <input {...getInputProps()} />
-                <div className="icon-container w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-xl">
-                  <Upload className="h-8 w-8 text-white/70" />
+        ) : (
+          <div className="glass-card-static p-6 rounded-xl space-y-4">
+            {/* File Info */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-white text-sm font-medium truncate max-w-[200px]">{file.name}</p>
+                  <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
                 </div>
-                <p className="text-lg font-medium text-white">
-                  {isDragActive ? "Deposez le fichier ici" : "Glissez un fichier PDF ici"}
-                </p>
-                <p className="text-sm text-gray-400 mt-2">
-                  ou cliquez pour selectionner
-                </p>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {/* File Info */}
-                <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10">
-                  <div className="flex items-center gap-3">
-                    <div className="icon-container w-12 h-12 flex items-center justify-center rounded-xl">
-                      <FileText className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-white">{file.name}</p>
-                      <p className="text-sm text-gray-400">{formatFileSize(file.size)}</p>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="icon" onClick={clearFile} className="text-white/70 hover:text-white">
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
+              <Button variant="ghost" size="icon" onClick={clearFile}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
 
-                {/* Upload Progress */}
-                {uploadMutation.isPending && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-white">Upload en cours...</span>
-                      <span className="text-gray-400">{uploadProgress}%</span>
-                    </div>
-                    <Progress value={uploadProgress} />
-                  </div>
-                )}
-
-                {/* Upload Status */}
-                {uploadMutation.isSuccess && (
-                  <div className="flex items-center gap-2 text-green-400">
-                    <CheckCircle2 className="h-5 w-5" />
-                    <span className="text-sm font-medium">Fichier uploade avec succes</span>
-                  </div>
-                )}
-
-                {uploadMutation.isError && (
-                  <div className="flex items-center gap-2 text-red-400">
-                    <AlertCircle className="h-5 w-5" />
-                    <span className="text-sm font-medium">
-                      {uploadMutation.error?.message || "Erreur lors de l'upload"}
-                    </span>
-                  </div>
-                )}
-
-                {/* Upload Button */}
-                {!uploadedPath && !uploadMutation.isPending && (
-                  <Button onClick={handleUpload} className="w-full">
-                    <Upload className="mr-2 h-4 w-4" />
-                    Uploader le fichier
-                  </Button>
-                )}
+            {/* Upload Progress */}
+            {uploadMutation.isPending && (
+              <div className="space-y-2">
+                <Progress value={uploadProgress} className="h-1.5" />
+                <p className="text-xs text-gray-500 text-center">{uploadProgress}%</p>
               </div>
             )}
+
+            {/* Upload Status */}
+            {uploadMutation.isSuccess && (
+              <div className="flex items-center gap-2 text-success text-sm">
+                <CheckCircle2 className="h-4 w-4" />
+                Fichier uploade
+              </div>
+            )}
+
+            {uploadMutation.isError && (
+              <div className="flex items-center gap-2 text-destructive text-sm">
+                <AlertCircle className="h-4 w-4" />
+                Erreur d'upload
+              </div>
+            )}
+
+            {/* Upload Button */}
+            {!uploadedPath && !uploadMutation.isPending && (
+              <Button onClick={handleUpload} className="w-full">
+                Uploader
+              </Button>
+            )}
           </div>
-        </div>
+        )}
 
         {/* Configuration */}
         {uploadedPath && (
-          <>
-            <div className="glass-card-static p-8 rounded-2xl">
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold text-white">Nom du livre</h3>
-              </div>
-              <div>
-                <Input
-                  value={cookbookName}
-                  onChange={(e) => setCookbookName(e.target.value)}
-                  placeholder="Ex: Les classiques de la cuisine francaise"
-                  className="glass-input"
-                />
-              </div>
+          <div className="space-y-4">
+            <div className="glass-card-static p-6 rounded-xl">
+              <label className="text-sm text-gray-400 block mb-2">Nom du livre</label>
+              <Input
+                value={cookbookName}
+                onChange={(e) => setCookbookName(e.target.value)}
+                placeholder="Nom du livre"
+                className="glass-input"
+              />
             </div>
 
-            <div className="glass-card-static p-8 rounded-2xl">
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold text-white">Options de traitement</h3>
-              </div>
-              <div className="space-y-4">
-                <div className="flex items-start space-x-3">
-                  <Checkbox
-                    id="descriptions"
-                    checked={options.generateDescriptions}
-                    onCheckedChange={(checked) =>
-                      setOptions((prev) => ({ ...prev, generateDescriptions: !!checked }))
-                    }
-                  />
-                  <div className="grid gap-1.5 leading-none">
-                    <Label htmlFor="descriptions" className="font-medium text-white">
-                      Generer des descriptions
-                    </Label>
-                    <p className="text-sm text-gray-400">
-                      Creer automatiquement une description appetissante pour chaque recette
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-3">
-                  <Checkbox
-                    id="reformulate"
-                    checked={options.reformulateForCopyright}
-                    onCheckedChange={(checked) =>
-                      setOptions((prev) => ({ ...prev, reformulateForCopyright: !!checked }))
-                    }
-                  />
-                  <div className="grid gap-1.5 leading-none">
-                    <Label htmlFor="reformulate" className="font-medium text-white">
-                      Reformuler pour droits d'auteur
-                    </Label>
-                    <p className="text-sm text-gray-400">
-                      Reecrire les instructions dans un style different pour eviter le plagiat
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-3">
-                  <Checkbox
-                    id="convert"
-                    checked={options.convertToGrams}
-                    onCheckedChange={(checked) =>
-                      setOptions((prev) => ({ ...prev, convertToGrams: !!checked }))
-                    }
-                  />
-                  <div className="grid gap-1.5 leading-none">
-                    <Label htmlFor="convert" className="font-medium text-white">
-                      Convertir en grammes
-                    </Label>
-                    <p className="text-sm text-gray-400">
-                      Convertir toutes les quantites (cuilleres, pieces, etc.) en grammes exacts
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Info Box */}
-            <div className="glass-card-static p-8 rounded-2xl border-primary/30">
-              <div className="flex gap-3">
-                <div className="icon-container w-10 h-10 flex items-center justify-center rounded-xl flex-shrink-0">
-                  <Info className="h-5 w-5 text-primary" />
-                </div>
-                <div className="text-sm">
-                  <p className="font-medium text-primary">Comment ca marche ?</p>
-                  <p className="text-gray-400 mt-1">
-                    OptiRecipe analyse chaque page du PDF avec l'IA pour identifier et extraire
-                    les recettes. Les quantites sont automatiquement converties en grammes pour
-                    faciliter le calcul des couts dans OptiMenu.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Error display */}
             {createCookbookMutation.isError && (
-              <div className="flex items-center gap-2 p-4 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive">
-                <AlertCircle className="h-5 w-5 flex-shrink-0" />
-                <span className="text-sm">
-                  {(createCookbookMutation.error as Error)?.message || "Erreur lors du traitement"}
-                </span>
+              <div className="flex items-center gap-2 p-3 bg-destructive/10 rounded-lg text-destructive text-sm">
+                <AlertCircle className="h-4 w-4" />
+                Erreur lors du traitement
               </div>
             )}
 
-            {/* Start Button */}
             <Button
-              onClick={handleStartProcessing}
+              onClick={() => createCookbookMutation.mutate()}
               disabled={!cookbookName || createCookbookMutation.isPending}
               className="w-full"
               size="lg"
@@ -347,10 +216,10 @@ export default function UploadPage() {
                   Demarrage...
                 </>
               ) : (
-                "Lancer le traitement"
+                "Lancer"
               )}
             </Button>
-          </>
+          </div>
         )}
       </div>
     </DashboardLayout>
