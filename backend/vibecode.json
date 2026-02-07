@@ -1,0 +1,13 @@
+{
+  "name": "optirecipe-backend",
+  "runtime": "bun",
+  "build": {
+    "command": "bunx prisma generate && bunx prisma migrate deploy"
+  },
+  "start": {
+    "command": "bun run src/index.ts"
+  },
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
