@@ -2,9 +2,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { GuestRoute } from "@/components/auth/GuestRoute";
+import { PersistentBackground } from "@/components/layout/PersistentBackground";
 
 // Pages
 import LoginPage from "@/pages/LoginPage";
@@ -23,11 +24,125 @@ import NotFound from "@/pages/NotFound";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60, // 1 minute
+      staleTime: 1000 * 60 * 5, // 5 minutes - reduce API calls
       retry: 1,
+      refetchOnWindowFocus: false, // Prevent refetch on tab focus
     },
   },
 });
+
+// Wrapper that shows persistent background on dashboard routes
+function AppContent() {
+  const location = useLocation();
+  const isDashboardRoute = !["/login", "/verify-otp"].includes(location.pathname);
+
+  return (
+    <>
+      {/* Persistent background for dashboard routes */}
+      {isDashboardRoute && <PersistentBackground />}
+
+      <Routes>
+        {/* Public routes */}
+        <Route
+          path="/login"
+          element={
+            <GuestRoute>
+              <LoginPage />
+            </GuestRoute>
+          }
+        />
+        <Route
+          path="/verify-otp"
+          element={
+            <GuestRoute>
+              <VerifyOtpPage />
+            </GuestRoute>
+          }
+        />
+
+        {/* Protected routes */}
+        <Route
+          path="/complete-profile"
+          element={
+            <ProtectedRoute>
+              <CompleteProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/upload"
+          element={
+            <ProtectedRoute>
+              <UploadPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/cookbooks"
+          element={
+            <ProtectedRoute>
+              <CookbooksPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/cookbooks/:id"
+          element={
+            <ProtectedRoute>
+              <CookbookDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/recipes"
+          element={
+            <ProtectedRoute>
+              <RecipesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/recipes/:id"
+          element={
+            <ProtectedRoute>
+              <RecipeDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/export"
+          element={
+            <ProtectedRoute>
+              <ExportPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Redirects */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+        {/* 404 */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </>
+  );
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -35,105 +150,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          {/* Public routes */}
-          <Route
-            path="/login"
-            element={
-              <GuestRoute>
-                <LoginPage />
-              </GuestRoute>
-            }
-          />
-          <Route
-            path="/verify-otp"
-            element={
-              <GuestRoute>
-                <VerifyOtpPage />
-              </GuestRoute>
-            }
-          />
-
-          {/* Protected routes */}
-          <Route
-            path="/complete-profile"
-            element={
-              <ProtectedRoute>
-                <CompleteProfilePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <DashboardPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/upload"
-            element={
-              <ProtectedRoute>
-                <UploadPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/cookbooks"
-            element={
-              <ProtectedRoute>
-                <CookbooksPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/cookbooks/:id"
-            element={
-              <ProtectedRoute>
-                <CookbookDetailPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/recipes"
-            element={
-              <ProtectedRoute>
-                <RecipesPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/recipes/:id"
-            element={
-              <ProtectedRoute>
-                <RecipeDetailPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/export"
-            element={
-              <ProtectedRoute>
-                <ExportPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute>
-                <SettingsPage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Redirects */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-
-          {/* 404 */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AppContent />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
