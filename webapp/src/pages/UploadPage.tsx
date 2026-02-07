@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useDropzone } from "react-dropzone";
+import { useDropzone, type FileRejection } from "react-dropzone";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -160,7 +160,32 @@ export default function UploadPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
+  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
+    // Handle rejected files (e.g., too large)
+    rejectedFiles.forEach(({ file, errors }) => {
+      const errorMessages = errors.map((e) => {
+        if (e.code === "file-too-large") {
+          return `Fichier trop volumineux (max 500 MB)`;
+        }
+        if (e.code === "file-invalid-type") {
+          return `Type de fichier non supporte (PDF uniquement)`;
+        }
+        return e.message;
+      }).join(", ");
+
+      const rejectedFile: FileUploadState = {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        file,
+        name: file.name.replace(/\.pdf$/i, ""),
+        progress: 0,
+        uploadedPath: null,
+        status: "error",
+        error: errorMessages,
+      };
+      setFiles((prev) => [...prev, rejectedFile]);
+    });
+
+    // Handle accepted files
     const newFiles: FileUploadState[] = acceptedFiles.map((file) => ({
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       file,
@@ -177,6 +202,8 @@ export default function UploadPage() {
     accept: { "application/pdf": [".pdf"] },
     maxSize: 500 * 1024 * 1024, // 500MB max
     multiple: true,
+    // Disable default browser file size validation which can be inconsistent
+    validator: undefined,
   });
 
   const updateFileState = (id: string, updates: Partial<FileUploadState>) => {

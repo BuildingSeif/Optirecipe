@@ -2,6 +2,7 @@ import "@vibecodeapp/proxy"; // DO NOT REMOVE OTHERWISE VIBECODE PROXY WILL NOT 
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { bodyLimit } from "hono/body-limit";
 import "./env";
 import { auth } from "./auth";
 import { cookbooksRouter } from "./routes/cookbooks";
@@ -40,6 +41,14 @@ app.use(
 
 // Logging
 app.use("*", logger());
+
+// Body limit for upload routes - 550MB to allow for overhead
+app.use("/api/upload/*", bodyLimit({
+  maxSize: 550 * 1024 * 1024, // 550MB
+  onError: (c) => {
+    return c.json({ error: { message: "Le fichier depasse la limite de 500 MB" } }, 413);
+  },
+}));
 
 // Auth middleware - populates user/session for all routes
 app.use("*", async (c, next) => {
