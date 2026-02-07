@@ -133,6 +133,7 @@ export type CookbookStatus = z.infer<typeof CookbookStatusSchema>;
 export const CreateCookbookSchema = z.object({
   name: z.string().min(1),
   filePath: z.string(),
+  fileUrl: z.string().optional(), // Direct download URL for the PDF
   fileSize: z.number().optional(),
   totalPages: z.number().optional(),
   generateDescriptions: z.boolean().default(true),
@@ -223,6 +224,7 @@ export interface Cookbook {
   userId: string;
   name: string;
   filePath: string;
+  fileUrl: string | null;
   fileSize: number | null;
   totalPages: number | null;
   status: CookbookStatus;

@@ -75,6 +75,7 @@ model Cookbook {
 
   name                String
   filePath            String   // Storage path for PDF
+  fileUrl             String?  // Direct download URL for PDF
   fileSize            Int?
   totalPages          Int?
 

@@ -1,6 +1,14 @@
 import { prisma } from "../prisma";
 import { env } from "../env";
+import { createVibecodeSDK } from "@vibecodeapp/backend-sdk";
 import type { Ingredient, Instruction } from "../types";
+
+// PDF processing imports
+import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
+import { createCanvas } from "canvas";
+
+// Initialize Vibecode SDK for file access
+const vibecode = createVibecodeSDK();
 
 // Image generation helper using Google Gemini API
 async function generateRecipeImage(title: string, description?: string): Promise<string | null> {
@@ -72,19 +80,19 @@ async function generateRecipeImage(title: string, description?: string): Promise
 }
 
 // Extraction prompt for GPT-4 Vision
-const EXTRACTION_PROMPT = `Tu es un expert en extraction de recettes de cuisine pour une base de données professionnelle de restauration collective française.
+const EXTRACTION_PROMPT = `Tu es un expert en extraction de recettes de cuisine pour une base de donnees professionnelle de restauration collective francaise.
 
-CONTEXTE: Cette recette sera utilisée dans OptiMenu, un système de planification de repas pour les cantines scolaires, hôpitaux, et restaurants d'entreprise en France. Les quantités doivent être précises pour calculer les coûts et générer les commandes.
+CONTEXTE: Cette recette sera utilisee dans OptiMenu, un systeme de planification de repas pour les cantines scolaires, hopitaux, et restaurants d'entreprise en France. Les quantites doivent etre precises pour calculer les couts et generer les commandes.
 
-TÂCHE:
+TACHE:
 1. Analyser cette page de livre de cuisine
 2. Identifier s'il y a une recette (ou plusieurs)
 3. Extraire toutes les informations
-4. REFORMULER le titre et les instructions dans tes propres mots (éviter le plagiat)
-5. Convertir TOUTES les quantités en grammes/ml exacts
-6. Générer une description appétissante de 2-3 phrases
+4. REFORMULER le titre et les instructions dans tes propres mots (eviter le plagiat)
+5. Convertir TOUTES les quantites en grammes/ml exacts
+6. Generer une description appetissante de 2-3 phrases
 
-RÈGLES DE CONVERSION (OBLIGATOIRES):
+REGLES DE CONVERSION (OBLIGATOIRES):
 - 1 pomme de terre moyenne = 150g
 - 1 carotte = 100g
 - 1 oignon = 150g
@@ -100,14 +108,14 @@ RÈGLES DE CONVERSION (OBLIGATOIRES):
 - 1 poivron = 150g
 - 1 concombre = 300g
 - 1 oeuf entier = 60g (dont 35g blanc, 25g jaune)
-- 1 cuillère à soupe rase = 15g (solides) ou 15ml (liquides)
-- 1 cuillère à soupe bombée = 25g
-- 1 cuillère à café = 5g ou 5ml
+- 1 cuillere a soupe rase = 15g (solides) ou 15ml (liquides)
+- 1 cuillere a soupe bombee = 25g
+- 1 cuillere a cafe = 5g ou 5ml
 - 1 verre standard = 200ml
 - 1 tasse = 250ml
 - 1 bol = 350ml
-- 1 poignée = 30g
-- 1 pincée = 1g
+- 1 poignee = 30g
+- 1 pincee = 1g
 - 1 noisette de beurre = 10g
 - 1 noix de beurre = 20g
 - 1 branche de thym = 2g
@@ -117,43 +125,43 @@ RÈGLES DE CONVERSION (OBLIGATOIRES):
 - 1 botte de persil = 50g
 - 1 botte de ciboulette = 25g
 
-RÈGLES D'ARRONDI:
-- Arrondir à 0 ou 5 (ex: 123g → 125g, 47g → 45g)
-- Jamais de décimales (ex: pas de 123.5g)
-- Minimum 5g pour les petites quantités
+REGLES D'ARRONDI:
+- Arrondir a 0 ou 5 (ex: 123g -> 125g, 47g -> 45g)
+- Jamais de decimales (ex: pas de 123.5g)
+- Minimum 5g pour les petites quantites
 
-CATÉGORIES VALIDES:
-- "entrée": soupes, salades, terrines, etc.
+CATEGORIES VALIDES:
+- "entree": soupes, salades, terrines, etc.
 - "plat": viandes, poissons, plats complets
-- "dessert": gâteaux, tartes, crèmes, fruits
-- "petit-déjeuner": viennoiseries, céréales, etc.
-- "accompagnement": légumes, féculents, sauces
+- "dessert": gateaux, tartes, cremes, fruits
+- "petit-dejeuner": viennoiseries, cereales, etc.
+- "accompagnement": legumes, feculents, sauces
 - "sauce": sauces uniquement
 - "boisson": boissons
 
-RÉGIONS FRANÇAISES:
-Alsace, Aquitaine, Auvergne, Bourgogne, Bretagne, Centre, Champagne, Corse, Franche-Comté, Île-de-France, Languedoc, Limousin, Lorraine, Midi-Pyrénées, Nord, Normandie, Pays de la Loire, Picardie, Poitou-Charentes, Provence, Rhône-Alpes
+REGIONS FRANCAISES:
+Alsace, Aquitaine, Auvergne, Bourgogne, Bretagne, Centre, Champagne, Corse, Franche-Comte, Ile-de-France, Languedoc, Limousin, Lorraine, Midi-Pyrenees, Nord, Normandie, Pays de la Loire, Picardie, Poitou-Charentes, Provence, Rhone-Alpes
 
 SAISONS:
 - "printemps": mars, avril, mai
-- "été": juin, juillet, août
+- "ete": juin, juillet, aout
 - "automne": septembre, octobre, novembre
-- "hiver": décembre, janvier, février
-- "toutes": recette de base, pas saisonnière
+- "hiver": decembre, janvier, fevrier
+- "toutes": recette de base, pas saisonniere
 
-RÉGIMES ALIMENTAIRES (tags):
-végétarien, vegan, sans-gluten, sans-lactose, halal, casher, pauvre en sel, pauvre en sucre, riche en protéines, riche en fibres
+REGIMES ALIMENTAIRES (tags):
+vegetarien, vegan, sans-gluten, sans-lactose, halal, casher, pauvre en sel, pauvre en sucre, riche en proteines, riche en fibres
 
 FORMAT DE SORTIE (JSON STRICT):
 
-Si une recette est trouvée:
+Si une recette est trouvee:
 {
   "found_recipe": true,
   "recipes": [
     {
-      "title": "Titre reformulé créatif",
+      "title": "Titre reformule creatif",
       "original_title": "Titre exact du livre",
-      "description": "2-3 phrases appétissantes décrivant le plat et son origine/caractère.",
+      "description": "2-3 phrases appetissantes decrivant le plat et son origine/caractere.",
       "category": "plat",
       "sub_category": "viandes",
       "ingredients": [
@@ -167,7 +175,7 @@ Si une recette est trouvée:
       "instructions": [
         {
           "step": 1,
-          "text": "Instruction reformulée dans tes propres mots.",
+          "text": "Instruction reformulee dans tes propres mots.",
           "time_minutes": null
         }
       ],
@@ -178,24 +186,24 @@ Si une recette est trouvée:
       "country": "France",
       "season": "hiver",
       "diet_tags": [],
-      "meal_type": "dîner",
-      "tips": "Conseils du chef si présents dans le texte."
+      "meal_type": "diner",
+      "tips": "Conseils du chef si presents dans le texte."
     }
   ]
 }
 
-Si AUCUNE recette n'est trouvée (page d'intro, sommaire, etc.):
+Si AUCUNE recette n'est trouvee (page d'intro, sommaire, etc.):
 {
   "found_recipe": false,
-  "page_type": "sommaire|introduction|publicité|autre",
-  "notes": "Brève description de ce que contient la page"
+  "page_type": "sommaire|introduction|publicite|autre",
+  "notes": "Breve description de ce que contient la page"
 }
 
 IMPORTANT:
 - Retourne UNIQUEMENT du JSON valide, rien d'autre
 - Si plusieurs recettes sur une page, retourne-les toutes dans le tableau "recipes"
 - Si une information n'est pas disponible, utilise null (pas de string vide)
-- Les quantités DOIVENT être des nombres, jamais du texte
+- Les quantites DOIVENT etre des nombres, jamais du texte
 - REFORMULE vraiment les instructions, ne copie pas mot pour mot`;
 
 interface ExtractionResult {
@@ -231,6 +239,200 @@ export function cancelProcessingJob(jobId: string) {
   cancelledJobs.add(jobId);
 }
 
+// Rate limiting for OpenAI API
+const RATE_LIMIT_DELAY_MS = 500; // Delay between API calls to avoid rate limits
+const MAX_RETRIES = 3;
+const MAX_RECIPES_PER_PDF = 100;
+
+// Helper to delay execution
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Fetch PDF file from storage
+async function fetchPDFFromStorage(filePath: string, fileUrl?: string | null): Promise<ArrayBuffer> {
+  console.log(`Fetching PDF with filePath: ${filePath}, fileUrl: ${fileUrl || 'not provided'}`);
+
+  // If we have a direct URL, use it
+  if (fileUrl) {
+    console.log(`Using direct URL: ${fileUrl}`);
+    const response = await fetch(fileUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch PDF from URL: ${response.statusText}`);
+    }
+    return await response.arrayBuffer();
+  }
+
+  // Otherwise, list files to find the one matching our path
+  const { files } = await vibecode.storage.list({ limit: 100 });
+
+  // Find file by matching the original filename or storage path
+  const targetFile = files.find(f => {
+    // Match by storage path or original filename
+    return f.storagePath === filePath ||
+           filePath.includes(f.originalFilename) ||
+           f.originalFilename.includes(filePath.split('/').pop() || '');
+  });
+
+  if (!targetFile) {
+    // Try to find by partial match on the path
+    const fileName = filePath.split('/').pop();
+    const possibleMatch = files.find(f =>
+      f.originalFilename.includes(fileName || '') ||
+      (fileName && f.storagePath.includes(fileName))
+    );
+
+    if (possibleMatch) {
+      console.log(`Found file by partial match: ${possibleMatch.url}`);
+      const response = await fetch(possibleMatch.url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+      }
+      return await response.arrayBuffer();
+    }
+
+    throw new Error(`PDF file not found in storage: ${filePath}. Available files: ${files.map(f => f.originalFilename).join(', ')}`);
+  }
+
+  console.log(`Found file: ${targetFile.originalFilename} at ${targetFile.url}`);
+
+  // Fetch the actual PDF file
+  const response = await fetch(targetFile.url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+  }
+
+  return await response.arrayBuffer();
+}
+
+// Convert PDF page to base64 image using canvas rendering
+async function renderPageToBase64(pdfDoc: pdfjs.PDFDocumentProxy, pageNum: number): Promise<string> {
+  const page = await pdfDoc.getPage(pageNum);
+
+  // Use a reasonable scale for good quality without excessive size
+  const scale = 2.0;
+  const viewport = page.getViewport({ scale });
+
+  // Create canvas using the canvas library (works in Node.js/Bun)
+  const canvas = createCanvas(viewport.width, viewport.height);
+  const context = canvas.getContext('2d');
+
+  // Render PDF page to canvas
+  // Cast to any to bypass type incompatibility between canvas lib and pdfjs
+  const renderContext = {
+    canvasContext: context as any,
+    viewport: viewport,
+  };
+
+  await page.render(renderContext as any).promise;
+
+  // Convert canvas to base64 PNG
+  const base64 = canvas.toBuffer('image/png').toString('base64');
+
+  return base64;
+}
+
+// Call OpenAI Vision API to extract recipes from a page image
+async function callOpenAIVision(imageBase64: string, pageNum: number): Promise<ExtractionResult> {
+  if (!env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY is not configured');
+  }
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: EXTRACTION_PROMPT,
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:image/png;base64,${imageBase64}`,
+                    detail: 'high',
+                  },
+                },
+              ],
+            },
+          ],
+          max_tokens: 4096,
+          temperature: 0.1,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+
+        // Handle rate limiting
+        if (response.status === 429) {
+          console.log(`Rate limited on page ${pageNum}, waiting before retry...`);
+          await delay(5000 * attempt); // Exponential backoff
+          continue;
+        }
+
+        throw new Error(`OpenAI API error (${response.status}): ${errorText}`);
+      }
+
+      const data = await response.json() as {
+        choices?: Array<{
+          message?: {
+            content?: string;
+          };
+        }>;
+      };
+
+      const content = data.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new Error('No content in OpenAI response');
+      }
+
+      // Parse JSON response - handle markdown code blocks
+      let jsonContent = content.trim();
+      if (jsonContent.startsWith('```json')) {
+        jsonContent = jsonContent.slice(7);
+      } else if (jsonContent.startsWith('```')) {
+        jsonContent = jsonContent.slice(3);
+      }
+      if (jsonContent.endsWith('```')) {
+        jsonContent = jsonContent.slice(0, -3);
+      }
+      jsonContent = jsonContent.trim();
+
+      const result = JSON.parse(jsonContent) as ExtractionResult;
+      return result;
+
+    } catch (error) {
+      if (attempt === MAX_RETRIES) {
+        console.error(`Failed to process page ${pageNum} after ${MAX_RETRIES} attempts:`, error);
+        return {
+          found_recipe: false,
+          page_type: 'error',
+          notes: `Error processing page: ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
+      console.log(`Attempt ${attempt} failed for page ${pageNum}, retrying...`);
+      await delay(2000 * attempt);
+    }
+  }
+
+  return {
+    found_recipe: false,
+    page_type: 'error',
+    notes: 'Failed to process page after retries',
+  };
+}
+
 export async function extractRecipesFromPDF(jobId: string): Promise<void> {
   console.log(`Starting processing for job: ${jobId}`);
 
@@ -257,14 +459,211 @@ export async function extractRecipesFromPDF(jobId: string): Promise<void> {
 
     // Check if OpenAI API key is available
     if (!env.OPENAI_API_KEY) {
-      // Simulate processing for demo purposes
-      await simulateProcessing(job, processingLog, errorLog);
+      const errorMsg = "OPENAI_API_KEY is not configured. Cannot process PDF.";
+      errorLog.push(errorMsg);
+      processingLog.push(errorMsg);
+
+      await prisma.processingJob.update({
+        where: { id: jobId },
+        data: {
+          status: "failed",
+          completedAt: new Date(),
+          processingLog: JSON.stringify(processingLog),
+          errorLog: JSON.stringify(errorLog),
+        },
+      });
+
+      await prisma.cookbook.update({
+        where: { id: job.cookbookId },
+        data: {
+          status: "failed",
+          errorMessage: errorMsg,
+        },
+      });
+
       return;
     }
 
-    // Real processing would go here
-    // For now, we'll simulate since we need actual PDF parsing
-    await simulateProcessing(job, processingLog, errorLog);
+    try {
+      // Fetch PDF from storage
+      processingLog.push("Telechargement du PDF...");
+      await updateJobProgress(job.id, job.cookbookId, 0, 0, processingLog);
+
+      const pdfBuffer = await fetchPDFFromStorage(job.cookbook.filePath, job.cookbook.fileUrl);
+      processingLog.push(`PDF telecharge: ${(pdfBuffer.byteLength / 1024 / 1024).toFixed(2)} MB`);
+
+      // Load PDF with pdf.js
+      processingLog.push("Analyse du PDF...");
+      const pdfData = new Uint8Array(pdfBuffer);
+      const pdfDoc = await pdfjs.getDocument({ data: pdfData }).promise;
+      const totalPages = pdfDoc.numPages;
+
+      processingLog.push(`PDF charge: ${totalPages} pages detectees`);
+      await updateJobProgress(job.id, job.cookbookId, 0, recipesExtracted, processingLog);
+
+      // Update total pages in job and cookbook
+      await prisma.processingJob.update({
+        where: { id: jobId },
+        data: { totalPages },
+      });
+      await prisma.cookbook.update({
+        where: { id: job.cookbookId },
+        data: { totalPages },
+      });
+
+      // Process each page
+      for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+        // Check if job was cancelled
+        if (cancelledJobs.has(job.id)) {
+          processingLog.push(`Page ${pageNum}: Traitement annule par l'utilisateur`);
+          break;
+        }
+
+        // Check recipe limit
+        if (recipesExtracted >= MAX_RECIPES_PER_PDF) {
+          processingLog.push(`Limite de ${MAX_RECIPES_PER_PDF} recettes atteinte, arret du traitement`);
+          break;
+        }
+
+        try {
+          processingLog.push(`Page ${pageNum}/${totalPages}: Conversion en image...`);
+          await updateJobProgress(job.id, job.cookbookId, pageNum, recipesExtracted, processingLog);
+
+          // Render page to image
+          const imageBase64 = await renderPageToBase64(pdfDoc, pageNum);
+
+          processingLog.push(`Page ${pageNum}/${totalPages}: Analyse par IA...`);
+          await updateJobProgress(job.id, job.cookbookId, pageNum, recipesExtracted, processingLog);
+
+          // Call OpenAI Vision API
+          const result = await callOpenAIVision(imageBase64, pageNum);
+
+          // Rate limiting delay between pages
+          await delay(RATE_LIMIT_DELAY_MS);
+
+          if (result.found_recipe && result.recipes && result.recipes.length > 0) {
+            for (const recipe of result.recipes) {
+              // Check recipe limit before adding
+              if (recipesExtracted >= MAX_RECIPES_PER_PDF) {
+                break;
+              }
+
+              processingLog.push(`Page ${pageNum}: Recette trouvee - ${recipe.title}`);
+
+              // Create the recipe in database
+              const createdRecipe = await prisma.recipe.create({
+                data: {
+                  cookbookId: job.cookbookId,
+                  userId: job.userId,
+                  title: recipe.title,
+                  originalTitle: recipe.original_title,
+                  description: recipe.description,
+                  sourcePage: pageNum,
+                  sourceType: "pdf",
+                  category: recipe.category,
+                  subCategory: recipe.sub_category,
+                  ingredients: JSON.stringify(recipe.ingredients),
+                  instructions: JSON.stringify(recipe.instructions),
+                  prepTimeMinutes: recipe.prep_time_minutes,
+                  cookTimeMinutes: recipe.cook_time_minutes,
+                  servings: recipe.servings || 4,
+                  region: recipe.region,
+                  country: recipe.country || "France",
+                  season: recipe.season,
+                  dietTags: JSON.stringify(recipe.diet_tags || []),
+                  mealType: recipe.meal_type,
+                  tips: recipe.tips,
+                  status: "approved",
+                },
+              });
+
+              recipesExtracted++;
+
+              // Generate image for the recipe (async, don't wait)
+              generateRecipeImage(recipe.title, recipe.description)
+                .then(async (imageUrl) => {
+                  if (imageUrl) {
+                    await prisma.recipe.update({
+                      where: { id: createdRecipe.id },
+                      data: { imageUrl },
+                    });
+                    console.log(`Image generated for recipe: ${recipe.title}`);
+                  }
+                })
+                .catch((err) => {
+                  console.error(`Failed to generate image for ${recipe.title}:`, err);
+                });
+            }
+          } else {
+            const pageType = result.page_type || "inconnu";
+            const notes = result.notes ? ` - ${result.notes}` : "";
+            processingLog.push(`Page ${pageNum}: Pas de recette (${pageType}${notes})`);
+          }
+
+          // Update progress after each page
+          await updateJobProgress(job.id, job.cookbookId, pageNum, recipesExtracted, processingLog);
+
+        } catch (pageError) {
+          const errorMsg = `Page ${pageNum}: Erreur - ${pageError instanceof Error ? pageError.message : String(pageError)}`;
+          errorLog.push(errorMsg);
+          processingLog.push(errorMsg);
+          console.error(errorMsg);
+          // Continue with next page
+        }
+      }
+
+      // Mark job as completed
+      const finalStatus = cancelledJobs.has(job.id) ? "cancelled" : "completed";
+      await prisma.processingJob.update({
+        where: { id: job.id },
+        data: {
+          status: finalStatus,
+          completedAt: new Date(),
+          currentPage: totalPages,
+          recipesExtracted,
+          processingLog: JSON.stringify(processingLog),
+          errorLog: JSON.stringify(errorLog),
+        },
+      });
+
+      // Update cookbook status
+      await prisma.cookbook.update({
+        where: { id: job.cookbookId },
+        data: {
+          status: finalStatus === "cancelled" ? "failed" : "completed",
+          processedPages: totalPages,
+          totalRecipesFound: recipesExtracted,
+          errorMessage: finalStatus === "cancelled" ? "Traitement annule par l'utilisateur" : null,
+        },
+      });
+
+      console.log(`Processing completed for job ${job.id}: ${recipesExtracted} recipes extracted from ${totalPages} pages`);
+
+    } catch (pdfError) {
+      const errorMsg = `Erreur PDF: ${pdfError instanceof Error ? pdfError.message : String(pdfError)}`;
+      errorLog.push(errorMsg);
+      processingLog.push(errorMsg);
+
+      await prisma.processingJob.update({
+        where: { id: jobId },
+        data: {
+          status: "failed",
+          completedAt: new Date(),
+          processingLog: JSON.stringify(processingLog),
+          errorLog: JSON.stringify(errorLog),
+        },
+      });
+
+      await prisma.cookbook.update({
+        where: { id: job.cookbookId },
+        data: {
+          status: "failed",
+          errorMessage: errorMsg,
+        },
+      });
+
+      throw pdfError;
+    }
 
   } catch (error) {
     console.error(`Processing error for job ${jobId}:`, error);
@@ -298,237 +697,28 @@ export async function extractRecipesFromPDF(jobId: string): Promise<void> {
   }
 }
 
-async function simulateProcessing(
-  job: { id: string; cookbookId: string; userId: string; cookbook: { totalPages: number | null; generateDescriptions: boolean; reformulateForCopyright: boolean; convertToGrams: boolean } },
-  processingLog: string[],
-  errorLog: string[]
+// Helper function to update job progress
+async function updateJobProgress(
+  jobId: string,
+  cookbookId: string,
+  currentPage: number,
+  recipesExtracted: number,
+  processingLog: string[]
 ): Promise<void> {
-  const totalPages = job.cookbook.totalPages || 10;
-  let recipesExtracted = 0;
-
-  // Sample recipes for demonstration
-  const sampleRecipes: ExtractedRecipe[] = [
-    {
-      title: "Bœuf Bourguignon Traditionnel",
-      original_title: "Bœuf Bourguignon",
-      description: "Un classique de la cuisine française, ce ragoût de bœuf mijoté dans un vin rouge de Bourgogne est réconfortant et savoureux. Les morceaux de viande fondants se marient parfaitement avec les légumes caramélisés.",
-      category: "plat",
-      sub_category: "viandes",
-      ingredients: [
-        { name: "bœuf (paleron)", quantity: 1000, unit: "g", original_text: "1 kg de paleron de bœuf" },
-        { name: "vin rouge de Bourgogne", quantity: 750, unit: "ml", original_text: "1 bouteille de vin rouge" },
-        { name: "lardons fumés", quantity: 150, unit: "g", original_text: "150g de lardons" },
-        { name: "oignon", quantity: 300, unit: "g", original_text: "2 oignons" },
-        { name: "carotte", quantity: 300, unit: "g", original_text: "3 carottes" },
-        { name: "champignons de Paris", quantity: 250, unit: "g", original_text: "250g de champignons" },
-        { name: "bouquet garni", quantity: 15, unit: "g", original_text: "1 bouquet garni" },
-        { name: "farine", quantity: 30, unit: "g", original_text: "2 cuillères à soupe de farine" },
-        { name: "beurre", quantity: 50, unit: "g", original_text: "50g de beurre" },
-      ],
-      instructions: [
-        { step: 1, text: "Couper le bœuf en cubes de 4 cm et les faire revenir dans une cocotte avec le beurre jusqu'à coloration.", time_minutes: 10 },
-        { step: 2, text: "Retirer la viande et faire revenir les lardons, puis les oignons émincés.", time_minutes: 5 },
-        { step: 3, text: "Saupoudrer de farine et mélanger. Ajouter la viande et verser le vin rouge.", time_minutes: 5 },
-        { step: 4, text: "Ajouter les carottes en rondelles et le bouquet garni. Porter à ébullition puis réduire le feu.", time_minutes: 5 },
-        { step: 5, text: "Laisser mijoter à couvert pendant 2h30. Ajouter les champignons 30 minutes avant la fin.", time_minutes: 150 },
-      ],
-      servings: 6,
-      prep_time_minutes: 30,
-      cook_time_minutes: 180,
-      region: "Bourgogne",
-      country: "France",
-      season: "hiver",
-      diet_tags: [],
-      meal_type: "dîner",
-      tips: "Préparez ce plat la veille, les saveurs n'en seront que meilleures. Servez avec des pommes de terre vapeur ou des pâtes fraîches.",
-    },
-    {
-      title: "Tarte Tatin aux Pommes Caramélisées",
-      original_title: "Tarte Tatin",
-      description: "Cette tarte renversée aux pommes caramélisées est un dessert emblématique de la gastronomie française. Les pommes fondantes et le caramel doré en font un délice irrésistible.",
-      category: "dessert",
-      sub_category: "tartes",
-      ingredients: [
-        { name: "pommes (Golden ou Reinettes)", quantity: 900, unit: "g", original_text: "6 pommes" },
-        { name: "pâte feuilletée", quantity: 250, unit: "g", original_text: "1 pâte feuilletée" },
-        { name: "sucre", quantity: 150, unit: "g", original_text: "150g de sucre" },
-        { name: "beurre demi-sel", quantity: 80, unit: "g", original_text: "80g de beurre" },
-        { name: "cannelle", quantity: 5, unit: "g", original_text: "1 cuillère à café de cannelle" },
-      ],
-      instructions: [
-        { step: 1, text: "Préchauffer le four à 200°C. Éplucher et couper les pommes en quartiers épais.", time_minutes: 10 },
-        { step: 2, text: "Dans un moule à tarte, faire fondre le beurre avec le sucre pour obtenir un caramel blond.", time_minutes: 8 },
-        { step: 3, text: "Disposer les quartiers de pommes serrés sur le caramel, saupoudrer de cannelle.", time_minutes: 5 },
-        { step: 4, text: "Recouvrir de la pâte feuilletée en rentrant les bords. Piquer avec une fourchette.", time_minutes: 3 },
-        { step: 5, text: "Enfourner pour 35-40 minutes jusqu'à ce que la pâte soit bien dorée.", time_minutes: 40 },
-        { step: 6, text: "Sortir du four, attendre 5 minutes puis retourner sur un plat de service.", time_minutes: 5 },
-      ],
-      servings: 8,
-      prep_time_minutes: 25,
-      cook_time_minutes: 40,
-      region: "Centre",
-      country: "France",
-      season: "automne",
-      diet_tags: ["végétarien"],
-      meal_type: "goûter",
-      tips: "Servez tiède avec une boule de glace vanille ou une cuillère de crème fraîche épaisse.",
-    },
-    {
-      title: "Soupe à l'Oignon Gratinée",
-      original_title: "Soupe à l'Oignon",
-      description: "Cette soupe réconfortante typiquement parisienne révèle toute la douceur des oignons longuement caramélisés. Le gratiné de fromage fondant en fait un plat complet et savoureux.",
-      category: "entrée",
-      sub_category: "soupes",
-      ingredients: [
-        { name: "oignon jaune", quantity: 750, unit: "g", original_text: "5 gros oignons" },
-        { name: "beurre", quantity: 60, unit: "g", original_text: "60g de beurre" },
-        { name: "farine", quantity: 30, unit: "g", original_text: "2 cuillères à soupe de farine" },
-        { name: "bouillon de bœuf", quantity: 1500, unit: "ml", original_text: "1.5L de bouillon" },
-        { name: "vin blanc sec", quantity: 150, unit: "ml", original_text: "1 verre de vin blanc" },
-        { name: "gruyère râpé", quantity: 200, unit: "g", original_text: "200g de gruyère" },
-        { name: "pain de campagne", quantity: 150, unit: "g", original_text: "6 tranches de pain" },
-      ],
-      instructions: [
-        { step: 1, text: "Émincer finement les oignons. Les faire revenir doucement dans le beurre pendant 30 minutes jusqu'à coloration dorée.", time_minutes: 35 },
-        { step: 2, text: "Saupoudrer de farine, mélanger et verser le vin blanc. Laisser réduire 2 minutes.", time_minutes: 5 },
-        { step: 3, text: "Ajouter le bouillon chaud, saler, poivrer et laisser mijoter 20 minutes.", time_minutes: 20 },
-        { step: 4, text: "Répartir la soupe dans des bols allant au four, disposer les tranches de pain et couvrir de gruyère.", time_minutes: 5 },
-        { step: 5, text: "Gratiner sous le grill du four jusqu'à ce que le fromage soit bien doré.", time_minutes: 5 },
-      ],
-      servings: 6,
-      prep_time_minutes: 15,
-      cook_time_minutes: 65,
-      region: "Île-de-France",
-      country: "France",
-      season: "hiver",
-      diet_tags: ["végétarien"],
-      meal_type: "dîner",
-      tips: "La clé d'une bonne soupe à l'oignon est de bien caraméliser les oignons sans les brûler. Prenez votre temps!",
-    },
-  ];
-
-  // Simulate page-by-page processing
-  for (let page = 1; page <= totalPages; page++) {
-    // Check if job was cancelled
-    if (cancelledJobs.has(job.id)) {
-      processingLog.push(`Page ${page}: Traitement annulé par l'utilisateur`);
-      break;
-    }
-
-    // Simulate processing delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    // Randomly decide if this page has a recipe (about 30% chance)
-    const hasRecipe = Math.random() < 0.3 && recipesExtracted < sampleRecipes.length;
-
-    if (hasRecipe) {
-      const recipe = sampleRecipes[recipesExtracted];
-      if (recipe) {
-        processingLog.push(`Page ${page}: Recette trouvée - ${recipe.title}`);
-
-        // Create the recipe in database
-        const createdRecipe = await prisma.recipe.create({
-          data: {
-            cookbookId: job.cookbookId,
-            userId: job.userId,
-            title: recipe.title,
-            originalTitle: recipe.original_title,
-            description: recipe.description,
-            sourcePage: page,
-            sourceType: "pdf",
-            category: recipe.category,
-            subCategory: recipe.sub_category,
-            ingredients: JSON.stringify(recipe.ingredients),
-            instructions: JSON.stringify(recipe.instructions),
-            prepTimeMinutes: recipe.prep_time_minutes,
-            cookTimeMinutes: recipe.cook_time_minutes,
-            servings: recipe.servings || 4,
-            region: recipe.region,
-            country: recipe.country || "France",
-            season: recipe.season,
-            dietTags: JSON.stringify(recipe.diet_tags || []),
-            mealType: recipe.meal_type,
-            tips: recipe.tips,
-            status: "approved",
-          },
-        });
-
-        // Generate image for the recipe
-        try {
-          processingLog.push(`Page ${page}: Génération de l'image pour ${recipe.title}...`);
-          const imageUrl = await generateRecipeImage(recipe.title, recipe.description);
-          if (imageUrl) {
-            await prisma.recipe.update({
-              where: { id: createdRecipe.id },
-              data: { imageUrl },
-            });
-            processingLog.push(`Page ${page}: Image générée avec succès pour ${recipe.title}`);
-          } else {
-            processingLog.push(`Page ${page}: Pas d'image générée pour ${recipe.title} (API non configurée ou erreur)`);
-          }
-        } catch (imageError) {
-          console.error(`Failed to generate image for recipe ${recipe.title}:`, imageError);
-          processingLog.push(`Page ${page}: Erreur lors de la génération de l'image pour ${recipe.title}`);
-          // Continue without image - recipe is still created
-        }
-
-        recipesExtracted++;
-      }
-    } else {
-      processingLog.push(`Page ${page}: Pas de recette détectée`);
-    }
-
-    // Update job progress
-    await prisma.processingJob.update({
-      where: { id: job.id },
-      data: {
-        currentPage: page,
-        recipesExtracted,
-        processingLog: JSON.stringify(processingLog),
-      },
-    });
-
-    // Update cookbook progress
-    await prisma.cookbook.update({
-      where: { id: job.cookbookId },
-      data: {
-        processedPages: page,
-        totalRecipesFound: recipesExtracted,
-      },
-    });
-  }
-
-  // Mark job as completed
-  const finalStatus = cancelledJobs.has(job.id) ? "cancelled" : "completed";
   await prisma.processingJob.update({
-    where: { id: job.id },
+    where: { id: jobId },
     data: {
-      status: finalStatus,
-      completedAt: new Date(),
+      currentPage,
+      recipesExtracted,
       processingLog: JSON.stringify(processingLog),
-      errorLog: JSON.stringify(errorLog),
     },
   });
 
-  // Update cookbook status
   await prisma.cookbook.update({
-    where: { id: job.cookbookId },
+    where: { id: cookbookId },
     data: {
-      status: finalStatus === "cancelled" ? "failed" : "completed",
-      errorMessage: finalStatus === "cancelled" ? "Traitement annulé par l'utilisateur" : null,
+      processedPages: currentPage,
+      totalRecipesFound: recipesExtracted,
     },
   });
-
-  console.log(`Processing completed for job ${job.id}: ${recipesExtracted} recipes extracted`);
-}
-
-// Call OpenAI API for actual extraction (placeholder for when API key is available)
-async function callOpenAIForExtraction(imageBase64: string): Promise<ExtractionResult> {
-  // This would be the actual API call
-  // For now, return a placeholder
-  return {
-    found_recipe: false,
-    page_type: "autre",
-    notes: "OpenAI API not configured",
-  };
 }
