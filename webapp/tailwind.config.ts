@@ -155,8 +155,9 @@ export default {
       },
       boxShadow: {
         glass: "0 20px 40px rgba(0, 0, 0, 0.6)",
-        "glass-hover": "0 30px 80px rgba(0, 0, 0, 0.7), 0 0 100px rgba(99, 102, 241, 0.15)",
-        glow: "0 0 120px rgba(99, 102, 241, 0.1)",
+        "glass-hover": "0 30px 80px rgba(0, 0, 0, 0.7), 0 0 100px rgba(0, 180, 255, 0.15)",
+        glow: "0 0 120px rgba(0, 180, 255, 0.1)",
+        "glow-brand": "0 0 60px rgba(0, 212, 255, 0.3)",
       },
     },
   },

@@ -122,9 +122,10 @@ The app features a premium dark-mode glassmorphism design inspired by AuraOS Stu
 - `.glass-input` - Input fields with glass effect
 - `.icon-container` - Icon backgrounds with glass
 
-**Color Palette:**
-- Primary: Indigo (#6366F1)
-- Accent: Purple (#A855F7)
+**Color Palette (OptiRecipe Brand Blue):**
+- Primary: Cyan Blue (#00D4FF)
+- Accent: Deep Blue (#0066FF)
+- Brand Gradient: Cyan (#00D4FF) to Blue (#0066FF)
 - Success: Green (#10B981)
 - Warning: Amber (#F59E0B)
 - Error: Red (#EF4444)

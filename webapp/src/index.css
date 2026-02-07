@@ -8,7 +8,7 @@
 
 @layer base {
   :root {
-    /* Dark theme as default - AuraOS inspired */
+    /* Dark theme as default - OptiRecipe Brand */
     --background: 220 20% 8%;
     --foreground: 0 0% 95%;
 
@@ -18,8 +18,8 @@
     --popover: 220 20% 10%;
     --popover-foreground: 0 0% 95%;
 
-    /* Primary: Indigo Blue */
-    --primary: 239 84% 67%;
+    /* Primary: OptiRecipe Brand Blue */
+    --primary: 200 100% 50%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary */
@@ -30,8 +30,8 @@
     --muted: 220 20% 16%;
     --muted-foreground: 220 10% 60%;
 
-    /* Accent: Purple */
-    --accent: 270 76% 65%;
+    /* Accent: Deeper Blue */
+    --accent: 215 100% 50%;
     --accent-foreground: 0 0% 100%;
 
     /* Status colors */
@@ -46,19 +46,19 @@
 
     --border: 220 20% 18%;
     --input: 220 20% 18%;
-    --ring: 239 84% 67%;
+    --ring: 200 100% 50%;
 
     --radius: 0.75rem;
 
     /* Sidebar */
     --sidebar-background: 220 25% 6%;
     --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 239 84% 67%;
+    --sidebar-primary: 200 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 20% 14%;
     --sidebar-accent-foreground: 0 0% 95%;
     --sidebar-border: 220 20% 12%;
-    --sidebar-ring: 239 84% 67%;
+    --sidebar-ring: 200 100% 50%;
     --sidebar-muted-foreground: 220 10% 55%;
   }
 
@@ -72,7 +72,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 30% 10%;
 
-    --primary: 239 84% 67%;
+    --primary: 200 100% 50%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 14% 96%;
@@ -81,7 +81,7 @@
     --muted: 220 14% 96%;
     --muted-foreground: 220 10% 46%;
 
-    --accent: 270 76% 65%;
+    --accent: 215 100% 50%;
     --accent-foreground: 0 0% 100%;
 
     --success: 160 84% 39%;
@@ -95,16 +95,16 @@
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 239 84% 67%;
+    --ring: 200 100% 50%;
 
     --sidebar-background: 220 30% 12%;
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 239 84% 67%;
+    --sidebar-primary: 200 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 30% 18%;
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 220 30% 18%;
-    --sidebar-ring: 239 84% 67%;
+    --sidebar-ring: 200 100% 50%;
     --sidebar-muted-foreground: 220 20% 70%;
   }
 }
@@ -149,7 +149,7 @@
     box-shadow:
       0 0 0 0.5px rgba(255, 255, 255, 0.05) inset,
       0 40px 80px -20px rgba(0, 0, 0, 0.8),
-      0 0 120px rgba(99, 102, 241, 0.1);
+      0 0 120px rgba(0, 180, 255, 0.1);
   }
 
   .glass-sidebar {
@@ -182,7 +182,7 @@
     box-shadow:
       0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
       0 30px 80px rgba(0, 0, 0, 0.7),
-      0 0 100px rgba(99, 102, 241, 0.15);
+      0 0 100px rgba(0, 180, 255, 0.15);
     border-color: rgba(255, 255, 255, 0.15);
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 100%);
   }
@@ -206,8 +206,8 @@
   }
 
   .glass-input:focus-within {
-    border-color: rgba(99, 102, 241, 0.5);
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+    border-color: rgba(0, 180, 255, 0.5);
+    box-shadow: 0 0 0 2px rgba(0, 180, 255, 0.15);
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 100%);
   }
 
@@ -254,13 +254,13 @@
     @apply glass-card;
   }
 
-  /* Gradient backgrounds */
+  /* Gradient backgrounds - OptiRecipe Brand */
   .gradient-primary {
-    background: linear-gradient(135deg, hsl(239 84% 67%) 0%, hsl(270 76% 65%) 100%);
+    background: linear-gradient(135deg, #00D4FF 0%, #0080FF 50%, #0066FF 100%);
   }
 
   .gradient-accent {
-    background: linear-gradient(135deg, hsl(270 76% 65%) 0%, hsl(300 76% 60%) 100%);
+    background: linear-gradient(135deg, #0080FF 0%, #0052CC 100%);
   }
 
   /* Legacy glass support */
@@ -277,7 +277,7 @@
     @apply bg-primary/15 border border-primary/20 text-primary;
   }
 
-  /* Ambient background orbs */
+  /* Ambient background orbs - OptiRecipe Brand Blue */
   .ambient-orbs::before,
   .ambient-orbs::after {
     content: '';
@@ -294,7 +294,7 @@
     right: 20%;
     width: 400px;
     height: 400px;
-    background: radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(0, 212, 255, 0.3) 0%, transparent 70%);
     animation-delay: -8s;
   }
 
@@ -303,7 +303,7 @@
     left: 15%;
     width: 350px;
     height: 350px;
-    background: radial-gradient(circle, rgba(168, 85, 247, 0.25) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(0, 102, 255, 0.25) 0%, transparent 70%);
     animation-delay: -15s;
   }
 }
