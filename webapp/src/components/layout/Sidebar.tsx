@@ -41,7 +41,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 glass-sidebar animate-slide-left">
+    <aside className="fixed left-0 top-0 z-40 h-screen w-64 backdrop-blur-xl bg-black/60 border-r border-white/10 animate-slide-left">
       <div className="flex h-full flex-col">
         {/* Logo */}
         <div className="p-6">

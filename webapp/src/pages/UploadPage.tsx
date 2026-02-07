@@ -1,7 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDropzone } from "react-dropzone";
-import { useMutation } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,10 +23,20 @@ const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
 
 type TabType = "pdf" | "ckbk" | "web";
 
+interface FileUploadState {
+  id: string;
+  file: File;
+  name: string;
+  progress: number;
+  uploadedPath: string | null;
+  status: "pending" | "uploading" | "uploaded" | "processing" | "completed" | "error";
+  error?: string;
+}
+
 function ComingSoonBadge() {
   return (
     <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
-      Bientôt disponible
+      Bientot disponible
     </span>
   );
 }
@@ -56,7 +65,7 @@ function CKBKTab() {
       <div className="space-y-2">
         <h2 className="text-2xl font-semibold text-white">Import CKBK</h2>
         <p className="text-gray-400 max-w-md mx-auto">
-          Importez directement depuis la base de données CKBK, la plus grande collection de livres de cuisine premium au monde. Les recettes en anglais seront automatiquement traduites et converties en grammes.
+          Importez directement depuis la base de donnees CKBK, la plus grande collection de livres de cuisine premium au monde. Les recettes en anglais seront automatiquement traduites et converties en grammes.
         </p>
       </div>
 
@@ -74,8 +83,8 @@ function CKBKTab() {
 
       {/* Features */}
       <div className="glass-card-static p-6 rounded-xl text-left space-y-3">
-        <FeatureItem text="Traduction automatique anglais → français" />
-        <FeatureItem text="Conversion cups/oz → grammes" />
+        <FeatureItem text="Traduction automatique anglais -> francais" />
+        <FeatureItem text="Conversion cups/oz -> grammes" />
         <FeatureItem text="Import en lot (plusieurs recettes)" />
         <FeatureItem text="Reformulation automatique (droits d'auteur)" />
       </div>
@@ -85,9 +94,9 @@ function CKBKTab() {
 
 function WebSitesTab() {
   const sites = [
-    { name: "Elle à Table", initials: "ET", color: "bg-pink-500" },
+    { name: "Elle a Table", initials: "ET", color: "bg-pink-500" },
     { name: "Saveurs", initials: "S", color: "bg-red-500" },
-    { name: "Régal", initials: "R", color: "bg-amber-500" },
+    { name: "Regal", initials: "R", color: "bg-amber-500" },
     { name: "Cuisine Actuelle", initials: "CA", color: "bg-blue-500" },
   ];
 
@@ -105,7 +114,7 @@ function WebSitesTab() {
       <div className="space-y-2">
         <h2 className="text-2xl font-semibold text-white">Import depuis sites web</h2>
         <p className="text-gray-400 max-w-md mx-auto">
-          Extrayez des recettes depuis les meilleurs sites culinaires français. Contenu éditorial de qualité, sans les publicités.
+          Extrayez des recettes depuis les meilleurs sites culinaires francais. Contenu editorial de qualite, sans les publicites.
         </p>
       </div>
 
@@ -138,7 +147,7 @@ function WebSitesTab() {
 
       {/* Footer Note */}
       <p className="text-sm text-gray-500">
-        Les recettes seront automatiquement reformulées pour respecter les droits d'auteur.
+        Les recettes seront automatiquement reformulees pour respecter les droits d'auteur.
       </p>
     </div>
   );
@@ -147,102 +156,202 @@ function WebSitesTab() {
 export default function UploadPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabType>("pdf");
-  const [file, setFile] = useState<File | null>(null);
-  const [cookbookName, setCookbookName] = useState("");
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadedPath, setUploadedPath] = useState<string | null>(null);
+  const [files, setFiles] = useState<FileUploadState[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    const pdfFile = acceptedFiles[0];
-    if (pdfFile) {
-      setFile(pdfFile);
-      setCookbookName(pdfFile.name.replace(/\.pdf$/i, ""));
-      setUploadProgress(0);
-      setUploadedPath(null);
-    }
+    const newFiles: FileUploadState[] = acceptedFiles.map((file) => ({
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      file,
+      name: file.name.replace(/\.pdf$/i, ""),
+      progress: 0,
+      uploadedPath: null,
+      status: "pending",
+    }));
+    setFiles((prev) => [...prev, ...newFiles]);
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: { "application/pdf": [".pdf"] },
     maxSize: 100 * 1024 * 1024,
-    multiple: false,
+    multiple: true,
   });
 
-  const uploadMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => Math.min(prev + 10, 90));
-      }, 200);
-
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/upload/pdf`, {
-          method: "POST",
-          body: formData,
-          credentials: "include",
-        });
-
-        clearInterval(progressInterval);
-        setUploadProgress(100);
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error?.message || "Upload failed");
-        }
-
-        const result = await response.json();
-        return result.data;
-      } catch (error) {
-        clearInterval(progressInterval);
-        throw error;
-      }
-    },
-    onSuccess: (data) => {
-      setUploadedPath(data.filePath);
-    },
-  });
-
-  const createCookbookMutation = useMutation({
-    mutationFn: async () => {
-      if (!uploadedPath) throw new Error("No file uploaded");
-
-      const cookbook = await api.post<Cookbook>("/api/cookbooks", {
-        name: cookbookName,
-        filePath: uploadedPath,
-        fileSize: file?.size,
-        totalPages: 10,
-        generateDescriptions: true,
-        reformulateForCopyright: true,
-        convertToGrams: true,
-      });
-
-      await api.post("/api/processing/start", { cookbookId: cookbook.id });
-      return cookbook;
-    },
-    onSuccess: (cookbook) => {
-      navigate(`/cookbooks/${cookbook.id}`);
-    },
-  });
-
-  const handleUpload = () => {
-    if (file) uploadMutation.mutate(file);
+  const updateFileState = (id: string, updates: Partial<FileUploadState>) => {
+    setFiles((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, ...updates } : f))
+    );
   };
 
-  const clearFile = () => {
-    setFile(null);
-    setCookbookName("");
-    setUploadProgress(0);
-    setUploadedPath(null);
-    uploadMutation.reset();
+  const updateFileName = (id: string, name: string) => {
+    updateFileState(id, { name });
+  };
+
+  const removeFile = (id: string) => {
+    setFiles((prev) => prev.filter((f) => f.id !== id));
+  };
+
+  const clearAllFiles = () => {
+    setFiles([]);
+  };
+
+  const uploadSingleFile = async (fileState: FileUploadState): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", fileState.file);
+
+    updateFileState(fileState.id, { status: "uploading", progress: 0 });
+
+    const progressInterval = setInterval(() => {
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === fileState.id && f.progress < 90
+            ? { ...f, progress: f.progress + 10 }
+            : f
+        )
+      );
+    }, 200);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/upload/pdf`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      clearInterval(progressInterval);
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || "Upload failed");
+      }
+
+      const result = await response.json();
+      updateFileState(fileState.id, {
+        status: "uploaded",
+        progress: 100,
+        uploadedPath: result.data.filePath,
+      });
+      return result.data.filePath;
+    } catch (error) {
+      clearInterval(progressInterval);
+      updateFileState(fileState.id, {
+        status: "error",
+        error: error instanceof Error ? error.message : "Upload failed",
+      });
+      throw error;
+    }
+  };
+
+  const createCookbookForFile = async (fileState: FileUploadState): Promise<Cookbook> => {
+    if (!fileState.uploadedPath) throw new Error("No file uploaded");
+
+    updateFileState(fileState.id, { status: "processing" });
+
+    const cookbook = await api.post<Cookbook>("/api/cookbooks", {
+      name: fileState.name,
+      filePath: fileState.uploadedPath,
+      fileSize: fileState.file.size,
+      totalPages: 10,
+      generateDescriptions: true,
+      reformulateForCopyright: true,
+      convertToGrams: true,
+    });
+
+    await api.post("/api/processing/start", { cookbookId: cookbook.id });
+    updateFileState(fileState.id, { status: "completed" });
+    return cookbook;
+  };
+
+  const handleUploadAll = async () => {
+    const pendingFiles = files.filter((f) => f.status === "pending");
+    if (pendingFiles.length === 0) return;
+
+    setIsUploading(true);
+
+    for (const fileState of pendingFiles) {
+      try {
+        await uploadSingleFile(fileState);
+      } catch {
+        // Error already handled in uploadSingleFile
+      }
+    }
+
+    setIsUploading(false);
+  };
+
+  const handleProcessAll = async () => {
+    const uploadedFiles = files.filter((f) => f.status === "uploaded");
+    if (uploadedFiles.length === 0) return;
+
+    setIsProcessing(true);
+    const createdCookbooks: Cookbook[] = [];
+
+    for (const fileState of uploadedFiles) {
+      try {
+        const cookbook = await createCookbookForFile(fileState);
+        createdCookbooks.push(cookbook);
+      } catch {
+        updateFileState(fileState.id, {
+          status: "error",
+          error: "Erreur lors du traitement",
+        });
+      }
+    }
+
+    setIsProcessing(false);
+
+    // Navigate to the first created cookbook or cookbooks list
+    if (createdCookbooks.length === 1) {
+      navigate(`/cookbooks/${createdCookbooks[0].id}`);
+    } else if (createdCookbooks.length > 1) {
+      navigate("/cookbooks");
+    }
   };
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
+
+  const getStatusIcon = (status: FileUploadState["status"]) => {
+    switch (status) {
+      case "uploading":
+      case "processing":
+        return <Loader2 className="h-4 w-4 animate-spin text-primary" />;
+      case "uploaded":
+        return <CheckCircle2 className="h-4 w-4 text-blue-500" />;
+      case "completed":
+        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+      case "error":
+        return <AlertCircle className="h-4 w-4 text-destructive" />;
+      default:
+        return <FileText className="h-4 w-4 text-primary" />;
+    }
+  };
+
+  const getStatusText = (status: FileUploadState["status"]) => {
+    switch (status) {
+      case "uploading":
+        return "Upload en cours...";
+      case "uploaded":
+        return "Pret a traiter";
+      case "processing":
+        return "Traitement...";
+      case "completed":
+        return "Termine";
+      case "error":
+        return "Erreur";
+      default:
+        return "En attente";
+    }
+  };
+
+  const pendingCount = files.filter((f) => f.status === "pending").length;
+  const uploadedCount = files.filter((f) => f.status === "uploaded").length;
+  const allUploaded = files.length > 0 && files.every((f) => f.status === "uploaded" || f.status === "completed" || f.status === "error");
+  const hasUploadedFiles = uploadedCount > 0;
 
   const tabs = [
     { id: "pdf" as TabType, label: "PDF" },
@@ -274,104 +383,122 @@ export default function UploadPage() {
       {/* Tab Content */}
       {activeTab === "pdf" && (
         <div className="max-w-lg mx-auto space-y-6">
-          {/* Upload Zone */}
-          {!file ? (
-            <div
-              {...getRootProps()}
-              className={`glass-card-static p-12 text-center cursor-pointer border-2 border-dashed rounded-xl transition-all ${
-                isDragActive ? "border-primary bg-primary/10" : "border-white/20 hover:border-primary/50"
-              }`}
-            >
-              <input {...getInputProps()} />
-              <Upload className="h-10 w-10 mx-auto text-gray-500 mb-4" />
-              <p className="text-white font-medium">
-                {isDragActive ? "Deposez ici" : "Glissez un PDF"}
-              </p>
-              <p className="text-sm text-gray-500 mt-1">ou cliquez pour selectionner</p>
-            </div>
-          ) : (
+          {/* Upload Zone - Always visible */}
+          <div
+            {...getRootProps()}
+            className={`glass-card-static p-12 text-center cursor-pointer border-2 border-dashed rounded-xl transition-all ${
+              isDragActive ? "border-primary bg-primary/10" : "border-white/20 hover:border-primary/50"
+            }`}
+          >
+            <input {...getInputProps()} />
+            <Upload className="h-10 w-10 mx-auto text-gray-500 mb-4" />
+            <p className="text-white font-medium">
+              {isDragActive ? "Deposez ici" : "Glissez vos PDFs"}
+            </p>
+            <p className="text-sm text-gray-500 mt-1">ou cliquez pour selectionner (plusieurs fichiers possibles)</p>
+          </div>
+
+          {/* File List */}
+          {files.length > 0 && (
             <div className="glass-card-static p-6 rounded-xl space-y-4">
-              {/* File Info */}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <FileText className="h-5 w-5 text-primary" />
-                  <div>
-                    <p className="text-white text-sm font-medium truncate max-w-[200px]">{file.name}</p>
-                    <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                <h3 className="text-white font-medium">
+                  {files.length} fichier{files.length > 1 ? "s" : ""} selectionne{files.length > 1 ? "s" : ""}
+                </h3>
+                <Button variant="ghost" size="sm" onClick={clearAllFiles} disabled={isUploading || isProcessing}>
+                  Tout effacer
+                </Button>
+              </div>
+
+              <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                {files.map((fileState) => (
+                  <div key={fileState.id} className="bg-white/5 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        {getStatusIcon(fileState.status)}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-sm font-medium truncate">{fileState.file.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {formatFileSize(fileState.file.size)} - {getStatusText(fileState.status)}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 flex-shrink-0"
+                        onClick={() => removeFile(fileState.id)}
+                        disabled={fileState.status === "uploading" || fileState.status === "processing"}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    {/* Progress Bar */}
+                    {(fileState.status === "uploading" || fileState.status === "processing") && (
+                      <div className="space-y-1">
+                        <Progress value={fileState.progress} className="h-1.5" />
+                        <p className="text-xs text-gray-500 text-right">{fileState.progress}%</p>
+                      </div>
+                    )}
+
+                    {/* Cookbook Name Input - shown after upload */}
+                    {fileState.status === "uploaded" && (
+                      <div className="pt-2">
+                        <Input
+                          value={fileState.name}
+                          onChange={(e) => updateFileName(fileState.id, e.target.value)}
+                          placeholder="Nom du livre"
+                          className="glass-input text-sm"
+                        />
+                      </div>
+                    )}
+
+                    {/* Error Message */}
+                    {fileState.status === "error" && fileState.error && (
+                      <p className="text-xs text-destructive">{fileState.error}</p>
+                    )}
                   </div>
-                </div>
-                <Button variant="ghost" size="icon" onClick={clearFile}>
-                  <X className="h-4 w-4" />
-                </Button>
+                ))}
               </div>
 
-              {/* Upload Progress */}
-              {uploadMutation.isPending && (
-                <div className="space-y-2">
-                  <Progress value={uploadProgress} className="h-1.5" />
-                  <p className="text-xs text-gray-500 text-center">{uploadProgress}%</p>
-                </div>
-              )}
-
-              {/* Upload Status */}
-              {uploadMutation.isSuccess && (
-                <div className="flex items-center gap-2 text-success text-sm">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Fichier uploade
-                </div>
-              )}
-
-              {uploadMutation.isError && (
-                <div className="flex items-center gap-2 text-destructive text-sm">
-                  <AlertCircle className="h-4 w-4" />
-                  Erreur d'upload
-                </div>
-              )}
-
-              {/* Upload Button */}
-              {!uploadedPath && !uploadMutation.isPending && (
-                <Button onClick={handleUpload} className="w-full">
-                  Uploader
-                </Button>
-              )}
-            </div>
-          )}
-
-          {/* Configuration */}
-          {uploadedPath && (
-            <div className="space-y-4">
-              <div className="glass-card-static p-6 rounded-xl">
-                <label className="text-sm text-gray-400 block mb-2">Nom du livre</label>
-                <Input
-                  value={cookbookName}
-                  onChange={(e) => setCookbookName(e.target.value)}
-                  placeholder="Nom du livre"
-                  className="glass-input"
-                />
-              </div>
-
-              {createCookbookMutation.isError && (
-                <div className="flex items-center gap-2 p-3 bg-destructive/10 rounded-lg text-destructive text-sm">
-                  <AlertCircle className="h-4 w-4" />
-                  Erreur lors du traitement
-                </div>
-              )}
-
-              <Button
-                onClick={() => createCookbookMutation.mutate()}
-                disabled={!cookbookName || createCookbookMutation.isPending}
-                className="w-full"
-                size="lg"
-              >
-                {createCookbookMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Demarrage...
-                  </>
-                ) : (
-                  "Lancer"
+              {/* Action Buttons */}
+              <div className="space-y-3 pt-2">
+                {pendingCount > 0 && (
+                  <Button
+                    onClick={handleUploadAll}
+                    disabled={isUploading}
+                    className="w-full"
+                  >
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Upload en cours...
+                      </>
+                    ) : (
+                      `Uploader ${pendingCount} fichier${pendingCount > 1 ? "s" : ""}`
+                    )}
+                  </Button>
                 )}
-              </Button>
+
+                {allUploaded && hasUploadedFiles && (
+                  <Button
+                    onClick={handleProcessAll}
+                    disabled={isProcessing || uploadedCount === 0}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Traitement en cours...
+                      </>
+                    ) : (
+                      `Lancer le traitement (${uploadedCount} livre${uploadedCount > 1 ? "s" : ""})`
+                    )}
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </div>

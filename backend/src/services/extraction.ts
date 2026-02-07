@@ -2,6 +2,75 @@ import { prisma } from "../prisma";
 import { env } from "../env";
 import type { Ingredient, Instruction } from "../types";
 
+// Image generation helper using Google Gemini API
+async function generateRecipeImage(title: string, description?: string): Promise<string | null> {
+  const apiKey = process.env.GOOGLE_API_KEY;
+  if (!apiKey) {
+    console.log("GOOGLE_API_KEY not configured, skipping image generation");
+    return null;
+  }
+
+  const descriptionPart = description ? ` ${description}.` : "";
+  const prompt = `Professional food photography of ${title}.${descriptionPart} Appetizing, high-quality, restaurant-style presentation on a clean plate, soft natural lighting, shallow depth of field.`;
+
+  try {
+    console.log(`Generating image for recipe: ${title}`);
+
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent",
+      {
+        method: "POST",
+        headers: {
+          "x-goog-api-key": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseModalities: ["Image"],
+            imageConfig: { aspectRatio: "1:1" },
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Gemini API error for recipe "${title}":`, errorText);
+      return null;
+    }
+
+    const result = await response.json() as {
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{
+            inlineData?: {
+              mimeType?: string;
+              data?: string;
+            };
+          }>;
+        };
+      }>;
+    };
+
+    const candidate = result.candidates?.[0];
+    const inlineData = candidate?.content?.parts?.[0]?.inlineData;
+
+    if (!inlineData?.data || !inlineData?.mimeType) {
+      console.error(`Invalid Gemini response for recipe "${title}":`, JSON.stringify(result));
+      return null;
+    }
+
+    // Return as data URL
+    const imageUrl = `data:${inlineData.mimeType};base64,${inlineData.data}`;
+    console.log(`Successfully generated image for recipe: ${title}`);
+    return imageUrl;
+  } catch (error) {
+    console.error(`Image generation error for recipe "${title}":`, error);
+    return null;
+  }
+}
+
 // Extraction prompt for GPT-4 Vision
 const EXTRACTION_PROMPT = `Tu es un expert en extraction de recettes de cuisine pour une base de données professionnelle de restauration collective française.
 
@@ -358,7 +427,7 @@ async function simulateProcessing(
         processingLog.push(`Page ${page}: Recette trouvée - ${recipe.title}`);
 
         // Create the recipe in database
-        await prisma.recipe.create({
+        const createdRecipe = await prisma.recipe.create({
           data: {
             cookbookId: job.cookbookId,
             userId: job.userId,
@@ -380,9 +449,28 @@ async function simulateProcessing(
             dietTags: JSON.stringify(recipe.diet_tags || []),
             mealType: recipe.meal_type,
             tips: recipe.tips,
-            status: "pending",
+            status: "approved",
           },
         });
+
+        // Generate image for the recipe
+        try {
+          processingLog.push(`Page ${page}: Génération de l'image pour ${recipe.title}...`);
+          const imageUrl = await generateRecipeImage(recipe.title, recipe.description);
+          if (imageUrl) {
+            await prisma.recipe.update({
+              where: { id: createdRecipe.id },
+              data: { imageUrl },
+            });
+            processingLog.push(`Page ${page}: Image générée avec succès pour ${recipe.title}`);
+          } else {
+            processingLog.push(`Page ${page}: Pas d'image générée pour ${recipe.title} (API non configurée ou erreur)`);
+          }
+        } catch (imageError) {
+          console.error(`Failed to generate image for recipe ${recipe.title}:`, imageError);
+          processingLog.push(`Page ${page}: Erreur lors de la génération de l'image pour ${recipe.title}`);
+          // Continue without image - recipe is still created
+        }
 
         recipesExtracted++;
       }

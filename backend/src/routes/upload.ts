@@ -11,18 +11,35 @@ const uploadRouter = new Hono<{
 
 const vibecode = createVibecodeSDK();
 
+// Helper to add timeout to promises
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+    ),
+  ]);
+}
+
 // Upload PDF file
 uploadRouter.post("/pdf", async (c) => {
   const user = c.get("user");
   if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
 
   try {
-    const formData = await c.req.formData();
+    // Add timeout for form data parsing (30 seconds)
+    const formData = await withTimeout(
+      c.req.formData(),
+      30000,
+      "Request timeout while reading file data"
+    );
     const file = formData.get("file") as File | null;
 
     if (!file) {
       return c.json({ error: { message: "No file provided" } }, 400);
     }
+
+    console.log(`Received PDF upload: ${file.name}, size: ${file.size} bytes`);
 
     // Validate file type
     if (!file.type.includes("pdf") && !file.name.toLowerCase().endsWith(".pdf")) {
@@ -40,8 +57,14 @@ uploadRouter.post("/pdf", async (c) => {
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
     const filePath = `cookbooks/${user.id}/${timestamp}-${sanitizedName}`;
 
-    // Upload to Vibecode storage
-    const uploadResult = await vibecode.storage.upload(file);
+    // Upload to Vibecode storage with timeout (2 minutes for large files)
+    console.log(`Uploading to Vibecode storage: ${filePath}`);
+    const uploadResult = await withTimeout(
+      vibecode.storage.upload(file),
+      120000,
+      "Upload timeout - the file may be too large or the connection is slow"
+    );
+    console.log(`Upload successful: ${uploadResult.id}`);
 
     return c.json({
       data: {
@@ -54,7 +77,8 @@ uploadRouter.post("/pdf", async (c) => {
     });
   } catch (error) {
     console.error("Upload error:", error);
-    return c.json({ error: { message: "Failed to upload file" } }, 500);
+    const message = error instanceof Error ? error.message : "Failed to upload file";
+    return c.json({ error: { message } }, 500);
   }
 });
 
