@@ -10,69 +10,108 @@ import { createCanvas } from "canvas";
 // Initialize Vibecode SDK for file access
 const vibecode = createVibecodeSDK();
 
-// Image generation helper using Google Gemini API
+// Image generation helper using FAL AI Nano Banana Pro
 async function generateRecipeImage(title: string, description?: string): Promise<string | null> {
-  const apiKey = process.env.GOOGLE_API_KEY;
+  const apiKey = process.env.FAL_KEY;
   if (!apiKey) {
-    console.log("GOOGLE_API_KEY not configured, skipping image generation");
+    console.log("FAL_KEY not configured, skipping image generation");
     return null;
   }
 
   const descriptionPart = description ? ` ${description}.` : "";
-  const prompt = `Professional food photography of ${title}.${descriptionPart} Appetizing, high-quality, restaurant-style presentation on a clean plate, soft natural lighting, shallow depth of field.`;
+  const prompt = `Professional food photography of ${title}.${descriptionPart} Appetizing, high-quality, restaurant-style presentation on a clean plate, soft natural lighting, shallow depth of field, delicious looking food.`;
 
   try {
     console.log(`Generating image for recipe: ${title}`);
 
-    const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent",
+    // Submit request to FAL AI Nano Banana Pro
+    const submitResponse = await fetch(
+      "https://queue.fal.run/fal-ai/nano-banana/image",
       {
         method: "POST",
         headers: {
-          "x-goog-api-key": apiKey,
+          "Authorization": `Key ${apiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseModalities: ["Image"],
-            imageConfig: { aspectRatio: "1:1" },
-          },
+          prompt,
+          image_size: "square_hd",
+          num_images: 1,
         }),
       }
     );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Gemini API error for recipe "${title}":`, errorText);
+    if (!submitResponse.ok) {
+      const errorText = await submitResponse.text();
+      console.error(`FAL AI submit error for recipe "${title}":`, errorText);
       return null;
     }
 
-    const result = await response.json() as {
-      candidates?: Array<{
-        content?: {
-          parts?: Array<{
-            inlineData?: {
-              mimeType?: string;
-              data?: string;
-            };
-          }>;
-        };
-      }>;
+    const submitResult = await submitResponse.json() as {
+      request_id?: string;
+      images?: Array<{ url: string }>;
     };
 
-    const candidate = result.candidates?.[0];
-    const inlineData = candidate?.content?.parts?.[0]?.inlineData;
-
-    if (!inlineData?.data || !inlineData?.mimeType) {
-      console.error(`Invalid Gemini response for recipe "${title}":`, JSON.stringify(result));
-      return null;
+    // If we got images directly (sync response), return the URL
+    if (submitResult.images && submitResult.images.length > 0) {
+      const imageUrl = submitResult.images[0].url;
+      console.log(`Successfully generated image for recipe: ${title}`);
+      return imageUrl;
     }
 
-    // Return as data URL
-    const imageUrl = `data:${inlineData.mimeType};base64,${inlineData.data}`;
-    console.log(`Successfully generated image for recipe: ${title}`);
-    return imageUrl;
+    // Otherwise, poll for the result
+    if (submitResult.request_id) {
+      const requestId = submitResult.request_id;
+      let attempts = 0;
+      const maxAttempts = 30; // Max 30 seconds wait
+
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        attempts++;
+
+        const statusResponse = await fetch(
+          `https://queue.fal.run/fal-ai/nano-banana/requests/${requestId}/status`,
+          {
+            headers: {
+              "Authorization": `Key ${apiKey}`,
+            },
+          }
+        );
+
+        if (!statusResponse.ok) continue;
+
+        const statusResult = await statusResponse.json() as {
+          status: string;
+          response_url?: string;
+        };
+
+        if (statusResult.status === "COMPLETED" && statusResult.response_url) {
+          const resultResponse = await fetch(statusResult.response_url, {
+            headers: { "Authorization": `Key ${apiKey}` },
+          });
+
+          if (resultResponse.ok) {
+            const result = await resultResponse.json() as {
+              images?: Array<{ url: string }>;
+            };
+
+            if (result.images && result.images.length > 0) {
+              console.log(`Successfully generated image for recipe: ${title}`);
+              return result.images[0].url;
+            }
+          }
+          break;
+        }
+
+        if (statusResult.status === "FAILED") {
+          console.error(`FAL AI failed for recipe "${title}"`);
+          break;
+        }
+      }
+    }
+
+    console.error(`No image generated for recipe "${title}"`);
+    return null;
   } catch (error) {
     console.error(`Image generation error for recipe "${title}":`, error);
     return null;
