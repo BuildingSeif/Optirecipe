@@ -65,12 +65,22 @@ export default function VerifyOtpPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-slate-900 to-gray-800 p-4 relative overflow-hidden">
-      {/* Ambient background orbs */}
-      <div className="ambient-orbs fixed inset-0 pointer-events-none" />
+    <div className="min-h-screen flex items-center justify-center bg-black p-4 relative overflow-hidden">
+      {/* Spline 3D Background */}
+      <div className="absolute inset-0 z-0">
+        <iframe
+          src="https://my.spline.design/celestialflowabstractdigitalform-ObUlVgj70g2y4bbx5vBKSfxN/"
+          frameBorder="0"
+          width="100%"
+          height="100%"
+          id="aura-spline"
+          title="Background Animation"
+          style={{ pointerEvents: "none" }}
+        />
+      </div>
 
       <div className="w-full max-w-md animate-fade-in relative z-10">
-        <div className="glass-card-static p-8 rounded-2xl max-w-md w-full animate-slide-up">
+        <div className="p-8 rounded-2xl animate-slide-up backdrop-blur-xl bg-black/60 border border-white/10 shadow-2xl">
           {/* Header */}
           <div className="text-center pb-6">
             <div className="flex justify-center mb-4">
@@ -86,7 +96,7 @@ export default function VerifyOtpPage() {
           {/* Form */}
           <form onSubmit={handleVerifyOTP} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="otp" className="text-gray-400">Code de vérification</Label>
+              <Label htmlFor="otp" className="text-gray-300">Code de vérification</Label>
               <div className="relative">
                 <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -95,7 +105,7 @@ export default function VerifyOtpPage() {
                   placeholder="123456"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  className="glass-input pl-10 text-center text-lg tracking-widest text-white placeholder:text-gray-500"
+                  className="pl-10 text-center text-lg tracking-widest text-white placeholder:text-gray-500 bg-white/5 border border-white/10 focus:border-primary/50 focus:outline-none transition-colors"
                   maxLength={6}
                   required
                   disabled={isLoading}
@@ -112,7 +122,7 @@ export default function VerifyOtpPage() {
 
             <Button
               type="submit"
-              className="gradient-primary w-full text-white font-medium"
+              className="gradient-primary w-full text-white font-medium py-3 rounded-lg hover:opacity-90 transition-opacity"
               disabled={isLoading || otp.length !== 6}
             >
               {isLoading ? (
@@ -129,7 +139,7 @@ export default function VerifyOtpPage() {
           <div className="mt-4 flex flex-col gap-2">
             <Button
               variant="ghost"
-              className="w-full text-gray-400 hover:text-white hover:bg-white/10"
+              className="w-full text-gray-300 hover:text-white hover:bg-white/10"
               onClick={handleResendOTP}
               disabled={isLoading}
             >
@@ -138,7 +148,7 @@ export default function VerifyOtpPage() {
 
             <Button
               variant="ghost"
-              className="w-full text-gray-400 hover:text-white hover:bg-white/10"
+              className="w-full text-gray-300 hover:text-white hover:bg-white/10"
               onClick={() => navigate("/login")}
               disabled={isLoading}
             >
@@ -148,7 +158,7 @@ export default function VerifyOtpPage() {
           </div>
         </div>
 
-        <p className="mt-6 text-center text-xs text-gray-400">
+        <p className="mt-6 text-center text-xs text-white/80">
           OptiRecipe par OptiMenu &copy; {new Date().getFullYear()}
         </p>
       </div>
