@@ -36,9 +36,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-black p-4 relative overflow-hidden">
       {/* Spline 3D Background */}
-      <div className="absolute top-0 left-0 w-full h-full -z-10">
+      <div className="absolute inset-0 z-0">
         <iframe
           src="https://my.spline.design/celestialflowabstractdigitalform-ObUlVgj70g2y4bbx5vBKSfxN/"
           frameBorder="0"
@@ -46,12 +46,12 @@ export default function LoginPage() {
           height="100%"
           id="aura-spline"
           title="Background Animation"
-          className="pointer-events-none"
+          style={{ pointerEvents: "none" }}
         />
       </div>
 
       <div className="w-full max-w-md animate-fade-in relative z-10">
-        <div className="glass-card-static p-8 rounded-2xl animate-slide-up backdrop-blur-xl bg-gray-900/70 border border-white/10">
+        <div className="p-8 rounded-2xl animate-slide-up backdrop-blur-xl bg-black/60 border border-white/10 shadow-2xl">
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
@@ -75,7 +75,7 @@ export default function LoginPage() {
                   placeholder="vous@exemple.fr"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="glass-input w-full pl-10 pr-4 py-3 rounded-lg text-white placeholder-gray-500 bg-gray-800/50 border border-white/10"
+                  className="w-full pl-10 pr-4 py-3 rounded-lg text-white placeholder-gray-500 bg-white/5 border border-white/10 focus:border-primary/50 focus:outline-none transition-colors"
                   required
                   disabled={isLoading}
                 />
