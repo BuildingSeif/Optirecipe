@@ -104,12 +104,12 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-gray-500">
+          <p className="mt-6 text-center text-sm text-gray-300">
             Un code de vérification sera envoyé à votre adresse email
           </p>
         </div>
 
-        <p className="mt-6 text-center text-xs text-gray-400">
+        <p className="mt-6 text-center text-xs text-white/80">
           OptiRecipe par OptiMenu &copy; {new Date().getFullYear()}
         </p>
       </div>
