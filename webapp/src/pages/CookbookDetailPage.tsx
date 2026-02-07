@@ -82,13 +82,14 @@ export default function CookbookDetailPage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
 
-  const { data: cookbook, isLoading, refetch } = useQuery({
+  const { data: cookbook, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["cookbook", id],
     queryFn: () => api.get<CookbookDetail>(`/api/cookbooks/${id}`),
     refetchInterval: (query) => {
       const data = query.state.data;
       return data?.status === "processing" ? 2000 : false;
     },
+    retry: 2,
   });
 
   const reprocessMutation = useMutation({
@@ -102,21 +103,33 @@ export default function CookbookDetailPage() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </DashboardLayout>
     );
   }
 
-  if (!cookbook) {
+  if (isError || !cookbook) {
     return (
       <DashboardLayout>
         <div className="text-center py-12">
           <AlertCircle className="h-12 w-12 mx-auto text-gray-500 mb-4" />
-          <h2 className="text-lg font-medium text-white">Livre non trouve</h2>
-          <Button asChild className="mt-4">
-            <Link to="/cookbooks">Retour aux livres</Link>
-          </Button>
+          <h2 className="text-lg font-medium text-white mb-2">
+            {isError ? "Erreur lors du chargement" : "Livre non trouve"}
+          </h2>
+          {isError && (
+            <p className="text-gray-400 mb-4">
+              {(error as Error)?.message || "Une erreur est survenue"}
+            </p>
+          )}
+          <div className="flex justify-center gap-3">
+            <Button variant="outline" onClick={() => refetch()}>
+              Reessayer
+            </Button>
+            <Button asChild>
+              <Link to="/cookbooks">Retour aux livres</Link>
+            </Button>
+          </div>
         </div>
       </DashboardLayout>
     );

@@ -93,19 +93,24 @@ export default function UploadPage() {
     mutationFn: async () => {
       if (!uploadedPath) throw new Error("No file uploaded");
 
-      return api.post<Cookbook>("/api/cookbooks", {
+      const cookbook = await api.post<Cookbook>("/api/cookbooks", {
         name: cookbookName,
         filePath: uploadedPath,
         fileSize: file?.size,
         totalPages: 10, // This would be determined by actual PDF processing
         ...options,
       });
+
+      // Start processing after cookbook is created
+      await api.post("/api/processing/start", { cookbookId: cookbook.id });
+
+      return cookbook;
     },
     onSuccess: (cookbook) => {
-      // Start processing
-      api.post("/api/processing/start", { cookbookId: cookbook.id }).then(() => {
-        navigate(`/cookbooks/${cookbook.id}`);
-      });
+      navigate(`/cookbooks/${cookbook.id}`);
+    },
+    onError: (error) => {
+      console.error("Error creating cookbook:", error);
     },
   });
 
@@ -318,6 +323,16 @@ export default function UploadPage() {
                 </div>
               </div>
             </div>
+
+            {/* Error display */}
+            {createCookbookMutation.isError && (
+              <div className="flex items-center gap-2 p-4 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive">
+                <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                <span className="text-sm">
+                  {(createCookbookMutation.error as Error)?.message || "Erreur lors du traitement"}
+                </span>
+              </div>
+            )}
 
             {/* Start Button */}
             <Button
