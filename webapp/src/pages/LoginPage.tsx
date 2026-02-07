@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,15 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [splineLoaded, setSplineLoaded] = useState(false);
+
+  // Lazy load Spline iframe after component mounts to prevent initial lag
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSplineLoaded(true);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,17 +45,25 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black p-4 relative overflow-hidden">
-      {/* Lightweight CSS gradient background */}
-      <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 via-black to-blue-900/30" />
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-blue-600/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-500/10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '0.5s' }} />
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4 relative overflow-hidden">
+      {/* Spline 3D Background - lazy loaded */}
+      <div className="absolute top-0 left-0 w-full h-full -z-10">
+        {splineLoaded && (
+          <iframe
+            src="https://my.spline.design/celestialflowabstractdigitalform-ObUlVgj70g2y4bbx5vBKSfxN/"
+            frameBorder="0"
+            width="100%"
+            height="100%"
+            id="aura-spline"
+            title="Background Animation"
+            className="pointer-events-none"
+            loading="lazy"
+          />
+        )}
       </div>
 
       <div className="w-full max-w-md animate-fade-in relative z-10">
-        <div className="p-8 rounded-2xl animate-slide-up backdrop-blur-xl bg-black/60 border border-white/10 shadow-2xl">
+        <div className="glass-card-static p-8 rounded-2xl animate-slide-up backdrop-blur-xl bg-gray-900/70 border border-white/10">
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
@@ -70,7 +87,7 @@ export default function LoginPage() {
                   placeholder="vous@exemple.fr"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-lg text-white placeholder-gray-500 bg-white/5 border border-white/10 focus:border-primary/50 focus:outline-none transition-colors"
+                  className="glass-input w-full pl-10 pr-4 py-3 rounded-lg text-white placeholder-gray-500 bg-gray-800/50 border border-white/10 focus:border-primary/50 focus:outline-none transition-colors"
                   required
                   disabled={isLoading}
                 />
