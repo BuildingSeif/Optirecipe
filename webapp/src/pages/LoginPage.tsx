@@ -36,12 +36,22 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-slate-900 to-gray-800 p-4 relative overflow-hidden">
-      {/* Ambient orbs background */}
-      <div className="ambient-orbs fixed inset-0 pointer-events-none" />
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4 relative overflow-hidden">
+      {/* Spline 3D Background */}
+      <div className="absolute top-0 left-0 w-full h-full -z-10">
+        <iframe
+          src="https://my.spline.design/celestialflowabstractdigitalform-ObUlVgj70g2y4bbx5vBKSfxN/"
+          frameBorder="0"
+          width="100%"
+          height="100%"
+          id="aura-spline"
+          title="Background Animation"
+          className="pointer-events-none"
+        />
+      </div>
 
-      <div className="w-full max-w-md animate-fade-in">
-        <div className="glass-card-static p-8 rounded-2xl animate-slide-up">
+      <div className="w-full max-w-md animate-fade-in relative z-10">
+        <div className="glass-card-static p-8 rounded-2xl animate-slide-up backdrop-blur-xl bg-gray-900/70 border border-white/10">
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
@@ -65,7 +75,7 @@ export default function LoginPage() {
                   placeholder="vous@exemple.fr"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="glass-input w-full pl-10 pr-4 py-3 rounded-lg text-white placeholder-gray-500"
+                  className="glass-input w-full pl-10 pr-4 py-3 rounded-lg text-white placeholder-gray-500 bg-gray-800/50 border border-white/10"
                   required
                   disabled={isLoading}
                 />
@@ -99,7 +109,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <p className="mt-6 text-center text-xs text-gray-600">
+        <p className="mt-6 text-center text-xs text-gray-400">
           OptiRecipe par OptiMenu &copy; {new Date().getFullYear()}
         </p>
       </div>
