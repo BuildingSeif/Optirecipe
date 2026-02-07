@@ -291,7 +291,7 @@ export default function RecipeDetailPage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Description */}
             <div className="glass-card-static p-8 rounded-2xl">
-              <h3 className="text-base font-semibold text-white mb-4">Description</h3>
+              <h3 className="text-base font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent mb-4">Description</h3>
               {isEditing ? (
                 <Textarea
                   value={formData.description || ""}
@@ -310,7 +310,7 @@ export default function RecipeDetailPage() {
             {/* Ingredients */}
             <div className="glass-card-static p-8 rounded-2xl">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-semibold text-white">
+                <h3 className="text-base font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">
                   Ingredients ({recipe.ingredients?.length || 0})
                 </h3>
               </div>
@@ -335,7 +335,7 @@ export default function RecipeDetailPage() {
 
             {/* Instructions */}
             <div className="glass-card-static p-8 rounded-2xl">
-              <h3 className="text-base font-semibold text-white mb-4">
+              <h3 className="text-base font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent mb-4">
                 Instructions ({recipe.instructions?.length || 0})
               </h3>
               {recipe.instructions && recipe.instructions.length > 0 ? (
@@ -365,7 +365,7 @@ export default function RecipeDetailPage() {
             {/* Tips */}
             {recipe.tips && (
               <div className="glass-card-static p-8 rounded-2xl">
-                <h3 className="text-base font-semibold text-white mb-4">Conseils du chef</h3>
+                <h3 className="text-base font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent mb-4">Conseils du chef</h3>
                 <p className="text-gray-400">{recipe.tips}</p>
               </div>
             )}
@@ -406,7 +406,7 @@ export default function RecipeDetailPage() {
 
             {/* Metadata */}
             <div className="glass-card-static p-8 rounded-2xl">
-              <h3 className="text-base font-semibold text-white mb-4">Metadonnees</h3>
+              <h3 className="text-base font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent mb-4">Metadonnees</h3>
               <div className="space-y-4">
                 <div>
                   <Label className="text-gray-500">Categorie</Label>
@@ -501,7 +501,7 @@ export default function RecipeDetailPage() {
 
             {/* Source */}
             <div className="glass-card-static p-8 rounded-2xl">
-              <h3 className="text-base font-semibold text-white mb-4">Source</h3>
+              <h3 className="text-base font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent mb-4">Source</h3>
               <div className="space-y-2">
                 {recipe.cookbook && (
                   <Link

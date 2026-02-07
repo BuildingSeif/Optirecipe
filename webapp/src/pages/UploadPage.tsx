@@ -21,6 +21,11 @@ import type { Cookbook } from "../../../backend/src/types";
 
 const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 
+// Chunk size for large file uploads (5MB chunks)
+const CHUNK_SIZE = 5 * 1024 * 1024;
+// Files larger than 10MB use chunked upload
+const CHUNKED_UPLOAD_THRESHOLD = 10 * 1024 * 1024;
+
 type TabType = "pdf" | "ckbk" | "web";
 
 interface FileUploadState {
@@ -54,8 +59,8 @@ function CKBKTab() {
   return (
     <div className="max-w-lg mx-auto text-center space-y-6 py-8">
       {/* Icon */}
-      <div className="w-16 h-16 rounded-full bg-orange-500/20 flex items-center justify-center mx-auto">
-        <BookOpen className="h-8 w-8 text-orange-400" />
+      <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto">
+        <BookOpen className="h-8 w-8 text-primary" />
       </div>
 
       {/* Badge */}
@@ -63,7 +68,7 @@ function CKBKTab() {
 
       {/* Heading */}
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold text-white">Import CKBK</h2>
+        <h2 className="text-2xl font-bold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">Import CKBK</h2>
         <p className="text-white/70 max-w-md mx-auto">
           Importez directement depuis la base de donnees CKBK, la plus grande collection de livres de cuisine premium au monde. Les recettes en anglais seront automatiquement traduites et converties en grammes.
         </p>
@@ -83,6 +88,7 @@ function CKBKTab() {
 
       {/* Features */}
       <div className="glass-card-static p-6 rounded-xl text-left space-y-3">
+        <h3 className="text-sm font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent mb-3">Fonctionnalites</h3>
         <FeatureItem text="Traduction automatique anglais -> francais" />
         <FeatureItem text="Conversion cups/oz -> grammes" />
         <FeatureItem text="Import en lot (plusieurs recettes)" />
@@ -103,8 +109,8 @@ function WebSitesTab() {
   return (
     <div className="max-w-lg mx-auto text-center space-y-6 py-8">
       {/* Icon */}
-      <div className="w-16 h-16 rounded-full bg-orange-500/20 flex items-center justify-center mx-auto">
-        <Globe className="h-8 w-8 text-orange-400" />
+      <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto">
+        <Globe className="h-8 w-8 text-primary" />
       </div>
 
       {/* Badge */}
@@ -112,25 +118,28 @@ function WebSitesTab() {
 
       {/* Heading */}
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold text-white">Import depuis sites web</h2>
+        <h2 className="text-2xl font-bold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">Import depuis sites web</h2>
         <p className="text-white/70 max-w-md mx-auto">
           Extrayez des recettes depuis les meilleurs sites culinaires francais. Contenu editorial de qualite, sans les publicites.
         </p>
       </div>
 
       {/* Supported Sites Grid */}
-      <div className="grid grid-cols-2 gap-3">
-        {sites.map((site) => (
-          <div
-            key={site.name}
-            className="glass-card-static p-4 rounded-xl flex items-center gap-3"
-          >
-            <div className={`w-8 h-8 rounded-lg ${site.color} flex items-center justify-center text-white text-xs font-bold`}>
-              {site.initials}
+      <div className="glass-card-static p-6 rounded-xl">
+        <h3 className="text-sm font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent mb-4">Sites supportes</h3>
+        <div className="grid grid-cols-2 gap-3">
+          {sites.map((site) => (
+            <div
+              key={site.name}
+              className="bg-white/5 p-4 rounded-xl flex items-center gap-3"
+            >
+              <div className={`w-8 h-8 rounded-lg ${site.color} flex items-center justify-center text-white text-xs font-bold`}>
+                {site.initials}
+              </div>
+              <span className="text-sm text-white font-medium">{site.name}</span>
             </div>
-            <span className="text-sm text-white font-medium">{site.name}</span>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       {/* Disabled Preview */}
@@ -224,8 +233,103 @@ export default function UploadPage() {
     setFiles([]);
   };
 
-  // Upload with real progress tracking using XMLHttpRequest
-  const uploadSingleFile = async (fileState: FileUploadState): Promise<string> => {
+  // Chunked upload for large files
+  const uploadChunked = async (fileState: FileUploadState): Promise<string> => {
+    const file = fileState.file;
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+    updateFileState(fileState.id, { status: "uploading", progress: 0 });
+
+    try {
+      // Step 1: Initialize upload
+      const initResponse = await fetch(`${API_BASE_URL}/api/upload/init`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          fileName: file.name,
+          fileSize: file.size,
+          totalChunks,
+        }),
+      });
+
+      if (!initResponse.ok) {
+        const error = await initResponse.json();
+        throw new Error(error.error?.message || "Failed to initialize upload");
+      }
+
+      const { data: initData } = await initResponse.json();
+      const { uploadId } = initData;
+
+      // Step 2: Upload chunks sequentially
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunk = file.slice(start, end);
+
+        const formData = new FormData();
+        formData.append("chunk", chunk);
+
+        const chunkResponse = await fetch(
+          `${API_BASE_URL}/api/upload/chunk/${uploadId}/${i}`,
+          {
+            method: "POST",
+            credentials: "include",
+            body: formData,
+          }
+        );
+
+        if (!chunkResponse.ok) {
+          // Abort on failure
+          await fetch(`${API_BASE_URL}/api/upload/abort/${uploadId}`, {
+            method: "DELETE",
+            credentials: "include",
+          });
+          throw new Error(`Failed to upload chunk ${i + 1}/${totalChunks}`);
+        }
+
+        // Update progress
+        const progress = Math.round(((i + 1) / totalChunks) * 95); // Leave 5% for completion
+        updateFileState(fileState.id, { progress });
+      }
+
+      // Step 3: Complete upload
+      updateFileState(fileState.id, { progress: 98 });
+
+      const completeResponse = await fetch(
+        `${API_BASE_URL}/api/upload/complete/${uploadId}`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+
+      if (!completeResponse.ok) {
+        const error = await completeResponse.json();
+        throw new Error(error.error?.message || "Failed to complete upload");
+      }
+
+      const { data: completeData } = await completeResponse.json();
+
+      updateFileState(fileState.id, {
+        status: "uploaded",
+        progress: 100,
+        uploadedPath: completeData.filePath,
+      });
+
+      return completeData.filePath;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Upload failed";
+      updateFileState(fileState.id, {
+        status: "error",
+        error: message,
+      });
+      throw error;
+    }
+  };
+
+  // Direct upload for small files (using XHR for progress)
+  const uploadDirect = async (fileState: FileUploadState): Promise<string> => {
     return new Promise((resolve, reject) => {
       const formData = new FormData();
       formData.append("file", fileState.file);
@@ -291,6 +395,18 @@ export default function UploadPage() {
       xhr.timeout = 600000; // 10 minute timeout for large files
       xhr.send(formData);
     });
+  };
+
+  // Main upload function - chooses between chunked and direct based on file size
+  const uploadSingleFile = async (fileState: FileUploadState): Promise<string> => {
+    // Use chunked upload for files larger than 10MB
+    if (fileState.file.size > CHUNKED_UPLOAD_THRESHOLD) {
+      console.log(`Using chunked upload for ${fileState.file.name} (${(fileState.file.size / 1024 / 1024).toFixed(1)} MB)`);
+      return uploadChunked(fileState);
+    } else {
+      console.log(`Using direct upload for ${fileState.file.name} (${(fileState.file.size / 1024 / 1024).toFixed(1)} MB)`);
+      return uploadDirect(fileState);
+    }
   };
 
   const createCookbookForFile = async (fileState: FileUploadState): Promise<Cookbook> => {
