@@ -249,6 +249,15 @@ function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// Normalize filename for comparison (remove special chars, lowercase)
+function normalizeFilename(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove accents
+    .replace(/[^a-z0-9]/g, ''); // Keep only alphanumeric
+}
+
 // Fetch PDF file from storage
 async function fetchPDFFromStorage(filePath: string, fileUrl?: string | null): Promise<ArrayBuffer> {
   console.log(`Fetching PDF with filePath: ${filePath}, fileUrl: ${fileUrl || 'not provided'}`);
@@ -265,26 +274,39 @@ async function fetchPDFFromStorage(filePath: string, fileUrl?: string | null): P
 
   // Otherwise, list files to find the one matching our path
   const { files } = await vibecode.storage.list({ limit: 100 });
+  console.log(`Available files in storage: ${files.map(f => f.originalFilename).join(', ')}`);
 
-  // Find file by matching the original filename or storage path
+  // Extract filename from path and normalize it
+  const pathFileName = filePath.split('/').pop() || '';
+  const normalizedPathName = normalizeFilename(pathFileName);
+  console.log(`Looking for file matching: ${pathFileName} (normalized: ${normalizedPathName})`);
+
+  // Find file by multiple matching strategies
   const targetFile = files.find(f => {
-    // Match by storage path or original filename
-    return f.storagePath === filePath ||
-           filePath.includes(f.originalFilename) ||
-           f.originalFilename.includes(filePath.split('/').pop() || '');
+    // Exact match on storage path
+    if (f.storagePath === filePath) return true;
+
+    // Exact match on original filename
+    if (f.originalFilename === pathFileName) return true;
+
+    // Normalized filename match (handles special chars and accents)
+    const normalizedOriginal = normalizeFilename(f.originalFilename);
+    if (normalizedOriginal === normalizedPathName) return true;
+
+    // Partial normalized match (for cases where names are slightly different)
+    if (normalizedOriginal.includes(normalizedPathName) || normalizedPathName.includes(normalizedOriginal)) return true;
+
+    return false;
   });
 
   if (!targetFile) {
-    // Try to find by partial match on the path
-    const fileName = filePath.split('/').pop();
-    const possibleMatch = files.find(f =>
-      f.originalFilename.includes(fileName || '') ||
-      (fileName && f.storagePath.includes(fileName))
-    );
-
-    if (possibleMatch) {
-      console.log(`Found file by partial match: ${possibleMatch.url}`);
-      const response = await fetch(possibleMatch.url);
+    // Last resort: find most recent PDF file
+    const pdfFiles = files.filter(f => f.originalFilename.toLowerCase().endsWith('.pdf'));
+    if (pdfFiles.length > 0) {
+      // Sort by most recent (assuming files are returned in some order)
+      const mostRecent = pdfFiles[pdfFiles.length - 1];
+      console.log(`Using most recent PDF as fallback: ${mostRecent.originalFilename}`);
+      const response = await fetch(mostRecent.url);
       if (!response.ok) {
         throw new Error(`Failed to fetch PDF: ${response.statusText}`);
       }
@@ -347,7 +369,7 @@ async function callOpenAIVision(imageBase64: string, pageNum: number): Promise<E
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o',
+          model: 'gpt-5.2',
           messages: [
             {
               role: 'user',
@@ -366,8 +388,8 @@ async function callOpenAIVision(imageBase64: string, pageNum: number): Promise<E
               ],
             },
           ],
-          max_tokens: 4096,
-          temperature: 0.1,
+          max_completion_tokens: 4096,
+          temperature: 1,
         }),
       });
 
