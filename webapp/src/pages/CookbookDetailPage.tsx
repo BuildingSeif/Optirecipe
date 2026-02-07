@@ -124,7 +124,7 @@ export default function CookbookDetailPage() {
             </Link>
           </Button>
           <div className="flex-1">
-            <h1 className="text-xl font-semibold text-white">{cookbook.name}</h1>
+            <h1 className="text-xl font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">{cookbook.name}</h1>
             <StatusBadge status={cookbook.status} />
           </div>
           {cookbook.status !== "processing" && (
@@ -184,7 +184,7 @@ export default function CookbookDetailPage() {
 
         {/* Recipes List */}
         <div className="glass-card-static p-6 rounded-xl">
-          <h2 className="text-lg font-medium text-white mb-4">Recettes</h2>
+          <h2 className="text-lg font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent mb-4">Recettes</h2>
           {cookbook.recipes && cookbook.recipes.length > 0 ? (
             <div className="space-y-2">
               {cookbook.recipes.map((recipe) => (

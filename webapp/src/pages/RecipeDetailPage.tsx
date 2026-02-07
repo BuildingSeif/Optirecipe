@@ -101,6 +101,8 @@ export default function RecipeDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recipe", id] });
       queryClient.invalidateQueries({ queryKey: ["recipes"] });
+      queryClient.invalidateQueries({ queryKey: ["cookbook"] });
+      queryClient.invalidateQueries({ queryKey: ["cookbooks"] });
       setIsEditing(false);
     },
   });
@@ -187,7 +189,7 @@ export default function RecipeDetailPage() {
                   className="glass-input text-2xl font-semibold h-auto py-1 px-2 text-white"
                 />
               ) : (
-                <h1 className="text-2xl font-semibold text-white">{recipe.title}</h1>
+                <h1 className="text-2xl font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">{recipe.title}</h1>
               )}
               <div className="flex items-center gap-2 mt-2">
                 <StatusBadge status={recipe.status} />
