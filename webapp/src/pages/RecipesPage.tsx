@@ -35,7 +35,7 @@ function StatusBadge({ status }: { status: string }) {
     rejected: { label: "Rejetee", className: "badge-rejected" },
   };
   const variant = variants[status] || { label: status, className: "" };
-  return <Badge variant="outline" className={variant.className}>{variant.label}</Badge>;
+  return <Badge variant="outline" className={`${variant.className} font-semibold`}>{variant.label}</Badge>;
 }
 
 export default function RecipesPage() {
@@ -90,17 +90,17 @@ export default function RecipesPage() {
       <div className="space-y-6">
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-4">
-          <div className="glass-input flex items-center gap-3 rounded-xl px-4 flex-1 min-w-[200px]">
-            <Search className="h-4 w-4 text-gray-500" />
+          <div className="glass-card-static flex items-center gap-3 rounded-xl px-4 flex-1 min-w-[200px]">
+            <Search className="h-4 w-4 text-primary" />
             <input
               placeholder="Rechercher..."
               value={search}
               onChange={(e) => updateFilter("search", e.target.value)}
-              className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-gray-500 py-2 text-sm"
+              className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-white/50 py-3 text-sm font-medium"
             />
           </div>
           <Select value={status} onValueChange={(v) => updateFilter("status", v)}>
-            <SelectTrigger className="w-[140px] glass-input border-none text-sm">
+            <SelectTrigger className="w-[160px] glass-card-static border-none text-sm font-semibold text-white">
               <SelectValue placeholder="Statut" />
             </SelectTrigger>
             <SelectContent>
@@ -113,13 +113,13 @@ export default function RecipesPage() {
 
         {/* Bulk Actions */}
         {selectedRecipes.length > 0 && (
-          <div className="flex items-center justify-between p-3 bg-primary/10 rounded-lg">
-            <span className="text-sm text-white">{selectedRecipes.length} selectionnee(s)</span>
+          <div className="flex items-center justify-between p-4 bg-primary/20 rounded-xl border border-primary/30">
+            <span className="text-sm text-white font-semibold">{selectedRecipes.length} selectionnee(s)</span>
             <div className="flex gap-2">
-              <Button size="sm" onClick={() => bulkUpdateMutation.mutate({ status: "approved" })}>
+              <Button size="sm" className="font-semibold" onClick={() => bulkUpdateMutation.mutate({ status: "approved" })}>
                 <CheckCircle2 className="mr-1 h-4 w-4" /> Approuver
               </Button>
-              <Button size="sm" variant="destructive" onClick={() => bulkUpdateMutation.mutate({ status: "rejected" })}>
+              <Button size="sm" variant="destructive" className="font-semibold" onClick={() => bulkUpdateMutation.mutate({ status: "rejected" })}>
                 <XCircle className="mr-1 h-4 w-4" /> Rejeter
               </Button>
             </div>
@@ -129,24 +129,24 @@ export default function RecipesPage() {
         {/* Results */}
         {isLoading ? (
           <div className="flex justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : data?.recipes && data.recipes.length > 0 ? (
           <>
-            <div className="text-sm text-gray-500">{data.pagination.total} recettes</div>
+            <div className="text-sm text-white/70 font-medium">{data.pagination.total} recettes</div>
 
-            <div className="glass-card-static rounded-xl divide-y divide-white/5">
+            <div className="glass-card-static rounded-xl divide-y divide-white/10">
               {data.recipes.map((recipe) => (
-                <div key={recipe.id} className="flex items-center gap-4 p-4 hover:bg-white/5">
+                <div key={recipe.id} className="flex items-center gap-4 p-4 hover:bg-white/10 transition-colors">
                   <Checkbox
                     checked={selectedRecipes.includes(recipe.id)}
                     onCheckedChange={() => toggleRecipeSelection(recipe.id)}
                   />
                   <Link to={`/recipes/${recipe.id}`} className="flex-1 flex items-center gap-4">
-                    <ChefHat className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                    <ChefHat className="h-4 w-4 text-primary flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm font-medium truncate">{recipe.title}</p>
-                      <p className="text-xs text-gray-500">{recipe.category || "-"}</p>
+                      <p className="text-white text-sm font-semibold truncate">{recipe.title}</p>
+                      <p className="text-xs text-white/60">{recipe.category || "-"}</p>
                     </div>
                     <StatusBadge status={recipe.status} />
                   </Link>
@@ -159,15 +159,17 @@ export default function RecipesPage() {
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="text-white/70 hover:text-white font-semibold"
                   disabled={page <= 1}
                   onClick={() => updateFilter("page", (page - 1).toString())}
                 >
                   Precedent
                 </Button>
-                <span className="text-gray-500">Page {page} / {data.pagination.totalPages}</span>
+                <span className="text-white/70 font-medium">Page {page} / {data.pagination.totalPages}</span>
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="text-white/70 hover:text-white font-semibold"
                   disabled={page >= data.pagination.totalPages}
                   onClick={() => updateFilter("page", (page + 1).toString())}
                 >
@@ -178,8 +180,8 @@ export default function RecipesPage() {
           </>
         ) : (
           <div className="glass-card-static rounded-xl text-center py-12">
-            <ChefHat className="h-10 w-10 mx-auto text-gray-500 mb-4" />
-            <p className="text-gray-400">Aucune recette</p>
+            <ChefHat className="h-10 w-10 mx-auto text-primary mb-4" />
+            <p className="text-white/60 font-medium">Aucune recette</p>
           </div>
         )}
       </div>

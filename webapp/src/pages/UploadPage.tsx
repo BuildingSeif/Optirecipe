@@ -43,7 +43,7 @@ function ComingSoonBadge() {
 
 function FeatureItem({ text }: { text: string }) {
   return (
-    <div className="flex items-center gap-2 text-sm text-gray-300">
+    <div className="flex items-center gap-2 text-sm text-white/80">
       <Check className="h-4 w-4 text-primary flex-shrink-0" />
       <span>{text}</span>
     </div>
@@ -54,8 +54,8 @@ function CKBKTab() {
   return (
     <div className="max-w-lg mx-auto text-center space-y-6 py-8">
       {/* Icon */}
-      <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center mx-auto">
-        <BookOpen className="h-8 w-8 text-orange-500" />
+      <div className="w-16 h-16 rounded-full bg-orange-500/20 flex items-center justify-center mx-auto">
+        <BookOpen className="h-8 w-8 text-orange-400" />
       </div>
 
       {/* Badge */}
@@ -63,8 +63,8 @@ function CKBKTab() {
 
       {/* Heading */}
       <div className="space-y-2">
-        <h2 className="text-2xl font-semibold text-white">Import CKBK</h2>
-        <p className="text-gray-400 max-w-md mx-auto">
+        <h2 className="text-2xl font-bold text-white">Import CKBK</h2>
+        <p className="text-white/70 max-w-md mx-auto">
           Importez directement depuis la base de donnees CKBK, la plus grande collection de livres de cuisine premium au monde. Les recettes en anglais seront automatiquement traduites et converties en grammes.
         </p>
       </div>
@@ -74,7 +74,7 @@ function CKBKTab() {
         <Input
           placeholder="https://app.ckbk.com/recipe/..."
           disabled
-          className="bg-white/5 border-white/10 text-gray-500"
+          className="bg-white/5 border-white/10 text-white/50"
         />
         <Button disabled className="w-full">
           Importer
@@ -103,8 +103,8 @@ function WebSitesTab() {
   return (
     <div className="max-w-lg mx-auto text-center space-y-6 py-8">
       {/* Icon */}
-      <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center mx-auto">
-        <Globe className="h-8 w-8 text-orange-500" />
+      <div className="w-16 h-16 rounded-full bg-orange-500/20 flex items-center justify-center mx-auto">
+        <Globe className="h-8 w-8 text-orange-400" />
       </div>
 
       {/* Badge */}
@@ -112,8 +112,8 @@ function WebSitesTab() {
 
       {/* Heading */}
       <div className="space-y-2">
-        <h2 className="text-2xl font-semibold text-white">Import depuis sites web</h2>
-        <p className="text-gray-400 max-w-md mx-auto">
+        <h2 className="text-2xl font-bold text-white">Import depuis sites web</h2>
+        <p className="text-white/70 max-w-md mx-auto">
           Extrayez des recettes depuis les meilleurs sites culinaires francais. Contenu editorial de qualite, sans les publicites.
         </p>
       </div>
@@ -138,7 +138,7 @@ function WebSitesTab() {
         <Input
           placeholder="https://www.ellatable.fr/recettes/..."
           disabled
-          className="bg-white/5 border-white/10 text-gray-500"
+          className="bg-white/5 border-white/10 text-white/50"
         />
         <Button disabled className="w-full">
           Importer
@@ -146,7 +146,7 @@ function WebSitesTab() {
       </div>
 
       {/* Footer Note */}
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-white/50">
         Les recettes seront automatiquement reformulees pour respecter les droits d'auteur.
       </p>
     </div>
@@ -368,10 +368,10 @@ export default function UploadPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-all ${
+              className={`px-6 py-2.5 text-sm font-semibold rounded-lg transition-all ${
                 activeTab === tab.id
-                  ? "bg-primary text-white shadow-lg"
-                  : "text-gray-400 hover:text-white"
+                  ? "bg-primary text-white shadow-lg shadow-primary/30"
+                  : "text-white/70 hover:text-white"
               }`}
             >
               {tab.label}
@@ -387,38 +387,38 @@ export default function UploadPage() {
           <div
             {...getRootProps()}
             className={`glass-card-static p-12 text-center cursor-pointer border-2 border-dashed rounded-xl transition-all ${
-              isDragActive ? "border-primary bg-primary/10" : "border-white/20 hover:border-primary/50"
+              isDragActive ? "border-primary bg-primary/20" : "border-primary/30 hover:border-primary/60"
             }`}
           >
             <input {...getInputProps()} />
-            <Upload className="h-10 w-10 mx-auto text-gray-500 mb-4" />
-            <p className="text-white font-medium">
+            <Upload className="h-10 w-10 mx-auto text-primary mb-4" />
+            <p className="text-white font-semibold text-lg">
               {isDragActive ? "Deposez ici" : "Glissez vos PDFs"}
             </p>
-            <p className="text-sm text-gray-500 mt-1">ou cliquez pour selectionner (plusieurs fichiers possibles)</p>
+            <p className="text-sm text-white/60 mt-1">ou cliquez pour selectionner (plusieurs fichiers possibles)</p>
           </div>
 
           {/* File List */}
           {files.length > 0 && (
             <div className="glass-card-static p-6 rounded-xl space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-white font-medium">
+                <h3 className="text-white font-semibold">
                   {files.length} fichier{files.length > 1 ? "s" : ""} selectionne{files.length > 1 ? "s" : ""}
                 </h3>
-                <Button variant="ghost" size="sm" onClick={clearAllFiles} disabled={isUploading || isProcessing}>
+                <Button variant="ghost" size="sm" onClick={clearAllFiles} disabled={isUploading || isProcessing} className="text-white/70 hover:text-white">
                   Tout effacer
                 </Button>
               </div>
 
               <div className="space-y-3 max-h-[300px] overflow-y-auto">
                 {files.map((fileState) => (
-                  <div key={fileState.id} className="bg-white/5 rounded-lg p-3 space-y-2">
+                  <div key={fileState.id} className="bg-white/10 rounded-lg p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         {getStatusIcon(fileState.status)}
                         <div className="flex-1 min-w-0">
-                          <p className="text-white text-sm font-medium truncate">{fileState.file.name}</p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-white text-sm font-semibold truncate">{fileState.file.name}</p>
+                          <p className="text-xs text-white/60">
                             {formatFileSize(fileState.file.size)} - {getStatusText(fileState.status)}
                           </p>
                         </div>
@@ -426,7 +426,7 @@ export default function UploadPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 flex-shrink-0"
+                        className="h-8 w-8 flex-shrink-0 text-white/70 hover:text-white"
                         onClick={() => removeFile(fileState.id)}
                         disabled={fileState.status === "uploading" || fileState.status === "processing"}
                       >
@@ -438,7 +438,7 @@ export default function UploadPage() {
                     {(fileState.status === "uploading" || fileState.status === "processing") && (
                       <div className="space-y-1">
                         <Progress value={fileState.progress} className="h-1.5" />
-                        <p className="text-xs text-gray-500 text-right">{fileState.progress}%</p>
+                        <p className="text-xs text-white/60 text-right">{fileState.progress}%</p>
                       </div>
                     )}
 
@@ -449,14 +449,14 @@ export default function UploadPage() {
                           value={fileState.name}
                           onChange={(e) => updateFileName(fileState.id, e.target.value)}
                           placeholder="Nom du livre"
-                          className="glass-input text-sm"
+                          className="glass-input text-sm text-white"
                         />
                       </div>
                     )}
 
                     {/* Error Message */}
                     {fileState.status === "error" && fileState.error && (
-                      <p className="text-xs text-destructive">{fileState.error}</p>
+                      <p className="text-xs text-destructive font-medium">{fileState.error}</p>
                     )}
                   </div>
                 ))}
@@ -468,7 +468,7 @@ export default function UploadPage() {
                   <Button
                     onClick={handleUploadAll}
                     disabled={isUploading}
-                    className="w-full"
+                    className="w-full gradient-primary font-semibold shadow-lg shadow-primary/30"
                   >
                     {isUploading ? (
                       <>
@@ -485,7 +485,7 @@ export default function UploadPage() {
                   <Button
                     onClick={handleProcessAll}
                     disabled={isProcessing || uploadedCount === 0}
-                    className="w-full"
+                    className="w-full gradient-primary font-semibold shadow-lg shadow-primary/30"
                     size="lg"
                   >
                     {isProcessing ? (
