@@ -38,6 +38,8 @@ app.use(
   cors({
     origin: (origin) => (origin && allowed.some((re) => re.test(origin)) ? origin : null),
     credentials: true,
+    allowHeaders: ["Content-Type", "Authorization", "Accept"],
+    exposeHeaders: ["Content-Length", "Content-Type"],
   })
 );
 
