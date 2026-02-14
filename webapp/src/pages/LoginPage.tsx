@@ -23,7 +23,6 @@ export default function LoginPage() {
     try {
       const res = await fetch(`${BACKEND_URL}/api/otp/request-otp`, {
         method: "POST",
-        credentials: "include",
         headers: {
           "Content-Type": "application/json",
           "Accept": "application/json",
