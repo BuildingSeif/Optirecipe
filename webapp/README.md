@@ -53,11 +53,13 @@ OptiRecipe is a production-grade web application for extracting, processing, and
 - `GET /api/auth/session` - Get current session
 
 ### Cookbooks
-- `GET /api/cookbooks` - List cookbooks
+- `GET /api/cookbooks` - List cookbooks (supports `?search=`, `?status=`, `?sort=newest|oldest|name`)
 - `GET /api/cookbooks/:id` - Get cookbook details
 - `POST /api/cookbooks` - Create cookbook
-- `PATCH /api/cookbooks/:id` - Update cookbook
+- `PATCH /api/cookbooks/:id` - Update cookbook (name, status, pinned)
 - `DELETE /api/cookbooks/:id` - Delete cookbook
+- `POST /api/cookbooks/bulk/delete` - Bulk delete cookbooks
+- `POST /api/cookbooks/bulk/pin` - Bulk pin/unpin cookbooks
 
 ### Recipes
 - `GET /api/recipes` - List recipes with filters
@@ -72,14 +74,26 @@ OptiRecipe is a production-grade web application for extracting, processing, and
 - `GET /api/processing/:id` - Get job details
 - `POST /api/processing/start` - Start processing a cookbook
 - `POST /api/processing/:id/cancel` - Cancel processing
+- `POST /api/processing/:id/pause` - Pause processing
+- `POST /api/processing/:id/resume` - Resume paused processing
 
 ### Export
 - `POST /api/export` - Generate export
 - `GET /api/export/history` - Export history
 
 ### Stats
-- `GET /api/stats` - Dashboard stats
-- `GET /api/stats/recent` - Recent activity
+- `GET /api/stats` - Dashboard stats (includes cookbook status counts)
+- `GET /api/stats/recent` - Recent activity (cookbooks, recipes, jobs)
+
+### Images
+- `POST /api/images/generate` - Generate recipe image (FAL AI Flux Pro)
+- `POST /api/images/:id/regenerate-image` - Regenerate image for existing recipe
+
+### Non-Recipe Content
+- `GET /api/non-recipe-content` - List content (supports `?cookbookId=`, `?type=`, `?page=`, `?limit=`)
+- `GET /api/non-recipe-content/types` - Get content types with counts
+- `GET /api/non-recipe-content/:id` - Get single content item
+- `DELETE /api/non-recipe-content/:id` - Delete content item
 
 ### Upload
 - `POST /api/upload/pdf` - Upload PDF file
@@ -90,10 +104,11 @@ OptiRecipe is a production-grade web application for extracting, processing, and
 
 Key tables:
 - `User` - User accounts (Better Auth)
-- `Cookbook` - Uploaded PDF cookbooks
+- `Cookbook` - Uploaded PDF cookbooks (with pinned field)
 - `Recipe` - Extracted recipes
-- `ProcessingJob` - Processing job tracking
+- `ProcessingJob` - Processing job tracking (supports pause/resume)
 - `ExportHistory` - Export records
+- `NonRecipeContent` - Extracted techniques, tips, glossary from cookbooks
 
 ## Development
 

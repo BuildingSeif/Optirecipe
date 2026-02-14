@@ -13,6 +13,7 @@ import { statsRouter } from "./routes/stats";
 import { uploadRouter } from "./routes/upload";
 import { imagesRouter } from "./routes/images";
 import { userRouter } from "./routes/user";
+import { nonRecipeContentRouter } from "./routes/nonRecipeContent";
 
 // Type the Hono app with user/session variables
 const app = new Hono<{
@@ -86,6 +87,7 @@ app.route("/api/stats", statsRouter);
 app.route("/api/upload", uploadRouter);
 app.route("/api/images", imagesRouter);
 app.route("/api/user", userRouter);
+app.route("/api/non-recipe-content", nonRecipeContentRouter);
 
 const port = Number(process.env.PORT) || 3000;
 

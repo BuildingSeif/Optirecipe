@@ -51,7 +51,7 @@ async function generateRecipeImage(title: string, description?: string): Promise
     };
 
     if (result.images && result.images.length > 0) {
-      const imageUrl = result.images[0].url;
+      const imageUrl = result.images[0]!.url;
       console.log(`Successfully generated image for recipe: ${title}`);
       return imageUrl;
     }
@@ -180,8 +180,8 @@ Si une recette est trouvee:
 Si AUCUNE recette n'est trouvee (page d'intro, sommaire, etc.):
 {
   "found_recipe": false,
-  "page_type": "sommaire|introduction|publicite|autre",
-  "notes": "Breve description de ce que contient la page"
+  "page_type": "sommaire|introduction|technique|conseil|astuce|glossaire|publicite|autre",
+  "notes": "Resume detaille du contenu de la page: inclure les techniques, conseils, astuces, definitions, ou tout contenu utile present sur la page"
 }
 
 IMPORTANT:
@@ -222,6 +222,17 @@ const cancelledJobs = new Set<string>();
 
 export function cancelProcessingJob(jobId: string) {
   cancelledJobs.add(jobId);
+}
+
+// Pause token for processing jobs
+const pausedJobs = new Set<string>();
+
+export function pauseProcessingJob(jobId: string) {
+  pausedJobs.add(jobId);
+}
+
+export function resumeProcessingJob(jobId: string) {
+  pausedJobs.delete(jobId);
 }
 
 // Rate limiting for OpenAI API
@@ -289,7 +300,7 @@ async function fetchPDFFromStorage(filePath: string, fileUrl?: string | null): P
     const pdfFiles = files.filter(f => f.originalFilename.toLowerCase().endsWith('.pdf'));
     if (pdfFiles.length > 0) {
       // Sort by most recent (assuming files are returned in some order)
-      const mostRecent = pdfFiles[pdfFiles.length - 1];
+      const mostRecent = pdfFiles[pdfFiles.length - 1]!;
       console.log(`Using most recent PDF as fallback: ${mostRecent.originalFilename}`);
       const response = await fetch(mostRecent.url);
       if (!response.ok) {
@@ -454,15 +465,31 @@ export async function extractRecipesFromPDF(jobId: string): Promise<void> {
       throw new Error("Job or cookbook not found");
     }
 
-    // Update job to processing
+    // Determine if this is a resume (currentPage > 0 means we already processed some pages)
+    const isResume = (job.currentPage ?? 0) > 0;
+    const startPage = isResume ? (job.currentPage ?? 0) + 1 : 1;
+
+    // Update job to processing (only set startedAt on first run)
     await prisma.processingJob.update({
       where: { id: jobId },
-      data: { status: "processing", startedAt: new Date() },
+      data: {
+        status: "processing",
+        ...(isResume ? {} : { startedAt: new Date() }),
+      },
     });
 
-    const processingLog: string[] = [];
-    const errorLog: string[] = [];
-    let recipesExtracted = 0;
+    // Restore logs and count when resuming, otherwise start fresh
+    const processingLog: string[] = isResume
+      ? (() => { try { return JSON.parse(job.processingLog); } catch { return []; } })()
+      : [];
+    const errorLog: string[] = isResume
+      ? (() => { try { return JSON.parse(job.errorLog); } catch { return []; } })()
+      : [];
+    let recipesExtracted = isResume ? (job.recipesExtracted ?? 0) : 0;
+
+    if (isResume) {
+      processingLog.push(`Reprise du traitement a partir de la page ${startPage}`);
+    }
 
     // Check if OpenAI API key is available
     if (!env.OPENAI_API_KEY) {
@@ -518,12 +545,23 @@ export async function extractRecipesFromPDF(jobId: string): Promise<void> {
         data: { totalPages },
       });
 
-      // Process each page
-      for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+      // Process each page (start from startPage for resume support)
+      for (let pageNum = startPage; pageNum <= totalPages; pageNum++) {
         // Check if job was cancelled
         if (cancelledJobs.has(job.id)) {
           processingLog.push(`Page ${pageNum}: Traitement annule par l'utilisateur`);
           break;
+        }
+
+        // Check if job was paused
+        if (pausedJobs.has(job.id)) {
+          processingLog.push(`Page ${pageNum}: Traitement mis en pause par l'utilisateur`);
+          await updateJobProgress(job.id, job.cookbookId, pageNum - 1, recipesExtracted, processingLog);
+          await prisma.processingJob.update({
+            where: { id: job.id },
+            data: { status: "paused" },
+          });
+          return;
         }
 
         // Check recipe limit
@@ -605,6 +643,31 @@ export async function extractRecipesFromPDF(jobId: string): Promise<void> {
             const pageType = result.page_type || "inconnu";
             const notes = result.notes ? ` - ${result.notes}` : "";
             processingLog.push(`Page ${pageNum}: Pas de recette (${pageType}${notes})`);
+
+            // Store non-recipe content in database if there are useful notes
+            if (result.notes) {
+              const pageTypeToContentType: Record<string, string> = {
+                sommaire: "intro",
+                introduction: "intro",
+                technique: "technique",
+                conseil: "tip",
+                astuce: "tip",
+                glossaire: "glossary",
+              };
+              const mappedType = pageTypeToContentType[pageType] || "other";
+
+              await prisma.nonRecipeContent.create({
+                data: {
+                  cookbookId: job.cookbookId,
+                  userId: job.userId,
+                  type: mappedType,
+                  title: result.page_type || null,
+                  content: result.notes,
+                  page: pageNum,
+                  bookName: job.cookbook.name,
+                },
+              });
+            }
           }
 
           // Update progress after each page
@@ -701,6 +764,7 @@ export async function extractRecipesFromPDF(jobId: string): Promise<void> {
     }
   } finally {
     cancelledJobs.delete(jobId);
+    pausedJobs.delete(jobId);
   }
 }
 

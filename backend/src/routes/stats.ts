@@ -22,6 +22,9 @@ statsRouter.get("/", async (c) => {
     approvedRecipes,
     rejectedRecipes,
     processingJobs,
+    processingCookbooks,
+    completedCookbooks,
+    failedCookbooks,
   ] = await Promise.all([
     prisma.cookbook.count({ where: { userId: user.id } }),
     prisma.recipe.count({ where: { userId: user.id } }),
@@ -31,6 +34,9 @@ statsRouter.get("/", async (c) => {
     prisma.processingJob.count({
       where: { userId: user.id, status: { in: ["pending", "processing"] } },
     }),
+    prisma.cookbook.count({ where: { userId: user.id, status: "processing" } }),
+    prisma.cookbook.count({ where: { userId: user.id, status: "completed" } }),
+    prisma.cookbook.count({ where: { userId: user.id, status: "failed" } }),
   ]);
 
   const stats: DashboardStats = {
@@ -40,6 +46,9 @@ statsRouter.get("/", async (c) => {
     approvedRecipes,
     rejectedRecipes,
     processingJobs,
+    processingCookbooks,
+    completedCookbooks,
+    failedCookbooks,
   };
 
   return c.json({ data: stats });
@@ -50,11 +59,11 @@ statsRouter.get("/recent", async (c) => {
   const user = c.get("user");
   if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
 
-  const [recentJobs, recentRecipes] = await Promise.all([
+  const [recentJobs, recentRecipes, recentCookbooks] = await Promise.all([
     prisma.processingJob.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
-      take: 5,
+      take: 8,
       include: {
         cookbook: {
           select: { id: true, name: true },
@@ -69,6 +78,14 @@ statsRouter.get("/recent", async (c) => {
         cookbook: {
           select: { id: true, name: true },
         },
+      },
+    }),
+    prisma.cookbook.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
+      take: 8,
+      include: {
+        _count: { select: { recipes: true } },
       },
     }),
   ]);
@@ -92,6 +109,7 @@ statsRouter.get("/recent", async (c) => {
     data: {
       recentJobs: parsedJobs,
       recentRecipes: parsedRecipes,
+      recentCookbooks,
     },
   });
 });

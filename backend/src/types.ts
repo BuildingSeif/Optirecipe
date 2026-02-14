@@ -149,6 +149,7 @@ export const UpdateCookbookSchema = z.object({
   processedPages: z.number().optional(),
   totalRecipesFound: z.number().optional(),
   errorMessage: z.string().optional(),
+  pinned: z.boolean().optional(),
 });
 
 export type UpdateCookbookInput = z.infer<typeof UpdateCookbookSchema>;
@@ -183,6 +184,9 @@ export interface DashboardStats {
   approvedRecipes: number;
   rejectedRecipes: number;
   processingJobs: number;
+  processingCookbooks: number;
+  completedCookbooks: number;
+  failedCookbooks: number;
 }
 
 // ==================== API Response Types ====================
@@ -234,6 +238,7 @@ export interface Cookbook {
   generateDescriptions: boolean;
   reformulateForCopyright: boolean;
   convertToGrams: boolean;
+  pinned: boolean;
   createdAt: Date;
   updatedAt: Date;
   recipes?: Recipe[];
@@ -295,6 +300,38 @@ export interface ChefExport {
   recipes: ChefExportRecipe[];
 }
 
+// ==================== Non-Recipe Content Schemas ====================
+export const NonRecipeContentTypeSchema = z.enum([
+  "technique",
+  "intro",
+  "tip",
+  "glossary",
+  "other",
+]);
+export type NonRecipeContentType = z.infer<typeof NonRecipeContentTypeSchema>;
+
+export const NonRecipeContentFiltersSchema = z.object({
+  cookbookId: z.string().optional(),
+  type: z.string().optional(),
+  page: z.coerce.number().default(1),
+  limit: z.coerce.number().default(20),
+});
+export type NonRecipeContentFilters = z.infer<typeof NonRecipeContentFiltersSchema>;
+
+export interface NonRecipeContent {
+  id: string;
+  cookbookId: string;
+  userId: string;
+  type: string;
+  title: string | null;
+  content: string;
+  summary: string | null;
+  page: number | null;
+  bookName: string | null;
+  createdAt: Date;
+  cookbook?: { id: string; name: string };
+}
+
 // ==================== Image Generation Schemas ====================
 export const GenerateImageRequestSchema = z.object({
   title: z.string().min(1),
@@ -304,6 +341,5 @@ export const GenerateImageRequestSchema = z.object({
 export type GenerateImageRequest = z.infer<typeof GenerateImageRequestSchema>;
 
 export interface GenerateImageResponse {
-  imageBase64: string;
-  mimeType: string;
+  imageUrl: string;
 }

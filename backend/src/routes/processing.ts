@@ -3,7 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { prisma } from "../prisma";
 import { auth } from "../auth";
 import { StartProcessingSchema } from "../types";
-import { extractRecipesFromPDF } from "../services/extraction";
+import { extractRecipesFromPDF, pauseProcessingJob, resumeProcessingJob } from "../services/extraction";
 
 const processingRouter = new Hono<{
   Variables: {
@@ -153,6 +153,73 @@ processingRouter.post("/:id/cancel", async (c) => {
   });
 
   return c.json({ data: { message: "Processing cancelled" } });
+});
+
+// Pause processing job
+processingRouter.post("/:id/pause", async (c) => {
+  const user = c.get("user");
+  if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
+
+  const { id } = c.req.param();
+
+  const job = await prisma.processingJob.findFirst({
+    where: { id, userId: user.id },
+  });
+
+  if (!job) {
+    return c.json({ error: { message: "Processing job not found" } }, 404);
+  }
+
+  if (job.status !== "processing") {
+    return c.json({ error: { message: "Job is not currently processing" } }, 400);
+  }
+
+  // Signal the extraction loop to pause
+  pauseProcessingJob(id);
+
+  // Update job status
+  await prisma.processingJob.update({
+    where: { id },
+    data: { status: "paused" },
+  });
+
+  return c.json({ data: { message: "Processing paused" } });
+});
+
+// Resume processing job
+processingRouter.post("/:id/resume", async (c) => {
+  const user = c.get("user");
+  if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
+
+  const { id } = c.req.param();
+
+  const job = await prisma.processingJob.findFirst({
+    where: { id, userId: user.id },
+  });
+
+  if (!job) {
+    return c.json({ error: { message: "Processing job not found" } }, 404);
+  }
+
+  if (job.status !== "paused") {
+    return c.json({ error: { message: "Job is not paused" } }, 400);
+  }
+
+  // Remove from paused set
+  resumeProcessingJob(id);
+
+  // Update job status
+  await prisma.processingJob.update({
+    where: { id },
+    data: { status: "processing" },
+  });
+
+  // Re-launch extraction from where it left off (currentPage is tracked in DB)
+  extractRecipesFromPDF(id).catch((error) => {
+    console.error("Resume processing error:", error);
+  });
+
+  return c.json({ data: { message: "Processing resumed" } });
 });
 
 export { processingRouter };

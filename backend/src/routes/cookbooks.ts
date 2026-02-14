@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { prisma } from "../prisma";
 import { auth } from "../auth";
@@ -11,25 +12,121 @@ const cookbooksRouter = new Hono<{
   };
 }>();
 
-// Get all cookbooks for current user
-cookbooksRouter.get("/", async (c) => {
-  const user = c.get("user");
-  if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
+// ==================== Query / Body Schemas ====================
 
-  const cookbooks = await prisma.cookbook.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: "desc" },
-    include: {
-      _count: {
-        select: { recipes: true },
-      },
-    },
-  });
-
-  return c.json({ data: cookbooks });
+const CookbookListQuerySchema = z.object({
+  search: z.string().optional(),
+  status: z.string().optional(),
+  sort: z.enum(["newest", "oldest", "name"]).optional().default("newest"),
 });
 
-// Get single cookbook
+const BulkDeleteSchema = z.object({
+  ids: z.array(z.string()).min(1),
+});
+
+const BulkPinSchema = z.object({
+  ids: z.array(z.string()).min(1),
+  pinned: z.boolean(),
+});
+
+// ==================== List cookbooks (with search, filter, sort) ====================
+
+cookbooksRouter.get(
+  "/",
+  zValidator("query", CookbookListQuerySchema),
+  async (c) => {
+    const user = c.get("user");
+    if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
+
+    const { search, status, sort } = c.req.valid("query");
+
+    // Build where clause
+    const where: Record<string, unknown> = { userId: user.id };
+
+    if (search) {
+      where.name = { contains: search };
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
+    // Build orderBy
+    let orderBy: Record<string, string>;
+    switch (sort) {
+      case "oldest":
+        orderBy = { createdAt: "asc" };
+        break;
+      case "name":
+        orderBy = { name: "asc" };
+        break;
+      case "newest":
+      default:
+        orderBy = { createdAt: "desc" };
+        break;
+    }
+
+    const cookbooks = await prisma.cookbook.findMany({
+      where,
+      orderBy,
+      include: {
+        _count: {
+          select: { recipes: true },
+        },
+      },
+    });
+
+    return c.json({ data: cookbooks });
+  }
+);
+
+// ==================== Bulk delete ====================
+
+cookbooksRouter.post(
+  "/bulk/delete",
+  zValidator("json", BulkDeleteSchema),
+  async (c) => {
+    const user = c.get("user");
+    if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
+
+    const { ids } = c.req.valid("json");
+
+    const result = await prisma.cookbook.deleteMany({
+      where: {
+        id: { in: ids },
+        userId: user.id,
+      },
+    });
+
+    return c.json({ data: { deleted: result.count } });
+  }
+);
+
+// ==================== Bulk pin / unpin ====================
+
+cookbooksRouter.post(
+  "/bulk/pin",
+  zValidator("json", BulkPinSchema),
+  async (c) => {
+    const user = c.get("user");
+    if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
+
+    const { ids, pinned } = c.req.valid("json");
+
+    const result = await prisma.cookbook.updateMany({
+      where: {
+        id: { in: ids },
+        userId: user.id,
+      },
+      data: { pinned },
+    });
+
+    return c.json({ data: { updated: result.count } });
+  }
+);
+
+// ==================== Get single cookbook ====================
+
 cookbooksRouter.get("/:id", async (c) => {
   const user = c.get("user");
   if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
@@ -56,7 +153,8 @@ cookbooksRouter.get("/:id", async (c) => {
   return c.json({ data: cookbook });
 });
 
-// Create cookbook
+// ==================== Create cookbook ====================
+
 cookbooksRouter.post("/", zValidator("json", CreateCookbookSchema), async (c) => {
   const user = c.get("user");
   if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
@@ -73,7 +171,8 @@ cookbooksRouter.post("/", zValidator("json", CreateCookbookSchema), async (c) =>
   return c.json({ data: cookbook }, 201);
 });
 
-// Update cookbook
+// ==================== Update cookbook ====================
+
 cookbooksRouter.patch("/:id", zValidator("json", UpdateCookbookSchema), async (c) => {
   const user = c.get("user");
   if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
@@ -98,7 +197,8 @@ cookbooksRouter.patch("/:id", zValidator("json", UpdateCookbookSchema), async (c
   return c.json({ data: cookbook });
 });
 
-// Delete cookbook
+// ==================== Delete cookbook ====================
+
 cookbooksRouter.delete("/:id", async (c) => {
   const user = c.get("user");
   if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);

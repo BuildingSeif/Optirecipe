@@ -122,10 +122,9 @@ export default function RecipeDetailPage() {
         title: recipe.title,
         description: recipe.description || undefined,
       });
-      // Convert base64 to data URL and save to recipe
-      const imageUrl = `data:${result.mimeType};base64,${result.imageBase64}`;
-      await api.patch(`/api/recipes/${id}`, { imageUrl });
-      return imageUrl;
+      // Save the generated image URL to the recipe
+      await api.patch(`/api/recipes/${id}`, { imageUrl: result.imageUrl });
+      return result.imageUrl;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recipe", id] });

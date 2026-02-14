@@ -26,6 +26,7 @@ model User {
   processingJobs ProcessingJob[]
   exportHistory ExportHistory[]
   reviewedRecipes Recipe[] @relation("ReviewedBy")
+  nonRecipeContent NonRecipeContent[]
 }
 
 model Session {
@@ -83,6 +84,7 @@ model Cookbook {
   processedPages      Int      @default(0)
   totalRecipesFound   Int      @default(0)
   errorMessage        String?
+  pinned              Boolean @default(false)
 
   // Processing options
   generateDescriptions Boolean @default(true)
@@ -94,6 +96,7 @@ model Cookbook {
 
   recipes             Recipe[]
   processingJobs      ProcessingJob[]
+  nonRecipeContent    NonRecipeContent[]
 
   @@index([userId])
   @@index([status])
@@ -106,7 +109,7 @@ model ProcessingJob {
   userId            String
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  status            String   @default("pending") // 'pending', 'processing', 'completed', 'failed', 'cancelled'
+  status            String   @default("pending") // 'pending', 'processing', 'completed', 'failed', 'cancelled', 'paused'
   currentPage       Int      @default(0)
   totalPages        Int?
   recipesExtracted  Int      @default(0)
@@ -210,4 +213,25 @@ model ExportHistory {
   format      String   // 'json', 'csv'
   filePath    String?
   createdAt   DateTime @default(now())
+}
+
+model NonRecipeContent {
+  id          String   @id @default(cuid())
+  cookbookId  String
+  cookbook     Cookbook  @relation(fields: [cookbookId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type        String   // 'technique', 'intro', 'tip', 'glossary', 'other'
+  title       String?
+  content     String   // The actual text content
+  summary     String?
+  page        Int?
+  bookName    String?
+
+  createdAt   DateTime @default(now())
+
+  @@index([cookbookId])
+  @@index([userId])
+  @@index([type])
 }
