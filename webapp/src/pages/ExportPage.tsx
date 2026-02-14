@@ -86,6 +86,11 @@ export default function ExportPage() {
     queryFn: () => api.get<Cookbook[]>("/api/cookbooks"),
   });
 
+  const { data: categories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => api.get<{ id: string; name: string; order: number }[]>("/api/categories"),
+  });
+
   const { data: recipesData, isLoading: recipesLoading } = useQuery({
     queryKey: ["recipes", "export", statusFilter, typeFilter, categoryFilter, cookbookFilter],
     queryFn: () => {
@@ -437,13 +442,9 @@ export default function ExportPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Toutes categories</SelectItem>
-                <SelectItem value="entree">Entree</SelectItem>
-                <SelectItem value="plat">Plat</SelectItem>
-                <SelectItem value="dessert">Dessert</SelectItem>
-                <SelectItem value="petit-dejeuner">Petit-dejeuner</SelectItem>
-                <SelectItem value="accompagnement">Accompagnement</SelectItem>
-                <SelectItem value="sauce">Sauce</SelectItem>
-                <SelectItem value="boisson">Boisson</SelectItem>
+                {categories?.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
