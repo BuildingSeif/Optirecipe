@@ -56,7 +56,8 @@ function loadSessionFromStorage(): Session | null {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSessionState] = useState<Session | null>(null);
+  // Load from localStorage synchronously on mount to prevent flash of wrong page
+  const [session, setSessionState] = useState<Session | null>(() => loadSessionFromStorage());
   const [isPending, setIsPending] = useState(true);
 
   const setSession = useCallback((s: Session | null) => {

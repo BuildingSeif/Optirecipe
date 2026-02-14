@@ -21,8 +21,17 @@
   <meta name="twitter:image" content="/og-base.png" />
 </head>
 
-<body>
-  <div id="root"></div>
+<body style="margin:0;background:#09090b;">
+  <div id="root">
+    <!-- Splash screen: shown instantly while JS loads, removed by React -->
+    <div id="splash" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#09090b;">
+      <div style="text-align:center;">
+        <img src="/logo.png" alt="" width="48" height="48" style="margin:0 auto 16px;display:block;border-radius:12px;" />
+        <div style="width:24px;height:24px;margin:0 auto;border:2px solid rgba(255,255,255,0.1);border-top-color:rgba(255,255,255,0.6);border-radius:50%;animation:sp .6s linear infinite;"></div>
+      </div>
+    </div>
+    <style>@keyframes sp{to{transform:rotate(360deg)}}</style>
+  </div>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 
