@@ -51,15 +51,25 @@ This workspace contains a mobile app and backend server.
   CRITICAL: The following systems are WORKING PERFECTLY. DO NOT modify these files
   or their core logic unless explicitly asked. Any upgrade must not regress these.
 
-  ## Auth System (cross-origin iframe compatible)
-  - backend/src/index.ts: Auth middleware with Bearer token fallback (lines 56-91)
-  - backend/src/auth.ts: Better Auth with emailAndPassword, no plugins
+  ## Auth System — OTP Login (cross-origin iframe compatible)
+  - backend/src/routes/otp.ts: OTP request + verify endpoints (NEVER modify or delete)
+    - POST /api/otp/request-otp: validates whitelist, generates 6-digit code, sends via Resend
+    - POST /api/otp/verify-otp: validates code, creates/finds user, creates session, returns token
+    - Email whitelist (case-insensitive): saif@highticketkreator.com, nicolas.bertin@opti-marche.com, nouhaila.ezzahr@opti-marche.com
+    - OtpCode table in Prisma schema: stores email, code, expiresAt (5 min), used flag
+  - backend/src/index.ts: Mounts otpRouter at /api/otp + auth middleware with Bearer token fallback
+  - backend/src/auth.ts: Better Auth with emailAndPassword (kept for session infrastructure)
+  - backend/src/services/email.ts: sendOTPEmail() sends OTP via Resend API
+  - webapp/src/pages/LoginPage.tsx: Email-only form, calls /api/otp/request-otp, navigates to /verify-otp
+  - webapp/src/pages/VerifyOtpPage.tsx: 6-digit OTP input, calls /api/otp/verify-otp, saves session
   - webapp/src/lib/auth-context.tsx: Custom AuthProvider using localStorage session
   - webapp/src/lib/api.ts: getAuthHeaders() sends Bearer token from localStorage
-  - webapp/src/pages/LoginPage.tsx: Direct fetch sign-in, saves session to context
-  - webapp/src/pages/SignupPage.tsx: Direct fetch sign-up, saves session to context
+  - DO NOT switch to password-based login — OTP is the only login method
   - DO NOT use Better Auth's useSession() hook — it doesn't work in Vibecode iframe
   - DO NOT switch back to cookie-only auth — cookies don't work cross-origin here
+  - DO NOT modify the email whitelist without explicit user request
+  - DO NOT change the OTP flow (request code → enter code → session created)
+  - DO NOT delete or rename the OtpCode table in the Prisma schema
 
   ## Background
   - webapp/src/components/layout/PersistentBackground.tsx: Unicorn Studio aura background

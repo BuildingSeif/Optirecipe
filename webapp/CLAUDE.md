@@ -195,3 +195,13 @@ You have access to a few skills in the `.claude/skills` folder. Use them to your
 - web-docs: Use this skill when you need documentation for shadcn/ui, React Router, React Query, or other web libraries.
 - frontend-app-design: Use this skill when the user asks you to design a frontend app component or screen.
 </skills>
+
+<locked_auth_pages>
+  CRITICAL: The OTP login pages are LOCKED and WORKING. DO NOT modify:
+  - src/pages/LoginPage.tsx: Email-only form, requests OTP via /api/otp/request-otp, navigates to /verify-otp
+  - src/pages/VerifyOtpPage.tsx: 6-digit OTP input, verifies via /api/otp/verify-otp, saves session to auth-context
+  - src/lib/auth-context.tsx: Custom AuthProvider using localStorage session
+  - src/lib/api.ts: getAuthHeaders() sends Bearer token from localStorage
+
+  DO NOT switch to password login. DO NOT rewrite these pages. DO NOT change the OTP flow.
+</locked_auth_pages>

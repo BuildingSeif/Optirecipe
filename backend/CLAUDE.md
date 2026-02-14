@@ -55,6 +55,22 @@
 </curl_testing>
 
 <database>
-  No database is configured by default.
-  If the user needs to persist data or have user accounts, use the database-auth skill and then update this file to reflect the changes.
+  SQLite database with Prisma ORM. Schema at prisma/schema.prisma.
+  Push changes with: bunx prisma db push
 </database>
+
+<locked_auth_system>
+  CRITICAL: The OTP login system is LOCKED and WORKING. DO NOT modify these files:
+  - src/routes/otp.ts: OTP request + verify endpoints
+  - src/services/email.ts: sendOTPEmail via Resend
+  - src/auth.ts: Better Auth config
+  - src/index.ts: OTP router mount at /api/otp + auth middleware
+  - prisma/schema.prisma: OtpCode table
+
+  Whitelisted emails (case-insensitive, DO NOT change without explicit request):
+  - saif@highticketkreator.com
+  - nicolas.bertin@opti-marche.com
+  - nouhaila.ezzahr@opti-marche.com
+
+  DO NOT switch to password login, DO NOT remove OTP routes, DO NOT change email whitelist.
+</locked_auth_system>
