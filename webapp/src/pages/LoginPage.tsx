@@ -38,9 +38,9 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative z-10">
       <div className="w-full max-w-md animate-fade-in">
-        <div className="glass-card-static p-8 rounded-2xl animate-slide-up backdrop-blur-xl bg-black/60 border border-white/10">
+        <div className="p-8 rounded-2xl animate-slide-up backdrop-blur-xl bg-black/60 border border-white/10 shadow-2xl">
           {/* Header */}
-          <div className="text-center mb-8">
+          <div className="text-center pb-6">
             <div className="flex justify-center mb-4">
               <Logo size="lg" />
             </div>
@@ -51,7 +51,7 @@ export default function LoginPage() {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSendOTP} className="space-y-6">
+          <form onSubmit={handleSendOTP} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email" className="text-gray-300">Adresse email</Label>
               <div className="relative">
@@ -62,7 +62,7 @@ export default function LoginPage() {
                   placeholder="vous@exemple.fr"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="glass-input w-full pl-10 pr-4 py-3 rounded-lg text-white placeholder-gray-500 bg-gray-800/50 border border-white/10 focus:border-primary/50 focus:outline-none transition-colors"
+                  className="w-full pl-10 pr-4 py-3 rounded-lg text-white placeholder:text-gray-500 bg-white/5 border border-white/10 focus:border-primary/50 focus:outline-none transition-colors"
                   required
                   disabled={isLoading}
                 />
