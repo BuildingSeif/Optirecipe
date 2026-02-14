@@ -257,3 +257,25 @@ model NonRecipeContent {
   @@index([userId])
   @@index([type])
 }
+
+// ==================== Category Tables ====================
+
+model Category {
+  id            String        @id @default(cuid())
+  name          String        @unique
+  order         Int           @default(0)
+  createdAt     DateTime      @default(now())
+  subCategories SubCategory[]
+}
+
+model SubCategory {
+  id         String   @id @default(cuid())
+  name       String
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@unique([name, categoryId])
+  @@index([categoryId])
+}

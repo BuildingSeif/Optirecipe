@@ -15,6 +15,7 @@ import { uploadRouter } from "./routes/upload";
 import { imagesRouter } from "./routes/images";
 import { userRouter } from "./routes/user";
 import { nonRecipeContentRouter } from "./routes/nonRecipeContent";
+import { categoriesRouter } from "./routes/categories";
 
 // Type the Hono app with user/session variables
 const app = new Hono<{
@@ -95,6 +96,40 @@ app.use("*", async (c, next) => {
 // Health check endpoint
 app.get("/health", (c) => c.json({ status: "ok" }));
 
+// Email whitelist - restrict access
+const EMAIL_WHITELIST = [
+  "saif@highticketkreator.com",
+  "nicolas.bertin@opti-marche.com",
+  "nouhaila.ezzahr@opti-marche.com",
+];
+
+// Intercept sign-in and sign-up to check whitelist
+app.post("/api/auth/sign-in/email", async (c) => {
+  const clonedRequest = c.req.raw.clone();
+  const body = (await clonedRequest.json()) as { email?: string };
+  const email = (body.email || "").toLowerCase().trim();
+  if (!EMAIL_WHITELIST.includes(email)) {
+    return c.json(
+      { error: { message: "Acces non autorise. Contactez l'administrateur." } },
+      403
+    );
+  }
+  return auth.handler(c.req.raw);
+});
+
+app.post("/api/auth/sign-up/email", async (c) => {
+  const clonedRequest = c.req.raw.clone();
+  const body = (await clonedRequest.json()) as { email?: string };
+  const email = (body.email || "").toLowerCase().trim();
+  if (!EMAIL_WHITELIST.includes(email)) {
+    return c.json(
+      { error: { message: "Acces non autorise. Contactez l'administrateur." } },
+      403
+    );
+  }
+  return auth.handler(c.req.raw);
+});
+
 // Mount auth handler
 app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
@@ -115,6 +150,7 @@ app.route("/api/upload", uploadRouter);
 app.route("/api/images", imagesRouter);
 app.route("/api/user", userRouter);
 app.route("/api/non-recipe-content", nonRecipeContentRouter);
+app.route("/api/categories", categoriesRouter);
 
 const port = Number(process.env.PORT) || 3000;
 

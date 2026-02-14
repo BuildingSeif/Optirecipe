@@ -40,15 +40,12 @@ interface RecipesResponse {
   pagination: { page: number; limit: number; total: number; totalPages: number };
 }
 
-const categories = [
-  { value: "entree", label: "Entree" },
-  { value: "plat", label: "Plat" },
-  { value: "dessert", label: "Dessert" },
-  { value: "petit-dejeuner", label: "Petit-dejeuner" },
-  { value: "accompagnement", label: "Accompagnement" },
-  { value: "sauce", label: "Sauce" },
-  { value: "boisson", label: "Boisson" },
-];
+interface CategoryData {
+  id: string;
+  name: string;
+  order: number;
+  subCategories: { id: string; name: string; categoryId: string; order: number }[];
+}
 
 const seasons = [
   { value: "printemps", label: "Printemps" },
@@ -94,6 +91,11 @@ export default function RecipeDetailPage() {
   const { data: recipe, isLoading } = useQuery({
     queryKey: ["recipe", id],
     queryFn: () => api.get<Recipe>(`/api/recipes/${id}`),
+  });
+
+  const { data: categories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => api.get<CategoryData[]>("/api/categories"),
   });
 
   // Update form data when recipe changes
@@ -555,22 +557,43 @@ export default function RecipeDetailPage() {
                   <Label className="text-gray-500">Categorie</Label>
                   {isEditing ? (
                     <Select
-                      value={formData.category || undefined}
-                      onValueChange={(v) => setFormData({ ...formData, category: v })}
+                      value={formData.category || ""}
+                      onValueChange={(v) => setFormData({ ...formData, category: v, subCategory: "" })}
                     >
                       <SelectTrigger className="mt-1 glass-input">
-                        <SelectValue placeholder="Selectionner" />
+                        <SelectValue placeholder="Selectionner une categorie" />
                       </SelectTrigger>
                       <SelectContent>
-                        {categories.map((c) => (
-                          <SelectItem key={c.value} value={c.value}>
-                            {c.label}
-                          </SelectItem>
+                        {(categories || []).map((cat) => (
+                          <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   ) : (
                     <p className="font-medium text-white">{recipe.category || "Non defini"}</p>
+                  )}
+                </div>
+
+                <div>
+                  <Label className="text-gray-500">Sous-categorie</Label>
+                  {isEditing ? (
+                    <Select
+                      value={formData.subCategory || ""}
+                      onValueChange={(v) => setFormData({ ...formData, subCategory: v })}
+                    >
+                      <SelectTrigger className="mt-1 glass-input">
+                        <SelectValue placeholder="Selectionner une sous-categorie" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(categories || [])
+                          .find((cat) => cat.name === formData.category)
+                          ?.subCategories.map((sub) => (
+                            <SelectItem key={sub.id} value={sub.name}>{sub.name}</SelectItem>
+                          )) ?? []}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="font-medium text-white">{recipe.subCategory || "Non defini"}</p>
                   )}
                 </div>
 

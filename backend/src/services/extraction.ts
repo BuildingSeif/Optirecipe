@@ -115,14 +115,20 @@ REGLES D'ARRONDI:
 - Jamais de decimales (ex: pas de 123.5g)
 - Minimum 5g pour les petites quantites
 
-CATEGORIES VALIDES:
-- "entree": soupes, salades, terrines, etc.
-- "plat": viandes, poissons, plats complets
-- "dessert": gateaux, tartes, cremes, fruits
-- "petit-dejeuner": viennoiseries, cereales, etc.
-- "accompagnement": legumes, feculents, sauces
-- "sauce": sauces uniquement
-- "boisson": boissons
+CATEGORIES VALIDES (familles):
+- "Entree": soupes, salades, crudites, terrines, feuilletes, tartes salees, verrines
+- "Plat protidique": viandes (boeuf, volaille, poisson, porc, agneau, veau), oeufs, gibier, crustaces, plats vegetariens
+- "Accompagnement": legumes, feculents, riz, pates, gratins, purees, poelees
+- "Produit laitier": fromages, yaourts, faisselles
+- "Dessert": gateaux, tartes, cremes, mousses, fruits, glaces, entremets, biscuits, verrines sucrees
+- "Petit-dejeuner / Brunch": viennoiseries, pains, cereales, pancakes, gaufres
+- "Gouter": biscuits, gateaux, fruits, laitages
+- "Sauce": sauces chaudes, sauces froides, vinaigrettes, marinades
+- "Base": pates de base, fonds, bouillons, cremes de base
+
+IMPORTANT: Utilise EXACTEMENT ces noms de categories (familles) et les sous-categories correspondantes.
+Le champ "category" doit contenir le nom de la famille (ex: "Plat protidique", "Dessert").
+Le champ "sub_category" doit contenir la sous-famille (ex: "Volailles", "Gateaux").
 
 REGIONS FRANCAISES:
 Alsace, Aquitaine, Auvergne, Bourgogne, Bretagne, Centre, Champagne, Corse, Franche-Comte, Ile-de-France, Languedoc, Limousin, Lorraine, Midi-Pyrenees, Nord, Normandie, Pays de la Loire, Picardie, Poitou-Charentes, Provence, Rhone-Alpes
