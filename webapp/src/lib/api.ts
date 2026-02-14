@@ -12,6 +12,22 @@ interface ApiResponse<T> {
   data: T;
 }
 
+function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  try {
+    const raw = localStorage.getItem("optirecipe_session");
+    if (raw) {
+      const session = JSON.parse(raw);
+      if (session?.session?.token) {
+        headers["Authorization"] = `Bearer ${session.session.token}`;
+      }
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return headers;
+}
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
 
@@ -19,6 +35,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     ...options,
     headers: {
       "Content-Type": "application/json",
+      ...getAuthHeaders(),
       ...options.headers,
     },
     credentials: "include",
@@ -58,6 +75,7 @@ async function rawRequest(endpoint: string, options: RequestInit = {}): Promise<
   const config: RequestInit = {
     ...options,
     headers: {
+      ...getAuthHeaders(),
       ...options.headers,
     },
     credentials: "include",

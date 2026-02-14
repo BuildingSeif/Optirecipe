@@ -5,6 +5,7 @@ import { logger } from "hono/logger";
 import { bodyLimit } from "hono/body-limit";
 import "./env";
 import { auth } from "./auth";
+import { prisma } from "./prisma";
 import { cookbooksRouter } from "./routes/cookbooks";
 import { recipesRouter } from "./routes/recipes";
 import { processingRouter } from "./routes/processing";
@@ -53,7 +54,31 @@ app.use("/api/upload/*", bodyLimit({
 
 // Auth middleware - populates user/session for all routes
 app.use("*", async (c, next) => {
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  // Try cookie-based auth first (Better Auth default)
+  let session = await auth.api.getSession({ headers: c.req.raw.headers });
+
+  // Fallback: Bearer token from Authorization header (for cross-origin iframe)
+  if (!session) {
+    const authHeader = c.req.header("Authorization");
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.slice(7);
+      try {
+        const dbSession = await prisma.session.findUnique({
+          where: { token },
+          include: { user: true },
+        });
+        if (dbSession && new Date(dbSession.expiresAt) > new Date()) {
+          session = {
+            user: dbSession.user as typeof auth.$Infer.Session.user,
+            session: dbSession as unknown as typeof auth.$Infer.Session.session,
+          };
+        }
+      } catch {
+        // Token lookup failed, continue as unauthenticated
+      }
+    }
+  }
+
   if (!session) {
     c.set("user", null);
     c.set("session", null);
