@@ -302,3 +302,12 @@ model Region {
   @@unique([name, countryId])
   @@index([countryId])
 }
+
+// ==================== Ingredient Image Cache ====================
+
+model IngredientImage {
+  id        String   @id @default(cuid())
+  name      String   @unique  // Normalized lowercase ingredient name
+  imageUrl  String
+  createdAt DateTime @default(now())
+}

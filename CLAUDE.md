@@ -92,6 +92,14 @@ This workspace contains a mobile app and backend server.
   - DO NOT replace MuPDF with pdfjs-dist or canvas — they crash in Bun
   - DO NOT send raw PDF to OpenAI — send rendered JPEG images per page
 
+  ## Ingredient Image System
+  - backend/src/routes/ingredient-images.ts: POST /batch generates + caches ingredient photos
+  - Uses FAL AI Flux Pro v1.1 with white background prompt
+  - IngredientImage table caches by normalized lowercase name (generate once, serve forever)
+  - Chunks of 3 concurrent generations, graceful error handling per ingredient
+  - Frontend queries via useQuery with 1-hour staleTime
+  - DO NOT move generation to extraction pipeline (too slow, would block extraction)
+
   ## Backend URL
   - webapp/.env VITE_BACKEND_URL must match the actual BACKEND_URL env var
   - Check with: env | grep BACKEND_URL

@@ -104,6 +104,18 @@ export default function RecipeDetailPage() {
     queryFn: () => api.get<{ id: string; name: string; code: string; regions: { id: string; name: string }[] }[]>("/api/countries"),
   });
 
+  // Fetch ingredient images (batch) when recipe loads
+  const ingredientNames = recipe?.ingredients?.map((i) => i.name).filter(Boolean) || [];
+  const { data: ingredientImages } = useQuery({
+    queryKey: ["ingredient-images", ingredientNames.join(",")],
+    queryFn: () =>
+      api.post<Record<string, string>>("/api/ingredient-images/batch", {
+        names: ingredientNames,
+      }),
+    enabled: ingredientNames.length > 0 && !isEditing,
+    staleTime: 1000 * 60 * 60, // Cache for 1 hour
+  });
+
   // Update form data when recipe changes
   useEffect(() => {
     if (recipe && !isEditing) {
@@ -423,24 +435,42 @@ export default function RecipeDetailPage() {
                 </div>
               ) : recipe.ingredients && recipe.ingredients.length > 0 ? (
                 <ul className="space-y-1">
-                  {recipe.ingredients.map((ing: Ingredient, index: number) => (
-                    <li
-                      key={index}
-                      className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-white/5 transition-colors"
-                    >
-                      <div className="flex items-center justify-center min-w-[70px] px-2 py-1 rounded-md bg-primary/10 border border-primary/20">
-                        <span className="text-sm font-bold text-primary tabular-nums">
-                          {ing.quantity}{ing.unit}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white font-medium truncate">{ing.name}</p>
-                        {ing.original_text && ing.original_text !== `${ing.quantity}${ing.unit} ${ing.name}` ? (
-                          <p className="text-xs text-gray-500 truncate">{ing.original_text}</p>
-                        ) : null}
-                      </div>
-                    </li>
-                  ))}
+                  {recipe.ingredients.map((ing: Ingredient, index: number) => {
+                    const imgUrl = ingredientImages?.[ing.name.trim().toLowerCase()];
+                    return (
+                      <li
+                        key={index}
+                        className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-white/5 transition-colors"
+                      >
+                        {/* Ingredient preview image */}
+                        <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-white/[0.04] border border-white/[0.08]">
+                          {imgUrl ? (
+                            <img
+                              src={imgUrl}
+                              alt={ing.name}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <div className="w-5 h-5 rounded-full skeleton-glass" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-center min-w-[60px] px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20">
+                          <span className="text-xs font-bold text-primary tabular-nums">
+                            {ing.quantity}{ing.unit}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-sm font-medium truncate">{ing.name}</p>
+                          {ing.original_text && ing.original_text !== `${ing.quantity}${ing.unit} ${ing.name}` ? (
+                            <p className="text-xs text-white/30 truncate">{ing.original_text}</p>
+                          ) : null}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className="text-gray-400">Aucun ingredient</p>

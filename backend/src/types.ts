@@ -441,6 +441,15 @@ export interface NonRecipeContent {
   cookbook?: { id: string; name: string };
 }
 
+// ==================== Ingredient Image Batch Schemas ====================
+export const IngredientImageBatchRequestSchema = z.object({
+  names: z.array(z.string().min(1)).min(1).max(30),
+});
+
+export type IngredientImageBatchRequest = z.infer<typeof IngredientImageBatchRequestSchema>;
+
+// Response: Record<string, string> mapping ingredient name -> imageUrl
+
 // ==================== Image Generation Schemas ====================
 export const GenerateImageRequestSchema = z.object({
   title: z.string().min(1),
