@@ -354,75 +354,46 @@ export default function UploadPage() {
     }
   };
 
-  // Direct upload for small files (using XHR for progress)
+  // Direct upload for small files using fetch (via api.raw for auth)
   const uploadDirect = async (fileState: FileUploadState): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const formData = new FormData();
-      formData.append("file", fileState.file);
+    const formData = new FormData();
+    formData.append("file", fileState.file);
 
-      updateFileState(fileState.id, { status: "uploading", progress: 0 });
+    updateFileState(fileState.id, { status: "uploading", progress: 50 });
 
-      const xhr = new XMLHttpRequest();
-
-      // Track upload progress
-      xhr.upload.addEventListener("progress", (event) => {
-        if (event.lengthComputable) {
-          const progress = Math.round((event.loaded / event.total) * 100);
-          updateFileState(fileState.id, { progress });
-        }
+    try {
+      const response = await api.raw("/api/upload/pdf", {
+        method: "POST",
+        body: formData,
       });
 
-      xhr.addEventListener("load", () => {
-        try {
-          const result = JSON.parse(xhr.responseText);
+      if (!response.ok) {
+        const errorJson = await response.json().catch(() => null);
+        const errorMessage = errorJson?.error?.message || `Upload failed (${response.status})`;
+        updateFileState(fileState.id, { status: "error", error: errorMessage });
+        throw new Error(errorMessage);
+      }
 
-          if (xhr.status >= 200 && xhr.status < 300 && result.data) {
-            updateFileState(fileState.id, {
-              status: "uploaded",
-              progress: 100,
-              uploadedPath: result.data.filePath,
-            });
-            resolve(result.data.filePath);
-          } else {
-            const errorMessage = result.error?.message || "Upload failed";
-            updateFileState(fileState.id, {
-              status: "error",
-              error: errorMessage,
-            });
-            reject(new Error(errorMessage));
-          }
-        } catch {
-          updateFileState(fileState.id, {
-            status: "error",
-            error: "Failed to parse server response",
-          });
-          reject(new Error("Failed to parse server response"));
-        }
-      });
+      const result = await response.json();
 
-      xhr.addEventListener("error", () => {
+      if (result.data) {
         updateFileState(fileState.id, {
-          status: "error",
-          error: "Network error - please check your connection",
+          status: "uploaded",
+          progress: 100,
+          uploadedPath: result.data.filePath,
         });
-        reject(new Error("Network error"));
-      });
+        return result.data.filePath;
+      }
 
-      xhr.addEventListener("timeout", () => {
-        updateFileState(fileState.id, {
-          status: "error",
-          error: "Upload timed out - please try again",
-        });
-        reject(new Error("Upload timed out"));
-      });
-
-      xhr.open("POST", `${API_BASE_URL}/api/upload/pdf`);
-      xhr.withCredentials = true;
-      const token = getAuthToken();
-      if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-      xhr.timeout = 600000; // 10 minute timeout for large files
-      xhr.send(formData);
-    });
+      updateFileState(fileState.id, { status: "error", error: "No data in response" });
+      throw new Error("No data in response");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Upload failed";
+      if (fileState.status !== "error") {
+        updateFileState(fileState.id, { status: "error", error: message });
+      }
+      throw error;
+    }
   };
 
   // Main upload function - chooses between chunked and direct based on file size
