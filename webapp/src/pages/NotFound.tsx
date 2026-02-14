@@ -1,7 +1,7 @@
 import { useLocation, Link } from "react-router-dom";
 import { useEffect } from "react";
 import { AlertCircle, Home } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { GlassButton } from "@/components/ui/glass-button";
 
 const NotFound = () => {
   const location = useLocation();
@@ -28,12 +28,12 @@ const NotFound = () => {
           <p className="text-gray-500 mb-8">
             La page que vous recherchez n'existe pas ou a ete deplacee.
           </p>
-          <Button asChild size="lg" className="w-full">
+          <GlassButton asChild size="lg" variant="primary" className="w-full">
             <Link to="/">
               <Home className="mr-2 h-4 w-4" />
               Retour a l'accueil
             </Link>
-          </Button>
+          </GlassButton>
         </div>
       </div>
     </div>

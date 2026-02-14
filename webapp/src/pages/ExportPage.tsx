@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
+import { GlassButton } from "@/components/ui/glass-button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -670,10 +671,10 @@ export default function ExportPage() {
                       ) : null}
                     </pre>
                   </ScrollArea>
-                  <Button onClick={handleDownloadJson} className="mt-4 w-full gradient-primary font-semibold" size="lg">
+                  <GlassButton onClick={handleDownloadJson} variant="primary" size="lg" className="mt-4 w-full">
                     <Download className="mr-2 h-5 w-5" />
                     Telecharger le fichier JSON
-                  </Button>
+                  </GlassButton>
                 </>
               ) : null}
 
@@ -686,10 +687,10 @@ export default function ExportPage() {
                       Format A4 optimise pour impression, avec mise en page soignee
                     </p>
                   </div>
-                  <Button onClick={handleDownloadPdf} className="w-full gradient-primary font-semibold" size="lg">
+                  <GlassButton onClick={handleDownloadPdf} variant="primary" size="lg" className="w-full">
                     <Printer className="mr-2 h-5 w-5" />
                     Generer et imprimer le PDF
-                  </Button>
+                  </GlassButton>
                 </div>
               ) : null}
             </div>
@@ -714,15 +715,16 @@ export default function ExportPage() {
         </div>
 
         {/* Export Button */}
-        <Button
+        <GlassButton
           onClick={() => exportMutation.mutate()}
           disabled={
             exportMutation.isPending ||
             selectedCount === 0 ||
             (exportMode === "select" && selectedRecipes.length === 0)
           }
-          className="w-full gradient-primary font-semibold shadow-lg shadow-primary/30"
+          variant="primary"
           size="lg"
+          className="w-full"
         >
           {exportMutation.isPending ? (
             <>
@@ -735,7 +737,7 @@ export default function ExportPage() {
               Generer l'export ({selectedCount} recette{selectedCount > 1 ? "s" : ""})
             </>
           )}
-        </Button>
+        </GlassButton>
       </div>
     </DashboardLayout>
   );

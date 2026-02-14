@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
+import { GlassButton } from "@/components/ui/glass-button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { api } from "@/lib/api";
@@ -164,15 +165,14 @@ export default function CookbookDetailPage() {
             <StatusBadge status={cookbook.status} />
           </div>
           {cookbook.status !== "processing" && cookbook.status !== "paused" && (
-            <Button
-              variant="outline"
+            <GlassButton
               size="sm"
               onClick={() => reprocessMutation.mutate()}
               disabled={reprocessMutation.isPending}
             >
               <RefreshCw className={`mr-2 h-4 w-4 ${reprocessMutation.isPending ? "animate-spin" : ""}`} />
               Retraiter
-            </Button>
+            </GlassButton>
           )}
         </div>
 
@@ -231,16 +231,16 @@ export default function CookbookDetailPage() {
               </span>
             </div>
             <Progress value={processingProgress} className="h-1.5" />
-            <Button
-              variant="outline"
+            <GlassButton
               size="sm"
               onClick={handleResume}
               disabled={resumeMutation.isPending}
+              variant="primary"
               className="w-full"
             >
               <Play className="mr-2 h-3 w-3" />
               Reprendre l'extraction
-            </Button>
+            </GlassButton>
           </div>
         )}
 

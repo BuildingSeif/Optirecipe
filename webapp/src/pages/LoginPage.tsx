@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/lib/auth-context";
-import { Button } from "@/components/ui/button";
+import { GlassButton } from "@/components/ui/glass-button";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
 import { Loader2, Mail, Lock } from "lucide-react";
@@ -115,9 +115,11 @@ export default function LoginPage() {
               </p>
             ) : null}
 
-            <Button
+            <GlassButton
               type="submit"
-              className="w-full gradient-primary text-white font-medium py-3 rounded-lg hover:opacity-90 transition-opacity"
+              variant="primary"
+              size="lg"
+              className="w-full"
               disabled={isLoading}
             >
               {isLoading ? (
@@ -128,7 +130,7 @@ export default function LoginPage() {
               ) : (
                 "Se connecter"
               )}
-            </Button>
+            </GlassButton>
           </form>
 
           <p className="mt-6 text-center text-sm text-gray-400">

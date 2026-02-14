@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Button } from "@/components/ui/button";
+import { GlassButton } from "@/components/ui/glass-button";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -87,13 +87,13 @@ export default function DashboardPage() {
 
         {/* Quick Actions */}
         <div className="flex flex-wrap justify-center gap-3">
-          <Button asChild size="lg" className="gradient-primary px-6 font-semibold shadow-lg shadow-primary/30">
+          <GlassButton variant="primary" size="lg" asChild>
             <Link to="/upload">
               <Upload className="mr-2 h-4 w-4" />
               Uploader un livre
             </Link>
-          </Button>
-          <Button asChild size="lg" variant="outline" className="px-6 font-semibold border-amber-400/30 text-amber-300 hover:bg-amber-400/10 hover:text-amber-200">
+          </GlassButton>
+          <GlassButton variant="warning" size="lg" asChild>
             <Link to="/recipes?status=pending">
               <ClipboardCheck className="mr-2 h-4 w-4" />
               Valider les recettes
@@ -103,13 +103,13 @@ export default function DashboardPage() {
                 </span>
               ) : null}
             </Link>
-          </Button>
-          <Button asChild size="lg" variant="outline" className="px-6 font-semibold border-emerald-400/30 text-emerald-300 hover:bg-emerald-400/10 hover:text-emerald-200">
+          </GlassButton>
+          <GlassButton variant="success" size="lg" asChild>
             <Link to="/export">
               <Download className="mr-2 h-4 w-4" />
               Exporter
             </Link>
-          </Button>
+          </GlassButton>
         </div>
 
         {/* Recent Activity */}

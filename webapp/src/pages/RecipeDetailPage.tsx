@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
+import { GlassButton } from "@/components/ui/glass-button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -238,14 +239,14 @@ export default function RecipeDetailPage() {
                 <Button variant="outline" onClick={() => setIsEditing(false)}>
                   Annuler
                 </Button>
-                <Button onClick={handleSave} disabled={updateMutation.isPending}>
+                <GlassButton onClick={handleSave} disabled={updateMutation.isPending} variant="primary">
                   {updateMutation.isPending ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <Save className="mr-2 h-4 w-4" />
                   )}
                   Sauvegarder
-                </Button>
+                </GlassButton>
               </>
             ) : (
               <>
@@ -253,20 +254,20 @@ export default function RecipeDetailPage() {
                   Modifier
                 </Button>
                 {recipe.status !== "approved" && (
-                  <Button onClick={handleApprove} disabled={updateMutation.isPending}>
+                  <GlassButton onClick={handleApprove} disabled={updateMutation.isPending} variant="success">
                     <CheckCircle2 className="mr-2 h-4 w-4" />
                     Approuver
-                  </Button>
+                  </GlassButton>
                 )}
                 {recipe.status !== "rejected" && (
-                  <Button
-                    variant="destructive"
+                  <GlassButton
                     onClick={handleReject}
                     disabled={updateMutation.isPending}
+                    variant="destructive"
                   >
                     <XCircle className="mr-2 h-4 w-4" />
                     Rejeter
-                  </Button>
+                  </GlassButton>
                 )}
               </>
             )}
@@ -301,9 +302,10 @@ export default function RecipeDetailPage() {
             <div className="aspect-video flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
               <ImagePlus className="h-12 w-12 text-gray-500 mb-4" />
               <p className="text-gray-400 mb-4">Pas d'image</p>
-              <Button
+              <GlassButton
                 onClick={() => generateImageMutation.mutate()}
                 disabled={generateImageMutation.isPending}
+                variant="primary"
               >
                 {generateImageMutation.isPending ? (
                   <>
@@ -316,7 +318,7 @@ export default function RecipeDetailPage() {
                     Generer une image
                   </>
                 )}
-              </Button>
+              </GlassButton>
             </div>
           )}
         </div>
@@ -761,7 +763,7 @@ export default function RecipeDetailPage() {
             {/* Danger Zone */}
             <div className="glass-card-static p-8 rounded-2xl border border-destructive/20">
               <h3 className="text-base font-semibold text-destructive mb-4">Zone de danger</h3>
-              <Button
+              <GlassButton
                 variant="destructive"
                 className="w-full"
                 onClick={() => {
@@ -773,7 +775,7 @@ export default function RecipeDetailPage() {
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Supprimer la recette
-              </Button>
+              </GlassButton>
             </div>
           </div>
         </div>

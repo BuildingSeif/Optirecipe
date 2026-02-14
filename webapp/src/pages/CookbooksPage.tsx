@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
+import { GlassButton } from "@/components/ui/glass-button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { api } from "@/lib/api";
@@ -40,12 +41,12 @@ export default function CookbooksPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-500">{cookbooks?.length || 0} livres</span>
-          <Button asChild size="sm">
+          <GlassButton asChild size="sm" variant="primary">
             <Link to="/upload">
               <Upload className="mr-2 h-4 w-4" />
               Uploader
             </Link>
-          </Button>
+          </GlassButton>
         </div>
 
         {/* List */}
@@ -86,9 +87,9 @@ export default function CookbooksPage() {
           <div className="glass-card-static rounded-xl text-center py-12">
             <BookOpen className="h-10 w-10 mx-auto text-gray-500 mb-4" />
             <p className="text-gray-400 mb-4">Aucun livre</p>
-            <Button asChild size="sm">
+            <GlassButton asChild size="sm" variant="primary">
               <Link to="/upload">Uploader un livre</Link>
-            </Button>
+            </GlassButton>
           </div>
         )}
       </div>

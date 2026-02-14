@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
+import { GlassButton } from "@/components/ui/glass-button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
@@ -186,10 +187,10 @@ export default function SettingsPage() {
             </div>
 
             {hasChanges && (
-              <Button
+              <GlassButton
                 onClick={handleSave}
                 disabled={isLoading || !name.trim()}
-                className="gradient-primary font-semibold shadow-lg shadow-primary/30"
+                variant="primary"
               >
                 {isLoading ? (
                   <>
@@ -202,7 +203,7 @@ export default function SettingsPage() {
                     Enregistrer les modifications
                   </>
                 )}
-              </Button>
+              </GlassButton>
             )}
           </div>
         </div>
@@ -213,14 +214,13 @@ export default function SettingsPage() {
             <h2 className="text-white text-xl font-bold">Compte</h2>
             <p className="text-white/60">Gerez votre session</p>
           </div>
-          <Button
+          <GlassButton
             variant="destructive"
             onClick={handleSignOut}
-            className="hover:scale-105 transition-transform duration-200"
           >
             <LogOut className="mr-2 h-4 w-4" />
             Se deconnecter
-          </Button>
+          </GlassButton>
         </div>
 
         {/* About */}

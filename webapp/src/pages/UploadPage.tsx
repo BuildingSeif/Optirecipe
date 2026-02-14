@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useDropzone, type FileRejection } from "react-dropzone";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
+import { GlassButton } from "@/components/ui/glass-button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -659,10 +660,12 @@ export default function UploadPage() {
               {/* Action Buttons */}
               <div className="space-y-3 pt-2">
                 {pendingCount > 0 && (
-                  <Button
+                  <GlassButton
                     onClick={handleUploadAll}
                     disabled={isUploading}
-                    className="w-full gradient-primary font-semibold shadow-lg shadow-primary/30"
+                    variant="primary"
+                    size="lg"
+                    className="w-full"
                   >
                     {isUploading ? (
                       <>
@@ -672,18 +675,19 @@ export default function UploadPage() {
                     ) : (
                       `Uploader ${pendingCount} fichier${pendingCount > 1 ? "s" : ""}`
                     )}
-                  </Button>
+                  </GlassButton>
                 )}
 
                 {allUploaded && hasUploadedFiles && !showOptions && (
-                  <Button
+                  <GlassButton
                     onClick={handleShowOptions}
                     disabled={uploadedCount === 0}
-                    className="w-full gradient-primary font-semibold shadow-lg shadow-primary/30"
+                    variant="primary"
                     size="lg"
+                    className="w-full"
                   >
                     {`Lancer le traitement (${uploadedCount} livre${uploadedCount > 1 ? "s" : ""})`}
-                  </Button>
+                  </GlassButton>
                 )}
               </div>
             </div>
@@ -733,11 +737,12 @@ export default function UploadPage() {
               </div>
 
               {/* Launch Button */}
-              <Button
+              <GlassButton
                 onClick={handleProcessAll}
                 disabled={isProcessing || (!typePrivate && !typeCollective)}
-                className="w-full gradient-primary font-semibold shadow-lg shadow-primary/30"
+                variant="primary"
                 size="lg"
+                className="w-full"
               >
                 {isProcessing ? (
                   <>
@@ -747,7 +752,7 @@ export default function UploadPage() {
                 ) : (
                   "Lancer l'extraction"
                 )}
-              </Button>
+              </GlassButton>
             </div>
           )}
         </div>

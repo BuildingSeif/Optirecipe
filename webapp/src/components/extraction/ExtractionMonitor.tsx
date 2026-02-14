@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { GlassButton } from "@/components/ui/glass-button";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -415,16 +416,17 @@ function CookbookMonitor({ cookbookId }: { cookbookId: string }) {
             </Button>
           </div>
         ) : isCompleted ? (
-          <Button
+          <GlassButton
             asChild
-            className="w-full gradient-primary font-semibold shadow-lg shadow-primary/30"
+            variant="primary"
             size="sm"
+            className="w-full"
           >
             <Link to={`/cookbooks/${cookbookId}`}>
               <BookOpen className="mr-2 h-4 w-4" />
               Voir les recettes
             </Link>
-          </Button>
+          </GlassButton>
         ) : isFailed && cookbook.errorMessage ? (
           <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
             <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
@@ -596,15 +598,15 @@ export default function ExtractionMonitor({
             </p>
           </div>
           <div className="flex gap-3 justify-center">
-            <Button
+            <GlassButton
               asChild
-              className="gradient-primary font-semibold shadow-lg shadow-primary/30"
+              variant="primary"
             >
               <Link to="/recipes">
                 <ChefHat className="mr-2 h-4 w-4" />
                 Voir les recettes
               </Link>
-            </Button>
+            </GlassButton>
             <Button
               variant="outline"
               onClick={onClose}

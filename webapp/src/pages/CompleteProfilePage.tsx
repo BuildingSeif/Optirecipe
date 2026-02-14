@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
-import { Button } from "@/components/ui/button";
+import { GlassButton } from "@/components/ui/glass-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
@@ -192,9 +192,11 @@ export default function CompleteProfilePage() {
               </p>
             )}
 
-            <Button
+            <GlassButton
               type="submit"
-              className="gradient-primary w-full text-white font-semibold py-3 rounded-lg hover:opacity-90 transition-opacity shadow-lg shadow-primary/30"
+              variant="primary"
+              size="lg"
+              className="w-full"
               disabled={isLoading || !name.trim()}
             >
               {isLoading ? (
@@ -205,7 +207,7 @@ export default function CompleteProfilePage() {
               ) : (
                 "Continuer"
               )}
-            </Button>
+            </GlassButton>
           </form>
         </div>
 

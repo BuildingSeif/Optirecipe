@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { GlassButton } from "@/components/ui/glass-button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -53,6 +54,11 @@ export default function RecipesPage() {
   const { data: cookbooks } = useQuery({
     queryKey: ["cookbooks"],
     queryFn: () => api.get<Cookbook[]>("/api/cookbooks"),
+  });
+
+  const { data: categories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => api.get<{ id: string; name: string; order: number }[]>("/api/categories"),
   });
 
   const { data, isLoading } = useQuery({
@@ -131,13 +137,9 @@ export default function RecipesPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Toutes categories</SelectItem>
-              <SelectItem value="entree">Entree</SelectItem>
-              <SelectItem value="plat">Plat</SelectItem>
-              <SelectItem value="dessert">Dessert</SelectItem>
-              <SelectItem value="petit-dejeuner">Petit-dejeuner</SelectItem>
-              <SelectItem value="accompagnement">Accompagnement</SelectItem>
-              <SelectItem value="sauce">Sauce</SelectItem>
-              <SelectItem value="boisson">Boisson</SelectItem>
+              {categories?.map((cat) => (
+                <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
@@ -175,12 +177,12 @@ export default function RecipesPage() {
           <div className="flex items-center justify-between p-4 bg-primary/20 rounded-xl border border-primary/30">
             <span className="text-sm text-white font-semibold">{selectedRecipes.length} selectionnee(s)</span>
             <div className="flex gap-2">
-              <Button size="sm" className="font-semibold" onClick={() => bulkUpdateMutation.mutate({ status: "approved" })}>
+              <GlassButton size="sm" variant="success" onClick={() => bulkUpdateMutation.mutate({ status: "approved" })}>
                 <CheckCircle2 className="mr-1 h-4 w-4" /> Approuver
-              </Button>
-              <Button size="sm" variant="destructive" className="font-semibold" onClick={() => bulkUpdateMutation.mutate({ status: "rejected" })}>
+              </GlassButton>
+              <GlassButton size="sm" variant="destructive" onClick={() => bulkUpdateMutation.mutate({ status: "rejected" })}>
                 <XCircle className="mr-1 h-4 w-4" /> Rejeter
-              </Button>
+              </GlassButton>
             </div>
           </div>
         ) : null}
