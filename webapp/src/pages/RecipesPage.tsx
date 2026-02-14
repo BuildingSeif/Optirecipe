@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/lib/api";
 import { ChefHat, Search, Loader2, CheckCircle2, XCircle } from "lucide-react";
-import type { Recipe } from "../../../backend/src/types";
+import type { Recipe, Cookbook } from "../../../backend/src/types";
 
 interface RecipesResponse {
   recipes: Recipe[];
@@ -46,13 +46,24 @@ export default function RecipesPage() {
   const search = searchParams.get("search") || "";
   const status = searchParams.get("status") || "all";
   const page = parseInt(searchParams.get("page") || "1");
+  const cookbookId = searchParams.get("cookbookId") || "all";
+  const category = searchParams.get("category") || "all";
+  const type = searchParams.get("type") || "all";
+
+  const { data: cookbooks } = useQuery({
+    queryKey: ["cookbooks"],
+    queryFn: () => api.get<Cookbook[]>("/api/cookbooks"),
+  });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["recipes", { search, status, page }],
+    queryKey: ["recipes", { search, status, page, cookbookId, category, type }],
     queryFn: () => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (status && status !== "all") params.set("status", status);
+      if (cookbookId && cookbookId !== "all") params.set("cookbookId", cookbookId);
+      if (category && category !== "all") params.set("category", category);
+      if (type && type !== "all") params.set("type", type);
       params.set("page", page.toString());
       params.set("limit", "20");
       return api.get<RecipesResponse>(`/api/recipes?${params.toString()}`);
@@ -89,7 +100,8 @@ export default function RecipesPage() {
     <DashboardLayout title="Recettes">
       <div className="space-y-6">
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Search */}
           <div className="glass-card-static flex items-center gap-3 rounded-xl px-4 flex-1 min-w-[200px]">
             <Search className="h-4 w-4 text-primary" />
             <input
@@ -99,6 +111,8 @@ export default function RecipesPage() {
               className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-white/50 py-3 text-sm font-medium"
             />
           </div>
+
+          {/* Status */}
           <Select value={status} onValueChange={(v) => updateFilter("status", v)}>
             <SelectTrigger className="w-[160px] glass-card-static border-none text-sm font-semibold text-white">
               <SelectValue placeholder="Statut" />
@@ -109,10 +123,55 @@ export default function RecipesPage() {
               ))}
             </SelectContent>
           </Select>
+
+          {/* Category */}
+          <Select value={category} onValueChange={(v) => updateFilter("category", v)}>
+            <SelectTrigger className="w-[160px] glass-card-static border-none text-sm font-semibold text-white">
+              <SelectValue placeholder="Categorie" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toutes categories</SelectItem>
+              <SelectItem value="entree">Entree</SelectItem>
+              <SelectItem value="plat">Plat</SelectItem>
+              <SelectItem value="dessert">Dessert</SelectItem>
+              <SelectItem value="petit-dejeuner">Petit-dejeuner</SelectItem>
+              <SelectItem value="accompagnement">Accompagnement</SelectItem>
+              <SelectItem value="sauce">Sauce</SelectItem>
+              <SelectItem value="boisson">Boisson</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Type */}
+          <Select value={type} onValueChange={(v) => updateFilter("type", v)}>
+            <SelectTrigger className="w-[160px] glass-card-static border-none text-sm font-semibold text-white">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous types</SelectItem>
+              <SelectItem value="prive">Prive</SelectItem>
+              <SelectItem value="collectivite">Collectivite</SelectItem>
+              <SelectItem value="both">Les deux</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Cookbook filter */}
+          {cookbooks && cookbooks.length > 0 ? (
+            <Select value={cookbookId} onValueChange={(v) => updateFilter("cookbookId", v)}>
+              <SelectTrigger className="w-[180px] glass-card-static border-none text-sm font-semibold text-white">
+                <SelectValue placeholder="Livre" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les livres</SelectItem>
+                {cookbooks.map((cb) => (
+                  <SelectItem key={cb.id} value={cb.id}>{cb.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
         </div>
 
         {/* Bulk Actions */}
-        {selectedRecipes.length > 0 && (
+        {selectedRecipes.length > 0 ? (
           <div className="flex items-center justify-between p-4 bg-primary/20 rounded-xl border border-primary/30">
             <span className="text-sm text-white font-semibold">{selectedRecipes.length} selectionnee(s)</span>
             <div className="flex gap-2">
@@ -124,7 +183,7 @@ export default function RecipesPage() {
               </Button>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Results */}
         {isLoading ? (
@@ -143,18 +202,49 @@ export default function RecipesPage() {
                     onCheckedChange={() => toggleRecipeSelection(recipe.id)}
                   />
                   <Link to={`/recipes/${recipe.id}`} className="flex-1 flex items-center gap-4">
-                    <ChefHat className="h-4 w-4 text-primary flex-shrink-0" />
+                    {/* Thumbnail */}
+                    {recipe.imageUrl ? (
+                      <img src={recipe.imageUrl} alt="" className="h-10 w-10 rounded-lg object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <ChefHat className="h-5 w-5 text-primary" />
+                      </div>
+                    )}
+
+                    {/* Title & meta */}
                     <div className="flex-1 min-w-0">
                       <p className="text-white text-sm font-semibold truncate">{recipe.title}</p>
-                      <p className="text-xs text-white/60">{recipe.category || "-"}</p>
+                      {recipe.originalTitle && recipe.originalTitle !== recipe.title ? (
+                        <p className="text-xs text-white/40 truncate">{recipe.originalTitle}</p>
+                      ) : null}
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-white/50">{recipe.category || "-"}</span>
+                        {recipe.difficulty ? (
+                          <span className="text-xs text-white/40">{recipe.difficulty}</span>
+                        ) : null}
+                        {recipe.type && recipe.type !== "both" ? (
+                          <span className={`text-xs px-1.5 py-0.5 rounded ${recipe.type === "prive" ? "bg-blue-500/20 text-blue-400" : "bg-amber-500/20 text-amber-400"}`}>
+                            {recipe.type === "prive" ? "Prive" : "Collectivite"}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
+
+                    {/* Dietary icons */}
+                    <div className="flex items-center gap-1">
+                      {recipe.is_vegetarian ? <span className="h-2 w-2 rounded-full bg-green-500" title="Vegetarien" /> : null}
+                      {recipe.is_vegan ? <span className="h-2 w-2 rounded-full bg-emerald-400" title="Vegan" /> : null}
+                      {recipe.is_gluten_free ? <span className="h-2 w-2 rounded-full bg-amber-400" title="Sans gluten" /> : null}
+                      {recipe.is_halal ? <span className="h-2 w-2 rounded-full bg-teal-400" title="Halal" /> : null}
+                    </div>
+
                     <StatusBadge status={recipe.status} />
                   </Link>
                 </div>
               ))}
             </div>
 
-            {data.pagination.totalPages > 1 && (
+            {data.pagination.totalPages > 1 ? (
               <div className="flex items-center justify-center gap-4 text-sm">
                 <Button
                   variant="ghost"
@@ -176,7 +266,7 @@ export default function RecipesPage() {
                   Suivant
                 </Button>
               </div>
-            )}
+            ) : null}
           </>
         ) : (
           <div className="glass-card-static rounded-xl text-center py-12">

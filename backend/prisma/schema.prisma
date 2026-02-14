@@ -91,6 +91,9 @@ model Cookbook {
   reformulateForCopyright Boolean @default(true)
   convertToGrams      Boolean @default(true)
 
+  // Type: 'prive', 'collectivite', 'both'
+  type                String   @default("both")
+
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -159,6 +162,25 @@ model Recipe {
 
   // Servings
   servings        Int      @default(4)
+
+  // Difficulty: 'facile', 'moyen', 'difficile'
+  difficulty      String?
+
+  // Type: 'prive', 'collectivite', 'both'
+  type            String   @default("both")
+
+  // Dietary flags
+  is_vegetarian   Boolean  @default(false)
+  is_vegan        Boolean  @default(false)
+  is_gluten_free  Boolean  @default(false)
+  is_lactose_free Boolean  @default(false)
+  is_halal        Boolean  @default(false)
+
+  // Nutrition
+  calories        Int?
+  proteins        Float?
+  carbs           Float?
+  fats            Float?
 
   // Metadata for filtering
   region          String?  // 'Alsace', 'Bretagne', 'Provence', 'Normandie', etc.

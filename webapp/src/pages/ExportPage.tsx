@@ -6,6 +6,13 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { api } from "@/lib/api";
 import {
   Download,
@@ -20,7 +27,7 @@ import {
   Database,
   Table,
 } from "lucide-react";
-import type { Recipe, ChefExport } from "../../../backend/src/types";
+import type { Recipe, Cookbook, OptiRecipeExport } from "../../../backend/src/types";
 
 interface RecipesResponse {
   recipes: Recipe[];
@@ -41,7 +48,7 @@ const formatOptions = [
     description: "Donnees structurees pour integration logicielle",
     icon: FileJson,
     iconColor: "text-primary",
-    useCase: "Import dans 1000CHEFS, API, bases de donnees",
+    useCase: "Import dans OptiMenu, API, bases de donnees",
     iconBg: "bg-primary/20",
   },
   {
@@ -68,20 +75,40 @@ export default function ExportPage() {
   const [exportMode, setExportMode] = useState<"all" | "select">("all");
   const [selectedRecipes, setSelectedRecipes] = useState<string[]>([]);
   const [format, setFormat] = useState<ExportFormat>("json");
-  const [exportData, setExportData] = useState<ChefExport | null>(null);
+  const [exportData, setExportData] = useState<OptiRecipeExport | null>(null);
+  const [statusFilter, setStatusFilter] = useState("approved");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [cookbookFilter, setCookbookFilter] = useState("all");
+
+  const { data: cookbooks } = useQuery({
+    queryKey: ["cookbooks"],
+    queryFn: () => api.get<Cookbook[]>("/api/cookbooks"),
+  });
 
   const { data: recipesData, isLoading: recipesLoading } = useQuery({
-    queryKey: ["recipes", "approved"],
-    queryFn: () =>
-      api.get<RecipesResponse>("/api/recipes?status=approved&limit=1000"),
+    queryKey: ["recipes", "export", statusFilter, typeFilter, categoryFilter, cookbookFilter],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (statusFilter !== "all") params.set("status", statusFilter);
+      if (typeFilter !== "all") params.set("type", typeFilter);
+      if (categoryFilter !== "all") params.set("category", categoryFilter);
+      if (cookbookFilter !== "all") params.set("cookbookId", cookbookFilter);
+      params.set("limit", "1000");
+      return api.get<RecipesResponse>(`/api/recipes?${params.toString()}`);
+    },
   });
 
   const exportMutation = useMutation({
     mutationFn: async () => {
-      const options = {
-        format: format === "pdf" ? "json" : format, // PDF uses JSON data
+      const options: Record<string, unknown> = {
+        format: format === "pdf" ? "json" : format,
         includeAll: exportMode === "all",
         recipeIds: exportMode === "select" ? selectedRecipes : undefined,
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        type: typeFilter !== "all" ? typeFilter : undefined,
+        cookbookId: cookbookFilter !== "all" ? cookbookFilter : undefined,
+        category: categoryFilter !== "all" ? categoryFilter : undefined,
       };
 
       if (format === "csv") {
@@ -100,7 +127,7 @@ export default function ExportPage() {
         return null;
       }
 
-      const data = await api.post<ChefExport>("/api/export", options);
+      const data = await api.post<OptiRecipeExport>("/api/export", options);
       setExportData(data);
       return data;
     },
@@ -121,11 +148,11 @@ export default function ExportPage() {
 
   const handleDownloadPdf = () => {
     if (!exportData) return;
-    // Generate PDF from export data
-    generatePdfFromRecipes(exportData.recipes);
+    const recipes = exportData.recipes || [];
+    generatePdfFromRecipes(recipes);
   };
 
-  const generatePdfFromRecipes = (recipes: ChefExport["recipes"]) => {
+  const generatePdfFromRecipes = (recipes: OptiRecipeExport["recipes"]) => {
     // Create a printable HTML document
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
@@ -239,15 +266,6 @@ export default function ExportPage() {
             color: #374151;
           }
 
-          .tips {
-            background: #f0f9ff;
-            border-left: 4px solid #0080FF;
-            padding: 16px;
-            border-radius: 0 8px 8px 0;
-            font-size: 14px;
-            color: #1e40af;
-          }
-
           .cover-page {
             height: 100vh;
             display: flex;
@@ -343,11 +361,6 @@ export default function ExportPage() {
                 </div>
               `).join("")}
             </div>
-
-            ${recipe.tips ? `
-              <div class="section-title">Conseils du Chef</div>
-              <div class="tips">${recipe.tips}</div>
-            ` : ""}
           </div>
         `).join("")}
       </body>
@@ -363,15 +376,15 @@ export default function ExportPage() {
     }, 500);
   };
 
-  const approvedRecipes = recipesData?.recipes || [];
+  const filteredRecipes = recipesData?.recipes || [];
   const selectedCount =
-    exportMode === "all" ? approvedRecipes.length : selectedRecipes.length;
+    exportMode === "all" ? filteredRecipes.length : selectedRecipes.length;
 
   const toggleSelectAll = () => {
-    if (selectedRecipes.length === approvedRecipes.length) {
+    if (selectedRecipes.length === filteredRecipes.length) {
       setSelectedRecipes([]);
     } else {
-      setSelectedRecipes(approvedRecipes.map((r) => r.id));
+      setSelectedRecipes(filteredRecipes.map((r) => r.id));
     }
   };
 
@@ -390,9 +403,68 @@ export default function ExportPage() {
               </span>
             </h3>
             <p className="text-white/60 mt-2 ml-11">
-              Choisissez les recettes approuvees a inclure dans l'export
+              Filtrez et choisissez les recettes a inclure dans l'export
             </p>
           </div>
+
+          {/* Filter controls */}
+          <div className="flex flex-wrap gap-3 mb-6 ml-11">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[150px] glass-card-static border-none text-sm font-semibold text-white">
+                <SelectValue placeholder="Statut" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="approved">Approuvees</SelectItem>
+                <SelectItem value="pending">En attente</SelectItem>
+                <SelectItem value="all">Toutes</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-[150px] glass-card-static border-none text-sm font-semibold text-white">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous types</SelectItem>
+                <SelectItem value="prive">Prive</SelectItem>
+                <SelectItem value="collectivite">Collectivite</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-[160px] glass-card-static border-none text-sm font-semibold text-white">
+                <SelectValue placeholder="Categorie" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes categories</SelectItem>
+                <SelectItem value="entree">Entree</SelectItem>
+                <SelectItem value="plat">Plat</SelectItem>
+                <SelectItem value="dessert">Dessert</SelectItem>
+                <SelectItem value="petit-dejeuner">Petit-dejeuner</SelectItem>
+                <SelectItem value="accompagnement">Accompagnement</SelectItem>
+                <SelectItem value="sauce">Sauce</SelectItem>
+                <SelectItem value="boisson">Boisson</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {cookbooks && cookbooks.length > 0 ? (
+              <Select value={cookbookFilter} onValueChange={setCookbookFilter}>
+                <SelectTrigger className="w-[180px] glass-card-static border-none text-sm font-semibold text-white">
+                  <SelectValue placeholder="Livre" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les livres</SelectItem>
+                  {cookbooks.map((cb: Cookbook) => (
+                    <SelectItem key={cb.id} value={cb.id}>{cb.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+          </div>
+
+          <p className="text-white/60 mt-2 ml-11 mb-4">
+            {selectedCount} recette{selectedCount > 1 ? "s" : ""} a exporter
+          </p>
 
           <div className="space-y-4 ml-11">
             <RadioGroup
@@ -413,12 +485,12 @@ export default function ExportPage() {
                   <Database className="h-5 w-5 text-primary" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-semibold text-white">Toutes les recettes approuvees</p>
-                  <p className="text-sm text-white/60">{approvedRecipes.length} recettes disponibles</p>
+                  <p className="font-semibold text-white">Toutes les recettes filtrees</p>
+                  <p className="text-sm text-white/60">{filteredRecipes.length} recettes disponibles</p>
                 </div>
-                {exportMode === "all" && (
+                {exportMode === "all" ? (
                   <CheckCircle2 className="h-5 w-5 text-primary" />
-                )}
+                ) : null}
               </Label>
 
               <Label
@@ -437,19 +509,19 @@ export default function ExportPage() {
                   <p className="font-semibold text-white">Selection manuelle</p>
                   <p className="text-sm text-white/60">Choisir les recettes specifiques</p>
                 </div>
-                {exportMode === "select" && (
+                {exportMode === "select" ? (
                   <CheckCircle2 className="h-5 w-5 text-primary" />
-                )}
+                ) : null}
               </Label>
             </RadioGroup>
 
-            {exportMode === "select" && (
+            {exportMode === "select" ? (
               <div className="mt-4">
                 {recipesLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
                   </div>
-                ) : approvedRecipes.length > 0 ? (
+                ) : filteredRecipes.length > 0 ? (
                   <>
                     <div className="flex items-center justify-between mb-3">
                       <Button
@@ -458,17 +530,17 @@ export default function ExportPage() {
                         onClick={toggleSelectAll}
                         className="text-primary hover:text-primary/80"
                       >
-                        {selectedRecipes.length === approvedRecipes.length
+                        {selectedRecipes.length === filteredRecipes.length
                           ? "Tout deselectionner"
                           : "Tout selectionner"}
                       </Button>
                       <span className="text-sm text-white/60">
-                        {selectedRecipes.length} / {approvedRecipes.length}
+                        {selectedRecipes.length} / {filteredRecipes.length}
                       </span>
                     </div>
                     <ScrollArea className="h-[280px] bg-gradient-to-br from-[#0a1628] to-[#0d1f3c] rounded-xl p-4 border border-white/10">
                       <div className="space-y-1">
-                        {approvedRecipes.map((recipe) => (
+                        {filteredRecipes.map((recipe) => (
                           <div
                             key={recipe.id}
                             className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${
@@ -494,7 +566,7 @@ export default function ExportPage() {
                               <span className="font-medium text-white truncate block">{recipe.title}</span>
                             </div>
                             <span className="text-xs text-white/50 bg-white/10 px-2 py-1 rounded">
-                              {recipe.category || "—"}
+                              {recipe.category || "\u2014"}
                             </span>
                           </div>
                         ))}
@@ -504,12 +576,12 @@ export default function ExportPage() {
                 ) : (
                   <div className="text-center py-12 bg-white/5 rounded-xl">
                     <ChefHat className="h-12 w-12 mx-auto text-primary/50 mb-3" />
-                    <p className="text-white/60 font-medium">Aucune recette approuvee</p>
-                    <p className="text-sm text-white/40 mt-1">Approuvez des recettes pour les exporter</p>
+                    <p className="text-white/60 font-medium">Aucune recette trouvee</p>
+                    <p className="text-sm text-white/40 mt-1">Modifiez les filtres pour voir des recettes</p>
                   </div>
                 )}
               </div>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -551,9 +623,9 @@ export default function ExportPage() {
                   />
                 </RadioGroup>
 
-                {format === option.value && (
+                {format === option.value ? (
                   <CheckCircle2 className="absolute top-3 right-3 h-5 w-5 text-primary" />
-                )}
+                ) : null}
 
                 <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${option.iconBg} mb-4`}>
                   <option.icon className={`h-6 w-6 ${option.iconColor}`} />
@@ -568,7 +640,7 @@ export default function ExportPage() {
         </div>
 
         {/* Preview for JSON/PDF */}
-        {exportData && (format === "json" || format === "pdf") && (
+        {exportData && (format === "json" || format === "pdf") ? (
           <div className="glass-card-static p-8 rounded-2xl">
             <div className="mb-6">
               <h3 className="flex items-center gap-3 text-lg font-semibold">
@@ -580,21 +652,21 @@ export default function ExportPage() {
                 </span>
               </h3>
               <p className="text-white/60 mt-2 ml-11">
-                {exportData.recipe_count} recette{exportData.recipe_count > 1 ? "s" : ""} prete{exportData.recipe_count > 1 ? "s" : ""} a l'export
+                {exportData.export_info.total_recipes} recette{exportData.export_info.total_recipes > 1 ? "s" : ""} prete{exportData.export_info.total_recipes > 1 ? "s" : ""} a l'export
               </p>
             </div>
 
             <div className="ml-11">
-              {format === "json" && (
+              {format === "json" ? (
                 <>
                   <ScrollArea className="h-[250px] bg-gradient-to-br from-[#0a1628] to-[#0d1f3c] rounded-xl border border-white/10">
                     <pre className="p-4 text-xs text-white/70 font-mono">
                       {JSON.stringify(exportData.recipes.slice(0, 2), null, 2)}
-                      {exportData.recipes.length > 2 && (
+                      {exportData.recipes.length > 2 ? (
                         <span className="text-white/40">
                           {"\n"}... et {exportData.recipes.length - 2} autres recettes
                         </span>
-                      )}
+                      ) : null}
                     </pre>
                   </ScrollArea>
                   <Button onClick={handleDownloadJson} className="mt-4 w-full gradient-primary font-semibold" size="lg">
@@ -602,9 +674,9 @@ export default function ExportPage() {
                     Telecharger le fichier JSON
                   </Button>
                 </>
-              )}
+              ) : null}
 
-              {format === "pdf" && (
+              {format === "pdf" ? (
                 <div className="space-y-4">
                   <div className="bg-gradient-to-br from-[#0a1628] to-[#0d1f3c] rounded-xl p-6 border border-white/10 text-center">
                     <Printer className="h-12 w-12 mx-auto text-rose-400 mb-4" />
@@ -618,10 +690,10 @@ export default function ExportPage() {
                     Generer et imprimer le PDF
                   </Button>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Info Box */}
         <div className="glass-card-static p-6 rounded-2xl border border-primary/20 bg-primary/5">
@@ -630,10 +702,11 @@ export default function ExportPage() {
               <Info className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="font-semibold text-primary mb-1">Format 1000CHEFS</p>
+              <p className="font-semibold text-primary mb-1">Format OptiMenu</p>
               <p className="text-sm text-white/70 leading-relaxed">
-                Le format JSON est optimise pour l'import dans la base de donnees 1000CHEFS d'OptiMenu.
-                Toutes les quantites sont en grammes et les instructions sont reformulees pour respecter les droits d'auteur.
+                Le format JSON est optimise pour l'import dans OptiMenu.
+                Toutes les quantites sont en grammes, les informations dietetiques sont incluses,
+                et les instructions sont reformulees pour respecter les droits d'auteur.
               </p>
             </div>
           </div>

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useDropzone, type FileRejection } from "react-dropzone";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { api } from "@/lib/api";
@@ -189,6 +190,10 @@ export default function UploadPage() {
   const [files, setFiles] = useState<FileUploadState[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
+  const [typePrivate, setTypePrivate] = useState(true);
+  const [typeCollective, setTypeCollective] = useState(true);
+  const [generateImages, setGenerateImages] = useState(true);
 
   const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
     // Handle rejected files (e.g., too large)
@@ -408,7 +413,18 @@ export default function UploadPage() {
     }
   };
 
-  const createCookbookForFile = async (fileState: FileUploadState): Promise<Cookbook> => {
+  const getType = () => {
+    if (typePrivate && typeCollective) return "both";
+    if (typePrivate) return "prive";
+    if (typeCollective) return "collectivite";
+    return "both"; // fallback
+  };
+
+  const handleShowOptions = () => {
+    setShowOptions(true);
+  };
+
+  const createCookbookForFile = async (fileState: FileUploadState, type: string, shouldGenerateImages: boolean): Promise<Cookbook> => {
     if (!fileState.uploadedPath) throw new Error("No file uploaded");
 
     updateFileState(fileState.id, { status: "processing" });
@@ -418,6 +434,7 @@ export default function UploadPage() {
       filePath: fileState.uploadedPath,
       fileSize: fileState.file.size,
       totalPages: 0, // Detected automatically during extraction
+      type,
       generateDescriptions: true,
       reformulateForCopyright: true,
       convertToGrams: true,
@@ -449,12 +466,13 @@ export default function UploadPage() {
     const uploadedFiles = files.filter((f) => f.status === "uploaded");
     if (uploadedFiles.length === 0) return;
 
+    const type = getType();
     setIsProcessing(true);
     const createdCookbooks: Cookbook[] = [];
 
     for (const fileState of uploadedFiles) {
       try {
-        const cookbook = await createCookbookForFile(fileState);
+        const cookbook = await createCookbookForFile(fileState, type, generateImages);
         createdCookbooks.push(cookbook);
       } catch {
         updateFileState(fileState.id, {
@@ -465,6 +483,7 @@ export default function UploadPage() {
     }
 
     setIsProcessing(false);
+    setShowOptions(false);
 
     // Navigate to the first created cookbook or cookbooks list
     if (createdCookbooks.length === 1) {
@@ -645,24 +664,79 @@ export default function UploadPage() {
                   </Button>
                 )}
 
-                {allUploaded && hasUploadedFiles && (
+                {allUploaded && hasUploadedFiles && !showOptions && (
                   <Button
-                    onClick={handleProcessAll}
-                    disabled={isProcessing || uploadedCount === 0}
+                    onClick={handleShowOptions}
+                    disabled={uploadedCount === 0}
                     className="w-full gradient-primary font-semibold shadow-lg shadow-primary/30"
                     size="lg"
                   >
-                    {isProcessing ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Traitement en cours...
-                      </>
-                    ) : (
-                      `Lancer le traitement (${uploadedCount} livre${uploadedCount > 1 ? "s" : ""})`
-                    )}
+                    {`Lancer le traitement (${uploadedCount} livre${uploadedCount > 1 ? "s" : ""})`}
                   </Button>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Options Screen */}
+          {showOptions && (
+            <div className="glass-card-static p-8 rounded-2xl space-y-6">
+              <h3 className="text-lg font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">
+                Options d'extraction
+              </h3>
+
+              {/* Type Selector */}
+              <div className="space-y-3">
+                <p className="text-sm font-semibold text-white/80">Type de recettes</p>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10 flex-1 cursor-pointer hover:border-primary/30 transition-colors">
+                    <Checkbox checked={typePrivate} onCheckedChange={(c) => setTypePrivate(!!c)} />
+                    <div>
+                      <p className="text-white font-semibold text-sm">Prive</p>
+                      <p className="text-white/50 text-xs">Recettes maison</p>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10 flex-1 cursor-pointer hover:border-primary/30 transition-colors">
+                    <Checkbox checked={typeCollective} onCheckedChange={(c) => setTypeCollective(!!c)} />
+                    <div>
+                      <p className="text-white font-semibold text-sm">Collectivite</p>
+                      <p className="text-white/50 text-xs">Cantines, hopitaux</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Extraction Options */}
+              <div className="space-y-3">
+                <p className="text-sm font-semibold text-white/80">Options</p>
+                <div className="space-y-3">
+                  <label className="flex items-center gap-3 p-3 rounded-lg bg-white/5 opacity-60">
+                    <Checkbox checked={true} disabled />
+                    <span className="text-white/70 text-sm">Extraire les recettes</span>
+                  </label>
+                  <label className="flex items-center gap-3 p-3 rounded-lg bg-white/5 cursor-pointer hover:bg-white/10 transition-colors">
+                    <Checkbox checked={generateImages} onCheckedChange={(c) => setGenerateImages(!!c)} />
+                    <span className="text-white text-sm">Generer des images par recette</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Launch Button */}
+              <Button
+                onClick={handleProcessAll}
+                disabled={isProcessing || (!typePrivate && !typeCollective)}
+                className="w-full gradient-primary font-semibold shadow-lg shadow-primary/30"
+                size="lg"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Extraction en cours...
+                  </>
+                ) : (
+                  "Lancer l'extraction"
+                )}
+              </Button>
             </div>
           )}
         </div>

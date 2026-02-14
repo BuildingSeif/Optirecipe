@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { api } from "@/lib/api";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   ArrowLeft,
   ChefHat,
@@ -30,8 +31,14 @@ import {
   MapPin,
   ImagePlus,
   Sparkles,
+  Plus,
 } from "lucide-react";
 import type { Recipe, Ingredient, Instruction, GenerateImageResponse } from "../../../backend/src/types";
+
+interface RecipesResponse {
+  recipes: Recipe[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
 
 const categories = [
   { value: "entree", label: "Entree" },
@@ -131,12 +138,32 @@ export default function RecipeDetailPage() {
     },
   });
 
-  const handleApprove = () => {
-    updateMutation.mutate({ status: "approved" });
+  const navigateToNextPending = async () => {
+    try {
+      const params = new URLSearchParams();
+      params.set("status", "pending");
+      params.set("limit", "1");
+      params.set("sortBy", "createdAt");
+      params.set("sortOrder", "asc");
+      const result = await api.get<RecipesResponse>(`/api/recipes?${params.toString()}`);
+      if (result.recipes && result.recipes.length > 0) {
+        navigate(`/recipes/${result.recipes[0].id}`, { replace: true });
+      } else {
+        navigate("/recipes");
+      }
+    } catch {
+      navigate("/recipes");
+    }
   };
 
-  const handleReject = () => {
-    updateMutation.mutate({ status: "rejected" });
+  const handleApprove = async () => {
+    await updateMutation.mutateAsync({ status: "approved" });
+    navigateToNextPending();
+  };
+
+  const handleReject = async () => {
+    await updateMutation.mutateAsync({ status: "rejected" });
+    navigateToNextPending();
   };
 
   const handleSave = () => {
@@ -175,11 +202,11 @@ export default function RecipeDetailPage() {
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            <Button variant="ghost" size="icon" asChild>
-              <Link to="/recipes">
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="text-white/60 hover:text-white">
                 <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
+              </Button>
+            </div>
             <div>
               {isEditing ? (
                 <Input
@@ -196,6 +223,11 @@ export default function RecipeDetailPage() {
                   <Badge variant="secondary">{recipe.category}</Badge>
                 )}
               </div>
+              {recipe.status === "pending" ? (
+                <p className="text-xs text-white/50 mt-1">
+                  Recette en attente de validation
+                </p>
+              ) : null}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -315,7 +347,66 @@ export default function RecipeDetailPage() {
                   Ingredients ({recipe.ingredients?.length || 0})
                 </h3>
               </div>
-              {recipe.ingredients && recipe.ingredients.length > 0 ? (
+              {isEditing ? (
+                <div className="space-y-2">
+                  {(formData.ingredients || []).map((ing: Ingredient, index: number) => (
+                    <div key={index} className="flex items-center gap-2 bg-white/5 p-2 rounded-lg">
+                      <Input
+                        value={ing.quantity?.toString() || ""}
+                        onChange={(e) => {
+                          const updated = [...(formData.ingredients || [])];
+                          updated[index] = { ...updated[index], quantity: parseFloat(e.target.value) || 0 };
+                          setFormData({ ...formData, ingredients: updated });
+                        }}
+                        className="glass-input w-20 text-sm text-white"
+                        placeholder="Qte"
+                      />
+                      <Input
+                        value={ing.unit || ""}
+                        onChange={(e) => {
+                          const updated = [...(formData.ingredients || [])];
+                          updated[index] = { ...updated[index], unit: e.target.value };
+                          setFormData({ ...formData, ingredients: updated });
+                        }}
+                        className="glass-input w-16 text-sm text-white"
+                        placeholder="Unite"
+                      />
+                      <Input
+                        value={ing.name || ""}
+                        onChange={(e) => {
+                          const updated = [...(formData.ingredients || [])];
+                          updated[index] = { ...updated[index], name: e.target.value };
+                          setFormData({ ...formData, ingredients: updated });
+                        }}
+                        className="glass-input flex-1 text-sm text-white"
+                        placeholder="Nom"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => {
+                          const updated = (formData.ingredients || []).filter((_: Ingredient, i: number) => i !== index);
+                          setFormData({ ...formData, ingredients: updated });
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-dashed"
+                    onClick={() => {
+                      const updated = [...(formData.ingredients || []), { name: "", quantity: 0, unit: "g", original_text: "" }];
+                      setFormData({ ...formData, ingredients: updated });
+                    }}
+                  >
+                    <Plus className="mr-2 h-4 w-4" /> Ajouter un ingredient
+                  </Button>
+                </div>
+              ) : recipe.ingredients && recipe.ingredients.length > 0 ? (
                 <ul className="space-y-1">
                   {recipe.ingredients.map((ing: Ingredient, index: number) => (
                     <li
@@ -346,7 +437,51 @@ export default function RecipeDetailPage() {
               <h3 className="text-base font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent mb-4">
                 Instructions ({recipe.instructions?.length || 0})
               </h3>
-              {recipe.instructions && recipe.instructions.length > 0 ? (
+              {isEditing ? (
+                <div className="space-y-2">
+                  {(formData.instructions || []).map((inst: Instruction, index: number) => (
+                    <div key={index} className="flex items-start gap-2 bg-white/5 p-2 rounded-lg">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-primary font-semibold text-sm flex-shrink-0 mt-1">
+                        {index + 1}
+                      </span>
+                      <Textarea
+                        value={inst.text || ""}
+                        onChange={(e) => {
+                          const updated = [...(formData.instructions || [])];
+                          updated[index] = { ...updated[index], text: e.target.value, step: index + 1 };
+                          setFormData({ ...formData, instructions: updated });
+                        }}
+                        className="glass-input flex-1 text-sm text-white"
+                        rows={2}
+                        placeholder="Instruction..."
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive mt-1"
+                        onClick={() => {
+                          const updated = (formData.instructions || []).filter((_: Instruction, i: number) => i !== index);
+                          setFormData({ ...formData, instructions: updated });
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-dashed"
+                    onClick={() => {
+                      const nextStep = (formData.instructions || []).length + 1;
+                      const updated = [...(formData.instructions || []), { step: nextStep, text: "", time_minutes: null }];
+                      setFormData({ ...formData, instructions: updated });
+                    }}
+                  >
+                    <Plus className="mr-2 h-4 w-4" /> Ajouter une etape
+                  </Button>
+                </div>
+              ) : recipe.instructions && recipe.instructions.length > 0 ? (
                 <ol className="space-y-4">
                   {recipe.instructions.map((inst: Instruction, index: number) => (
                     <li key={index} className="flex gap-4">
@@ -355,12 +490,12 @@ export default function RecipeDetailPage() {
                       </span>
                       <div className="pt-1">
                         <p className="text-white">{inst.text}</p>
-                        {inst.time_minutes && (
+                        {inst.time_minutes ? (
                           <p className="text-sm text-gray-400 mt-1">
                             <Clock className="h-3 w-3 inline mr-1" />
                             {inst.time_minutes} min
                           </p>
-                        )}
+                        ) : null}
                       </div>
                     </li>
                   ))}
@@ -485,6 +620,50 @@ export default function RecipeDetailPage() {
                   )}
                 </div>
 
+                <div>
+                  <Label className="text-gray-500">Difficulte</Label>
+                  {isEditing ? (
+                    <Select
+                      value={formData.difficulty || undefined}
+                      onValueChange={(v) => setFormData({ ...formData, difficulty: v })}
+                    >
+                      <SelectTrigger className="mt-1 glass-input">
+                        <SelectValue placeholder="Selectionner" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="facile">Facile</SelectItem>
+                        <SelectItem value="moyen">Moyen</SelectItem>
+                        <SelectItem value="difficile">Difficile</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="font-medium text-white">{recipe.difficulty || "Non defini"}</p>
+                  )}
+                </div>
+
+                <div>
+                  <Label className="text-gray-500">Type</Label>
+                  {isEditing ? (
+                    <Select
+                      value={formData.type || "both"}
+                      onValueChange={(v) => setFormData({ ...formData, type: v })}
+                    >
+                      <SelectTrigger className="mt-1 glass-input">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="prive">Prive</SelectItem>
+                        <SelectItem value="collectivite">Collectivite</SelectItem>
+                        <SelectItem value="both">Les deux</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="font-medium text-white">
+                      {recipe.type === "prive" ? "Prive" : recipe.type === "collectivite" ? "Collectivite" : "Les deux"}
+                    </p>
+                  )}
+                </div>
+
                 {recipe.region && (
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-gray-500" />
@@ -492,9 +671,34 @@ export default function RecipeDetailPage() {
                   </div>
                 )}
 
+                <div>
+                  <Label className="text-gray-500">Regimes alimentaires</Label>
+                  <div className="space-y-2 mt-2">
+                    {[
+                      { key: "is_vegetarian", label: "Vegetarien" },
+                      { key: "is_vegan", label: "Vegan" },
+                      { key: "is_gluten_free", label: "Sans gluten" },
+                      { key: "is_lactose_free", label: "Sans lactose" },
+                      { key: "is_halal", label: "Halal" },
+                    ].map(({ key, label }) => (
+                      <label key={key} className="flex items-center gap-2">
+                        {isEditing ? (
+                          <Checkbox
+                            checked={(formData as unknown as Record<string, boolean>)[key] || false}
+                            onCheckedChange={(c) => setFormData({ ...formData, [key]: !!c })}
+                          />
+                        ) : (
+                          <span className={`h-4 w-4 rounded ${(recipe as unknown as Record<string, unknown>)[key] ? "bg-green-500" : "bg-white/10"}`} />
+                        )}
+                        <span className="text-sm text-white">{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
                 {recipe.dietTags && recipe.dietTags.length > 0 && (
                   <div>
-                    <Label className="text-gray-500">Regimes</Label>
+                    <Label className="text-gray-500">Tags regimes</Label>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {recipe.dietTags.map((tag) => (
                         <Badge key={tag} variant="secondary" className="text-xs">

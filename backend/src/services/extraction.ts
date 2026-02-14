@@ -137,6 +137,11 @@ SAISONS:
 REGIMES ALIMENTAIRES (tags):
 vegetarien, vegan, sans-gluten, sans-lactose, halal, casher, pauvre en sel, pauvre en sucre, riche en proteines, riche en fibres
 
+NIVEAUX DE DIFFICULTE:
+- "facile": recettes simples, peu d'etapes, ingredients basiques
+- "moyen": technique moderee, plusieurs etapes
+- "difficile": technique avancee, longue preparation, ingredients rares
+
 FORMAT DE SORTIE (JSON STRICT):
 
 Si une recette est trouvee:
@@ -149,6 +154,7 @@ Si une recette est trouvee:
       "description": "2-3 phrases appetissantes decrivant le plat et son origine/caractere.",
       "category": "plat",
       "sub_category": "viandes",
+      "difficulty": "facile",
       "ingredients": [
         {
           "name": "boeuf (rumsteck)",
@@ -161,7 +167,9 @@ Si une recette est trouvee:
         {
           "step": 1,
           "text": "Instruction reformulee dans tes propres mots.",
-          "time_minutes": null
+          "time_minutes": null,
+          "temperature_celsius": 180,
+          "temperature_fahrenheit": 356
         }
       ],
       "servings": 4,
@@ -172,7 +180,14 @@ Si une recette est trouvee:
       "season": "hiver",
       "diet_tags": [],
       "meal_type": "diner",
-      "tips": "Conseils du chef si presents dans le texte."
+      "tips": "Conseils du chef si presents dans le texte.",
+      "dietary_flags": {
+        "is_vegetarian": false,
+        "is_vegan": false,
+        "is_gluten_free": false,
+        "is_lactose_free": false,
+        "is_halal": false
+      }
     }
   ]
 }
@@ -192,7 +207,9 @@ IMPORTANT:
 - REFORMULE vraiment les instructions, ne copie pas mot pour mot
 - Si la page semble etre la CONTINUATION d'une recette (pas de titre, commence par des instructions), indique-le dans le champ "notes" avec le prefixe "CONTINUATION:" suivi du contenu
 - Extrais CHAQUE recette separement, meme si elles sont petites ou partielles
-- Pour les temperatures de cuisson, inclus-les dans les instructions (ex: "Prechauffer le four a 180°C")`;
+- Pour les temperatures de cuisson, inclus le champ temperature_celsius et temperature_fahrenheit dans chaque instruction (null si pas de temperature)
+- Pour difficulty, evalue la difficulte globale: "facile", "moyen", ou "difficile"
+- Pour dietary_flags, analyse les ingredients pour determiner les flags alimentaires (vegetarien, vegan, sans-gluten, sans-lactose, halal)`;
 
 interface ExtractionResult {
   found_recipe: boolean;
@@ -212,12 +229,20 @@ interface ExtractedRecipe {
   servings?: number;
   prep_time_minutes?: number;
   cook_time_minutes?: number;
+  difficulty?: string;
   region?: string;
   country?: string;
   season?: string;
   diet_tags?: string[];
   meal_type?: string;
   tips?: string;
+  dietary_flags?: {
+    is_vegetarian: boolean;
+    is_vegan: boolean;
+    is_gluten_free: boolean;
+    is_lactose_free: boolean;
+    is_halal: boolean;
+  };
 }
 
 // Cancel token for processing jobs
@@ -612,12 +637,19 @@ export async function extractRecipesFromPDF(jobId: string): Promise<void> {
                   prepTimeMinutes: recipe.prep_time_minutes,
                   cookTimeMinutes: recipe.cook_time_minutes,
                   servings: recipe.servings || 4,
+                  difficulty: recipe.difficulty,
+                  type: job.cookbook.type || "both",
                   region: recipe.region,
                   country: recipe.country || "France",
                   season: recipe.season,
                   dietTags: JSON.stringify(recipe.diet_tags || []),
                   mealType: recipe.meal_type,
                   tips: recipe.tips,
+                  is_vegetarian: recipe.dietary_flags?.is_vegetarian ?? false,
+                  is_vegan: recipe.dietary_flags?.is_vegan ?? false,
+                  is_gluten_free: recipe.dietary_flags?.is_gluten_free ?? false,
+                  is_lactose_free: recipe.dietary_flags?.is_lactose_free ?? false,
+                  is_halal: recipe.dietary_flags?.is_halal ?? false,
                   status: "approved",
                 },
               });

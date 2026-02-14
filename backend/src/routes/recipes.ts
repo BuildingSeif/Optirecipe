@@ -34,7 +34,7 @@ recipesRouter.get("/", zValidator("query", RecipeFiltersSchema), async (c) => {
   if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
 
   const filters = c.req.valid("query");
-  const { page, limit, sortBy, sortOrder, search, status, category, cookbookId, season } = filters;
+  const { page, limit, sortBy, sortOrder, search, status, category, cookbookId, season, type } = filters;
 
   const where: any = { userId: user.id };
 
@@ -49,6 +49,7 @@ recipesRouter.get("/", zValidator("query", RecipeFiltersSchema), async (c) => {
   if (category) where.category = category;
   if (cookbookId) where.cookbookId = cookbookId;
   if (season) where.season = season;
+  if (type) where.type = type;
 
   const [recipes, total] = await Promise.all([
     prisma.recipe.findMany({
