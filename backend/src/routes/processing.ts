@@ -222,4 +222,71 @@ processingRouter.post("/:id/resume", async (c) => {
   return c.json({ data: { message: "Processing resumed" } });
 });
 
+// Re-extract a completed cookbook (cleans up failed pages, re-runs from scratch)
+processingRouter.post("/re-extract", zValidator("json", StartProcessingSchema), async (c) => {
+  const user = c.get("user");
+  if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
+
+  const { cookbookId } = c.req.valid("json");
+
+  const cookbook = await prisma.cookbook.findFirst({
+    where: { id: cookbookId, userId: user.id },
+  });
+
+  if (!cookbook) {
+    return c.json({ error: { message: "Cookbook not found" } }, 404);
+  }
+
+  // Block if there's an active job running
+  const activeJob = await prisma.processingJob.findFirst({
+    where: { cookbookId, status: { in: ["pending", "processing"] } },
+  });
+  if (activeJob) {
+    return c.json({ error: { message: "Cookbook is already being processed" } }, 400);
+  }
+
+  console.log(`[Re-extract] Starting re-extraction for cookbook ${cookbookId} (${cookbook.name})`);
+
+  // Delete all existing recipes and non-recipe content for this cookbook
+  const deletedRecipes = await prisma.recipe.deleteMany({ where: { cookbookId } });
+  const deletedContent = await prisma.nonRecipeContent.deleteMany({ where: { cookbookId } });
+  console.log(`[Re-extract] Cleaned up ${deletedRecipes.count} recipes and ${deletedContent.count} non-recipe entries`);
+
+  // Mark old jobs as cancelled
+  await prisma.processingJob.updateMany({
+    where: { cookbookId, status: { in: ["completed", "failed", "paused", "cancelled"] } },
+    data: { status: "cancelled" },
+  });
+
+  // Reset cookbook
+  await prisma.cookbook.update({
+    where: { id: cookbookId },
+    data: {
+      status: "processing",
+      processedPages: 0,
+      totalRecipesFound: 0,
+      errorMessage: null,
+    },
+  });
+
+  // Create fresh job
+  const job = await prisma.processingJob.create({
+    data: {
+      cookbookId,
+      userId: user.id,
+      totalPages: cookbook.totalPages,
+      status: "pending",
+    },
+  });
+
+  console.log(`[Re-extract] Created new job ${job.id}, starting extraction...`);
+
+  // Start async processing
+  extractRecipesFromPDF(job.id).catch((error) => {
+    console.error("[Re-extract] Processing error:", error);
+  });
+
+  return c.json({ data: { job, message: `Re-extraction started. Cleaned ${deletedRecipes.count} old recipes.` } }, 201);
+});
+
 export { processingRouter };
