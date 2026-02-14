@@ -14,6 +14,9 @@ import {
   Loader2,
   RefreshCw,
   AlertCircle,
+  Pause,
+  Play,
+  StopCircle,
 } from "lucide-react";
 import type { Recipe, ProcessingJob } from "../../../backend/src/types";
 
@@ -36,8 +39,10 @@ function StatusBadge({ status }: { status: string }) {
   const variants: Record<string, { label: string; className: string }> = {
     uploaded: { label: "Uploade", className: "badge-pending" },
     processing: { label: "En cours", className: "badge-processing" },
+    paused: { label: "En pause", className: "badge-pending" },
     completed: { label: "Termine", className: "badge-completed" },
     failed: { label: "Echoue", className: "badge-failed" },
+    cancelled: { label: "Annule", className: "badge-failed" },
     pending: { label: "En attente", className: "badge-pending" },
     approved: { label: "Approuvee", className: "badge-approved" },
     rejected: { label: "Rejetee", className: "badge-rejected" },
@@ -61,7 +66,7 @@ export default function CookbookDetailPage() {
     queryFn: () => api.get<CookbookDetail>(`/api/cookbooks/${id}`),
     refetchInterval: (query) => {
       const data = query.state.data;
-      return data?.status === "processing" ? 2000 : false;
+      return data?.status === "processing" || data?.status === "paused" ? 2000 : false;
     },
     retry: 2,
   });
@@ -72,6 +77,37 @@ export default function CookbookDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["cookbook", id] });
     },
   });
+
+  const latestJob = cookbook?.processingJobs?.[0];
+
+  const pauseMutation = useMutation({
+    mutationFn: () => api.post(`/api/processing/${latestJob?.id}/pause`, {}),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cookbook", id] }),
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: () => api.post(`/api/processing/${latestJob?.id}/cancel`, {}),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cookbook", id] }),
+  });
+
+  const resumeMutation = useMutation({
+    mutationFn: () => api.post(`/api/processing/${latestJob?.id}/resume`, {}),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cookbook", id] }),
+  });
+
+  const handlePause = () => {
+    if (latestJob) pauseMutation.mutate();
+  };
+
+  const handleCancel = () => {
+    if (latestJob && window.confirm("Etes-vous sur de vouloir arreter l'extraction ?")) {
+      cancelMutation.mutate();
+    }
+  };
+
+  const handleResume = () => {
+    if (latestJob) resumeMutation.mutate();
+  };
 
   if (isLoading) {
     return (
@@ -127,7 +163,7 @@ export default function CookbookDetailPage() {
             <h1 className="text-xl font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">{cookbook.name}</h1>
             <StatusBadge status={cookbook.status} />
           </div>
-          {cookbook.status !== "processing" && (
+          {cookbook.status !== "processing" && cookbook.status !== "paused" && (
             <Button
               variant="outline"
               size="sm"
@@ -142,7 +178,7 @@ export default function CookbookDetailPage() {
 
         {/* Processing Progress */}
         {cookbook.status === "processing" && (
-          <div className="glass-card-static p-5 rounded-xl">
+          <div className="glass-card-static p-5 rounded-xl space-y-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
@@ -155,6 +191,56 @@ export default function CookbookDetailPage() {
               </span>
             </div>
             <Progress value={processingProgress} className="h-1.5" />
+            <div className="flex gap-2 pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePause}
+                disabled={pauseMutation.isPending}
+                className="flex-1"
+              >
+                <Pause className="mr-2 h-3 w-3" />
+                Mettre en pause
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCancel}
+                disabled={cancelMutation.isPending}
+                className="flex-1 text-destructive hover:text-destructive border-destructive/30 hover:border-destructive/50"
+              >
+                <StopCircle className="mr-2 h-3 w-3" />
+                Arreter
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Paused State */}
+        {cookbook.status === "paused" && cookbook.processingJobs?.[0] && (
+          <div className="glass-card-static p-5 rounded-xl space-y-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Pause className="h-4 w-4 text-amber-400" />
+                <span className="text-sm text-white">
+                  En pause - Page {cookbook.processedPages} / {cookbook.totalPages}
+                </span>
+              </div>
+              <span className="text-sm text-amber-400 font-medium">
+                {cookbook.totalRecipesFound} recettes
+              </span>
+            </div>
+            <Progress value={processingProgress} className="h-1.5" />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleResume}
+              disabled={resumeMutation.isPending}
+              className="w-full"
+            >
+              <Play className="mr-2 h-3 w-3" />
+              Reprendre l'extraction
+            </Button>
           </div>
         )}
 

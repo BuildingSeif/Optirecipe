@@ -18,6 +18,7 @@ import {
   Globe,
   Check,
 } from "lucide-react";
+import ExtractionMonitor from "@/components/extraction/ExtractionMonitor";
 import type { Cookbook } from "../../../backend/src/types";
 
 const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
@@ -194,6 +195,7 @@ export default function UploadPage() {
   const [typePrivate, setTypePrivate] = useState(true);
   const [typeCollective, setTypeCollective] = useState(true);
   const [generateImages, setGenerateImages] = useState(true);
+  const [monitorCookbookIds, setMonitorCookbookIds] = useState<string[]>([]);
 
   const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
     // Handle rejected files (e.g., too large)
@@ -485,11 +487,9 @@ export default function UploadPage() {
     setIsProcessing(false);
     setShowOptions(false);
 
-    // Navigate to the first created cookbook or cookbooks list
-    if (createdCookbooks.length === 1) {
-      navigate(`/cookbooks/${createdCookbooks[0].id}`);
-    } else if (createdCookbooks.length > 1) {
-      navigate("/cookbooks");
+    // Instead of navigating, show the extraction monitor
+    if (createdCookbooks.length > 0) {
+      setMonitorCookbookIds(createdCookbooks.map((c) => c.id));
     }
   };
 
@@ -544,6 +544,17 @@ export default function UploadPage() {
 
   return (
     <DashboardLayout title="Uploader">
+      {monitorCookbookIds.length > 0 ? (
+        <ExtractionMonitor
+          cookbookIds={monitorCookbookIds}
+          onClose={() => {
+            setMonitorCookbookIds([]);
+            setFiles([]);
+            setShowOptions(false);
+          }}
+        />
+      ) : (
+      <>
       {/* Tabs */}
       <div className="flex justify-center mb-8">
         <div className="inline-flex glass-card-static rounded-xl p-1">
@@ -744,6 +755,8 @@ export default function UploadPage() {
 
       {activeTab === "ckbk" && <CKBKTab />}
       {activeTab === "web" && <WebSitesTab />}
+      </>
+      )}
     </DashboardLayout>
   );
 }
