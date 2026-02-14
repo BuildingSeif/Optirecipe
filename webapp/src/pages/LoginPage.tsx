@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
@@ -11,15 +11,6 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [splineLoaded, setSplineLoaded] = useState(false);
-
-  // Lazy load Spline iframe after component mounts to prevent initial lag
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSplineLoaded(true);
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
 
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,25 +36,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4 relative overflow-hidden">
-      {/* Spline 3D Background - lazy loaded */}
-      <div className="absolute top-0 left-0 w-full h-full -z-10">
-        {splineLoaded && (
-          <iframe
-            src="https://my.spline.design/celestialflowabstractdigitalform-ObUlVgj70g2y4bbx5vBKSfxN/"
-            frameBorder="0"
-            width="100%"
-            height="100%"
-            id="aura-spline"
-            title="Background Animation"
-            className="pointer-events-none"
-            loading="lazy"
-          />
-        )}
-      </div>
-
-      <div className="w-full max-w-md animate-fade-in relative z-10">
-        <div className="glass-card-static p-8 rounded-2xl animate-slide-up backdrop-blur-xl bg-gray-900/70 border border-white/10">
+    <div className="min-h-screen flex items-center justify-center p-4 relative z-10">
+      <div className="w-full max-w-md animate-fade-in">
+        <div className="glass-card-static p-8 rounded-2xl animate-slide-up backdrop-blur-xl bg-black/60 border border-white/10">
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
@@ -94,11 +69,11 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {error && (
+            {error ? (
               <p className="text-sm text-red-400 animate-fade-in">
                 {error}
               </p>
-            )}
+            ) : null}
 
             <Button
               type="submit"

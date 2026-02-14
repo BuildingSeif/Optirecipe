@@ -66,21 +66,8 @@ export default function VerifyOtpPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black p-4 relative overflow-hidden">
-      {/* Spline 3D Background */}
-      <div className="absolute inset-0 z-0">
-        <iframe
-          src="https://my.spline.design/celestialflowabstractdigitalform-ObUlVgj70g2y4bbx5vBKSfxN/"
-          frameBorder="0"
-          width="100%"
-          height="100%"
-          id="aura-spline"
-          title="Background Animation"
-          style={{ pointerEvents: "none" }}
-        />
-      </div>
-
-      <div className="w-full max-w-md animate-fade-in relative z-10">
+    <div className="min-h-screen flex items-center justify-center p-4 relative z-10">
+      <div className="w-full max-w-md animate-fade-in">
         <div className="p-8 rounded-2xl animate-slide-up backdrop-blur-xl bg-black/60 border border-white/10 shadow-2xl">
           {/* Header */}
           <div className="text-center pb-6">
