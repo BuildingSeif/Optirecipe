@@ -446,7 +446,7 @@ export default function UploadPage() {
       name: fileState.name,
       filePath: fileState.uploadedPath,
       fileSize: fileState.file.size,
-      totalPages: 10,
+      totalPages: 0, // Detected automatically during extraction
       generateDescriptions: true,
       reformulateForCopyright: true,
       convertToGrams: true,
