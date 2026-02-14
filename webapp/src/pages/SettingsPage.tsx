@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useSession, signOut } from "@/lib/auth-client";
+import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 import { User, Mail, LogOut, Camera, Loader2, Check } from "lucide-react";
 
@@ -11,7 +11,7 @@ const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
-  const { data: session } = useSession();
+  const { session, signOut } = useAuth();
   const user = session?.user;
 
   const [name, setName] = useState(user?.name || "");

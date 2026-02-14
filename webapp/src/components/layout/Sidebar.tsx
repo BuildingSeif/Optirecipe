@@ -11,7 +11,7 @@ import {
   Settings,
   LogOut,
 } from "lucide-react";
-import { signOut, useSession } from "@/lib/auth-client";
+import { useAuth } from "@/lib/auth-context";
 
 const navigation = [
   { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
@@ -100,13 +100,13 @@ const UserSection = memo(function UserSection({
 
 export const Sidebar = memo(function Sidebar() {
   const location = useLocation();
-  const { data: session } = useSession();
+  const { session, signOut } = useAuth();
   const user = session?.user;
 
   const handleSignOut = useCallback(async () => {
     await signOut();
     window.location.href = "/login";
-  }, []);
+  }, [signOut]);
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-gradient-to-b from-[#0a1628] via-[#0d1f3c] to-[#091525] border-r border-primary/20 shadow-xl shadow-primary/5">

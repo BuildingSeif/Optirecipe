@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
-import { useSession } from "@/lib/auth-client";
+import { useAuth } from "@/lib/auth-context";
 import {
   BookOpen,
   ChefHat,
@@ -23,7 +23,7 @@ function formatDate(date: string | Date) {
 }
 
 export default function DashboardPage() {
-  const { data: session } = useSession();
+  const { session } = useAuth();
   const userName = session?.user?.name?.split(" ")[0] || "Utilisateur";
 
   const { data: stats, isLoading: statsLoading } = useQuery({

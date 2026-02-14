@@ -1,9 +1,9 @@
 import { Navigate } from "react-router-dom";
-import { useSession } from "@/lib/auth-client";
+import { useAuth } from "@/lib/auth-context";
 import { Loader2 } from "lucide-react";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { data: session, isPending } = useSession();
+  const { session, isPending } = useAuth();
 
   if (isPending) {
     return (

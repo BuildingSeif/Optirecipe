@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { authClient } from "@/lib/auth-client";
+import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
 import { Loader2, Mail, Lock } from "lucide-react";
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { setSession } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -19,16 +22,34 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const result = await authClient.signIn.email({
-        email: email.trim().toLowerCase(),
-        password,
+      const res = await fetch(`${BACKEND_URL}/api/auth/sign-in/email`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          password,
+        }),
       });
 
-      if (result.error) {
-        setError(result.error.message || "Email ou mot de passe incorrect");
-      } else {
-        navigate("/dashboard", { replace: true });
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        setError(data.error?.message || data.message || "Email ou mot de passe incorrect");
+        return;
       }
+
+      // Use user data directly from sign-in response
+      if (data.user) {
+        setSession({ user: data.user, session: { token: data.token } });
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      setError("Session non établie. Veuillez réessayer.");
     } catch {
       setError("Impossible de contacter le serveur. Veuillez réessayer.");
     } finally {

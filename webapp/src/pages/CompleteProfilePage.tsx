@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useSession } from "@/lib/auth-client";
+import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
 export default function CompleteProfilePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data: session, isPending: sessionLoading } = useSession();
+  const { session, isPending: sessionLoading } = useAuth();
   const user = session?.user;
 
   const [name, setName] = useState(user?.name || "");
