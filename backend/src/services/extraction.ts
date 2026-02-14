@@ -189,7 +189,10 @@ IMPORTANT:
 - Si plusieurs recettes sur une page, retourne-les toutes dans le tableau "recipes"
 - Si une information n'est pas disponible, utilise null (pas de string vide)
 - Les quantites DOIVENT etre des nombres, jamais du texte
-- REFORMULE vraiment les instructions, ne copie pas mot pour mot`;
+- REFORMULE vraiment les instructions, ne copie pas mot pour mot
+- Si la page semble etre la CONTINUATION d'une recette (pas de titre, commence par des instructions), indique-le dans le champ "notes" avec le prefixe "CONTINUATION:" suivi du contenu
+- Extrais CHAQUE recette separement, meme si elles sont petites ou partielles
+- Pour les temperatures de cuisson, inclus-les dans les instructions (ex: "Prechauffer le four a 180°C")`;
 
 interface ExtractionResult {
   found_recipe: boolean;
@@ -238,7 +241,7 @@ export function resumeProcessingJob(jobId: string) {
 // Rate limiting for OpenAI API
 const RATE_LIMIT_DELAY_MS = 500; // Delay between API calls to avoid rate limits
 const MAX_RETRIES = 3;
-const MAX_RECIPES_PER_PDF = 100;
+const MAX_RECIPES_PER_PDF = 500;
 
 // Helper to delay execution
 function delay(ms: number): Promise<void> {
@@ -384,8 +387,8 @@ async function callOpenAIVision(imageBase64: string, pageNum: number): Promise<E
               ],
             },
           ],
-          max_completion_tokens: 4096,
-          temperature: 1,
+          max_completion_tokens: 8192,
+          temperature: 0.1,
         }),
       });
 
@@ -545,18 +548,19 @@ export async function extractRecipesFromPDF(jobId: string): Promise<void> {
         data: { totalPages },
       });
 
-      // Process each page (start from startPage for resume support)
-      for (let pageNum = startPage; pageNum <= totalPages; pageNum++) {
+      // Process pages in batches of 3 for faster extraction
+      const BATCH_SIZE = 3;
+      for (let batchStart = startPage; batchStart <= totalPages; batchStart += BATCH_SIZE) {
         // Check if job was cancelled
         if (cancelledJobs.has(job.id)) {
-          processingLog.push(`Page ${pageNum}: Traitement annule par l'utilisateur`);
+          processingLog.push(`Traitement annule par l'utilisateur`);
           break;
         }
 
         // Check if job was paused
         if (pausedJobs.has(job.id)) {
-          processingLog.push(`Page ${pageNum}: Traitement mis en pause par l'utilisateur`);
-          await updateJobProgress(job.id, job.cookbookId, pageNum - 1, recipesExtracted, processingLog);
+          processingLog.push(`Traitement mis en pause par l'utilisateur`);
+          await updateJobProgress(job.id, job.cookbookId, batchStart - 1, recipesExtracted, processingLog);
           await prisma.processingJob.update({
             where: { id: job.id },
             data: { status: "paused" },
@@ -570,32 +574,46 @@ export async function extractRecipesFromPDF(jobId: string): Promise<void> {
           break;
         }
 
-        try {
-          processingLog.push(`Page ${pageNum}/${totalPages}: Conversion en image...`);
-          await updateJobProgress(job.id, job.cookbookId, pageNum, recipesExtracted, processingLog);
+        const batchEnd = Math.min(batchStart + BATCH_SIZE - 1, totalPages);
+        const batchPages = Array.from(
+          { length: batchEnd - batchStart + 1 },
+          (_, i) => batchStart + i
+        );
 
-          // Render page to image
+        processingLog.push(`Traitement du lot de pages ${batchStart}-${batchEnd}/${totalPages}...`);
+        await updateJobProgress(job.id, job.cookbookId, batchStart, recipesExtracted, processingLog);
+
+        // Render all pages in batch concurrently
+        const renderPromises = batchPages.map(async (pageNum) => {
           const imageBase64 = await renderPageToBase64(pdfDoc, pageNum);
+          return { pageNum, imageBase64 };
+        });
+        const renderedPages = await Promise.all(renderPromises);
 
-          processingLog.push(`Page ${pageNum}/${totalPages}: Analyse par IA...`);
-          await updateJobProgress(job.id, job.cookbookId, pageNum, recipesExtracted, processingLog);
-
-          // Call OpenAI Vision API
+        // Process each rendered page with OpenAI Vision concurrently
+        const extractionPromises = renderedPages.map(async ({ pageNum, imageBase64 }) => {
           const result = await callOpenAIVision(imageBase64, pageNum);
+          return { pageNum, result };
+        });
+        const results = await Promise.allSettled(extractionPromises);
 
-          // Rate limiting delay between pages
-          await delay(RATE_LIMIT_DELAY_MS);
+        // Process results in page order
+        for (const settled of results) {
+          if (settled.status === "rejected") {
+            const errorMsg = `Page: Erreur - ${settled.reason instanceof Error ? settled.reason.message : String(settled.reason)}`;
+            errorLog.push(errorMsg);
+            processingLog.push(errorMsg);
+            continue;
+          }
+
+          const { pageNum, result } = settled.value;
 
           if (result.found_recipe && result.recipes && result.recipes.length > 0) {
             for (const recipe of result.recipes) {
-              // Check recipe limit before adding
-              if (recipesExtracted >= MAX_RECIPES_PER_PDF) {
-                break;
-              }
+              if (recipesExtracted >= MAX_RECIPES_PER_PDF) break;
 
               processingLog.push(`Page ${pageNum}: Recette trouvee - ${recipe.title}`);
 
-              // Create the recipe in database
               const createdRecipe = await prisma.recipe.create({
                 data: {
                   cookbookId: job.cookbookId,
@@ -669,17 +687,13 @@ export async function extractRecipesFromPDF(jobId: string): Promise<void> {
               });
             }
           }
-
-          // Update progress after each page
-          await updateJobProgress(job.id, job.cookbookId, pageNum, recipesExtracted, processingLog);
-
-        } catch (pageError) {
-          const errorMsg = `Page ${pageNum}: Erreur - ${pageError instanceof Error ? pageError.message : String(pageError)}`;
-          errorLog.push(errorMsg);
-          processingLog.push(errorMsg);
-          console.error(errorMsg);
-          // Continue with next page
         }
+
+        // Update progress after each batch
+        await updateJobProgress(job.id, job.cookbookId, batchEnd, recipesExtracted, processingLog);
+
+        // Small delay between batches to respect rate limits
+        await delay(RATE_LIMIT_DELAY_MS);
       }
 
       // Mark job as completed

@@ -316,16 +316,23 @@ export default function RecipeDetailPage() {
                 </h3>
               </div>
               {recipe.ingredients && recipe.ingredients.length > 0 ? (
-                <ul className="space-y-2">
+                <ul className="space-y-1">
                   {recipe.ingredients.map((ing: Ingredient, index: number) => (
                     <li
                       key={index}
-                      className="flex items-center justify-between py-2 border-b border-white/10 last:border-0"
+                      className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-white/5 transition-colors"
                     >
-                      <span className="font-medium text-white">{ing.name}</span>
-                      <span className="text-gray-400">
-                        {ing.quantity} {ing.unit}
-                      </span>
+                      <div className="flex items-center justify-center min-w-[70px] px-2 py-1 rounded-md bg-primary/10 border border-primary/20">
+                        <span className="text-sm font-bold text-primary tabular-nums">
+                          {ing.quantity}{ing.unit}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-medium truncate">{ing.name}</p>
+                        {ing.original_text && ing.original_text !== `${ing.quantity}${ing.unit} ${ing.name}` ? (
+                          <p className="text-xs text-gray-500 truncate">{ing.original_text}</p>
+                        ) : null}
+                      </div>
                     </li>
                   ))}
                 </ul>
