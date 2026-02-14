@@ -36,15 +36,39 @@ export default function VerifyOtpPage() {
         setError(result.error.message || "Code de vérification invalide");
         setIsLoading(false);
       } else {
-        // Wait for the internal session signal to trigger (10ms), then
-        // explicitly fetch session to populate the store before navigating
+        // Wait for internal signal, fetch session, then navigate
         await new Promise((r) => setTimeout(r, 100));
         await authClient.getSession();
         navigate("/dashboard", { replace: true });
       }
-    } catch {
-      setError("Une erreur est survenue. Veuillez réessayer.");
-      setIsLoading(false);
+    } catch (err: unknown) {
+      console.error("Sign-in via authClient failed, trying direct fetch:", err);
+
+      // Fallback: call the sign-in API directly
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL;
+        const res = await fetch(`${backendUrl}/api/auth/sign-in/email-otp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ email: email.trim(), otp }),
+        });
+
+        if (res.ok) {
+          // Sync the session store after direct sign-in
+          await new Promise((r) => setTimeout(r, 200));
+          await authClient.getSession();
+          navigate("/dashboard", { replace: true });
+        } else {
+          const data = await res.json().catch(() => null);
+          setError(data?.message || "Code de vérification invalide");
+          setIsLoading(false);
+        }
+      } catch (fetchErr) {
+        console.error("Direct sign-in fetch also failed:", fetchErr);
+        setError("Impossible de contacter le serveur. Veuillez réessayer.");
+        setIsLoading(false);
+      }
     }
   };
 
@@ -62,7 +86,21 @@ export default function VerifyOtpPage() {
         setError(result.error.message || "Échec de l'envoi du code");
       }
     } catch {
-      setError("Une erreur est survenue. Veuillez réessayer.");
+      // Fallback: direct fetch
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL;
+        const res = await fetch(`${backendUrl}/api/auth/email-otp/send-verification-otp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ email: email.trim(), type: "sign-in" }),
+        });
+        if (!res.ok) {
+          setError("Échec de l'envoi du code");
+        }
+      } catch {
+        setError("Impossible de contacter le serveur.");
+      }
     } finally {
       setIsLoading(false);
     }

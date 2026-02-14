@@ -17,19 +17,42 @@ export default function LoginPage() {
     setError("");
     setIsLoading(true);
 
+    const normalizedEmail = email.trim().toLowerCase();
+
     try {
       const result = await authClient.emailOtp.sendVerificationOtp({
-        email: email.trim(),
+        email: normalizedEmail,
         type: "sign-in",
       });
 
       if (result.error) {
-        setError(result.error.message || "Échec de l'envoi du code de vérification");
+        setError(result.error.message || "Échec de l'envoi du code");
       } else {
-        navigate("/verify-otp", { state: { email: email.trim() } });
+        navigate("/verify-otp", { state: { email: normalizedEmail } });
       }
-    } catch {
-      setError("Une erreur est survenue. Veuillez réessayer.");
+    } catch (err: unknown) {
+      console.error("OTP send failed via authClient, trying direct fetch:", err);
+
+      // Fallback: call the API directly if Better Auth client throws
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL;
+        const res = await fetch(`${backendUrl}/api/auth/email-otp/send-verification-otp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ email: normalizedEmail, type: "sign-in" }),
+        });
+
+        if (res.ok) {
+          navigate("/verify-otp", { state: { email: normalizedEmail } });
+        } else {
+          const data = await res.json().catch(() => null);
+          setError(data?.message || "Échec de l'envoi du code de vérification");
+        }
+      } catch (fetchErr) {
+        console.error("Direct fetch also failed:", fetchErr);
+        setError("Impossible de contacter le serveur. Veuillez réessayer.");
+      }
     } finally {
       setIsLoading(false);
     }
