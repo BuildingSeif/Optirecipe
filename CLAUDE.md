@@ -46,3 +46,40 @@ This workspace contains a mobile app and backend server.
   Communicate in an easy to understand manner for non-technical users.
   Be concise and don't talk too much.
 </environment>
+
+<locked_checkpoint date="2026-02-14">
+  CRITICAL: The following systems are WORKING PERFECTLY. DO NOT modify these files
+  or their core logic unless explicitly asked. Any upgrade must not regress these.
+
+  ## Auth System (cross-origin iframe compatible)
+  - backend/src/index.ts: Auth middleware with Bearer token fallback (lines 56-91)
+  - backend/src/auth.ts: Better Auth with emailAndPassword, no plugins
+  - webapp/src/lib/auth-context.tsx: Custom AuthProvider using localStorage session
+  - webapp/src/lib/api.ts: getAuthHeaders() sends Bearer token from localStorage
+  - webapp/src/pages/LoginPage.tsx: Direct fetch sign-in, saves session to context
+  - webapp/src/pages/SignupPage.tsx: Direct fetch sign-up, saves session to context
+  - DO NOT use Better Auth's useSession() hook — it doesn't work in Vibecode iframe
+  - DO NOT switch back to cookie-only auth — cookies don't work cross-origin here
+
+  ## PDF Upload Pipeline
+  - webapp/src/pages/UploadPage.tsx: Uses api.raw() for upload (NOT XHR)
+  - backend/src/routes/upload.ts: Vibecode SDK storage upload
+  - CORS config in index.ts: allowHeaders includes "Authorization"
+  - DO NOT use XMLHttpRequest for uploads — causes CORS preflight failures
+
+  ## PDF Extraction Pipeline
+  - backend/src/services/extraction.ts: MuPDF renders pages to JPEG, sends to GPT-5.2 Vision
+  - Uses "mupdf" package (NOT pdfjs-dist, NOT canvas) for PDF page rendering
+  - renderPageToJpegBase64(): MuPDF renders at 2x scale, outputs JPEG quality 90
+  - callOpenAIVision(): Sends JPEG base64 as image_url to GPT-5.2, temperature 0.1
+  - Batch processing: 5 pages concurrently via Promise.allSettled
+  - Image generation: FAL AI Flux Pro v1.1 (NOT DALL-E, NOT Gemini)
+  - Email notification: Resend API after extraction completes
+  - DO NOT replace MuPDF with pdfjs-dist or canvas — they crash in Bun
+  - DO NOT send raw PDF to OpenAI — send rendered JPEG images per page
+
+  ## Backend URL
+  - webapp/.env VITE_BACKEND_URL must match the actual BACKEND_URL env var
+  - Check with: env | grep BACKEND_URL
+  - If they don't match, update webapp/.env
+</locked_checkpoint>
