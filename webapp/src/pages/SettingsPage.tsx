@@ -6,11 +6,13 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 import { User, Mail, LogOut, Camera, Loader2, Check } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
-  const { session, signOut } = useAuth();
+  const { session, signOut, setSession } = useAuth();
+  const { toast } = useToast();
   const user = session?.user;
 
   const [name, setName] = useState(user?.name || "");
@@ -94,12 +96,32 @@ export default function SettingsPage() {
         imageUrl = await uploadImageMutation.mutateAsync(imageFile);
       } catch (error) {
         console.error("Image upload failed:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de telecharger l'image. Veuillez reessayer.",
+          variant: "destructive",
+        });
+        return;
       }
     }
 
     updateProfileMutation.mutate({
       name: name.trim(),
       image: imageUrl,
+    }, {
+      onSuccess: () => {
+        // Update auth context directly so UI reflects changes immediately
+        if (session) {
+          setSession({
+            ...session,
+            user: { ...session.user, name: name.trim(), image: imageUrl || session.user.image },
+          });
+        }
+        toast({
+          title: "Profil mis a jour",
+          description: "Vos modifications ont ete enregistrees.",
+        });
+      },
     });
   };
 

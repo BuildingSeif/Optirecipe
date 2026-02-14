@@ -75,10 +75,22 @@ Recipe extraction platform for institutional food service in France (schools, ho
 - Whitelisted: saif@highticketkreator.com, nicolas.bertin@opti-marche.com, nouhaila.ezzahr@opti-marche.com
 
 ### Premium Glass UI
-- Custom GlassButton component with glass morphism effect
+- Custom GlassButton component with glass morphism effect, compact sizing (10px border-radius)
 - 6 variants: default, primary (blue), destructive (red), success (green), warning (amber), ghost
 - Conic gradient borders, shine overlay, 3D press effect
 - Applied across all primary action buttons in the app
+
+### CryptoTrade-Inspired Design System
+- Unicorn Studio aura background (data-us-project yWZ2Tbe094Fsjgy9NRnD)
+- `ct-card` system: bg-black/40 + border-white/12 + backdrop-blur-12px + inset top glow
+- `ct-card-glow`: radial gradient glow at card top
+- `ct-light-bar`: thin white gradient line at card top
+- `ct-input`: glass input fields with focus ring
+- Sidebar: bg-black/50, CryptoTrade-style navigation with active bg-white/12
+- Plus Jakarta Sans for headings (`font-heading`), Inter for body
+- Breadcrumb navigation on every page
+- Status dots with colored glow shadows
+- Skeleton shimmer loading states
 
 ## Database Schema
 

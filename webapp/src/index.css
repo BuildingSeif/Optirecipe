@@ -439,7 +439,7 @@
   /* ===== Premium Glass Buttons ===== */
   .glass-btn {
     position: relative;
-    border-radius: 999px;
+    border-radius: 10px;
     cursor: pointer;
     outline: none;
     border: none;
@@ -458,7 +458,7 @@
     content: '';
     position: absolute;
     inset: -1px;
-    border-radius: 999px;
+    border-radius: 10px;
     padding: 1px;
     box-sizing: border-box;
     background:
@@ -497,7 +497,7 @@
   .glass-btn .btn-shine {
     position: absolute;
     inset: 0.5px;
-    border-radius: 999px;
+    border-radius: 10px;
     background: linear-gradient(-45deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.45) 40% 50%, rgba(255, 255, 255, 0) 55%);
     mix-blend-mode: screen;
     pointer-events: none;
@@ -646,10 +646,10 @@
   }
 
   /* Size variants */
-  .glass-btn-sm .btn-text { font-size: 13px; padding: 6px 16px; }
-  .glass-btn-default .btn-text { font-size: 15px; padding: 10px 24px; }
-  .glass-btn-lg .btn-text { font-size: 17px; padding: 14px 32px; }
-  .glass-btn-icon { width: 40px; height: 40px; }
+  .glass-btn-sm .btn-text { font-size: 12px; padding: 5px 12px; }
+  .glass-btn-default .btn-text { font-size: 13px; padding: 7px 16px; }
+  .glass-btn-lg .btn-text { font-size: 14px; padding: 9px 22px; }
+  .glass-btn-icon { width: 34px; height: 34px; }
   .glass-btn-icon .btn-text { padding: 0; }
 
   /* Ambient background orbs - OptiRecipe Brand Blue */
