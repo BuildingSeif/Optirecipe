@@ -320,7 +320,7 @@ export function resumeProcessingJob(jobId: string) {
 // Rate limiting for OpenAI API
 const RATE_LIMIT_DELAY_MS = 500; // Delay between API calls to avoid rate limits
 const MAX_RETRIES = 3;
-const MAX_RECIPES_PER_PDF = 500;
+const MAX_RECIPES_PER_PDF = 2000;
 const BATCH_SIZE = 5; // Pages per batch for OpenAI PDF processing
 
 // Global extraction queue — smart concurrency for multi-user scale
@@ -447,6 +447,23 @@ function renderPageToJpegBase64(pdfBuffer: ArrayBuffer, pageNum: number): string
   }
 }
 
+// Render multiple pages from an already-opened document (batch-aware, avoids reopening PDF per page)
+function renderPagesFromDoc(doc: mupdf.Document, pageNums: number[], jpegQuality: number = 90): Map<number, string> {
+  const results = new Map<number, string>();
+  const scale = 2.0;
+  for (const pageNum of pageNums) {
+    try {
+      const page = doc.loadPage(pageNum - 1); // 0-indexed
+      const pixmap = page.toPixmap(mupdf.Matrix.scale(scale, scale), mupdf.ColorSpace.DeviceRGB);
+      const jpegBuffer = pixmap.asJPEG(jpegQuality);
+      results.set(pageNum, Buffer.from(jpegBuffer).toString("base64"));
+    } catch (err) {
+      console.error(`[Extraction] Failed to render page ${pageNum}:`, err);
+    }
+  }
+  return results;
+}
+
 // Get total page count from PDF using MuPDF
 function getPdfPageCount(pdfBuffer: ArrayBuffer): number {
   const doc = mupdf.Document.openDocument(Buffer.from(pdfBuffer), "application/pdf");
@@ -494,6 +511,7 @@ async function callOpenAIVision(imageBase64: string, pageNum: number): Promise<E
           max_completion_tokens: 8192,
           temperature: 0.1,
         }),
+        signal: AbortSignal.timeout(90000), // 90 second timeout per page
       });
 
       if (!response.ok) {
@@ -761,7 +779,7 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
       processingLog.push("Telechargement du PDF...");
       await updateJobProgress(job.id, job.cookbookId, 0, 0, processingLog);
 
-      const pdfBuffer = await fetchPDFFromStorage(job.cookbook.filePath, job.cookbook.fileUrl);
+      let pdfBuffer = await fetchPDFFromStorage(job.cookbook.filePath, job.cookbook.fileUrl);
       processingLog.push(`PDF telecharge: ${(pdfBuffer.byteLength / 1024 / 1024).toFixed(2)} MB`);
 
       // Get page count using MuPDF
@@ -780,6 +798,12 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
         where: { id: job.cookbookId },
         data: { totalPages },
       });
+
+      // Determine JPEG quality based on PDF size (lower quality for large PDFs to reduce memory)
+      const jpegQuality = totalPages > 100 ? 80 : 90;
+      if (totalPages > 100) {
+        console.log(`[Extraction] Job ${job.id}: Large PDF (${totalPages} pages), using JPEG quality ${jpegQuality}`);
+      }
 
       // Process pages in batches of BATCH_SIZE (concurrent per batch, like Python version)
       for (let batchStart = startPage; batchStart <= totalPages; batchStart += BATCH_SIZE) {
@@ -809,20 +833,43 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
         const batchEnd = Math.min(batchStart + BATCH_SIZE - 1, totalPages);
         const batchPages = Array.from({ length: batchEnd - batchStart + 1 }, (_, i) => batchStart + i);
 
+        console.log(`[Extraction] Job ${job.id}: Processing pages ${batchStart}-${batchEnd}/${totalPages} (${recipesExtracted} recipes so far)`);
         processingLog.push(`Traitement des pages ${batchStart}-${batchEnd}/${totalPages}...`);
         await updateJobProgress(job.id, job.cookbookId, batchStart, recipesExtracted, processingLog);
 
-        // Render each page to JPEG and call OpenAI Vision concurrently (like Python's asyncio.gather)
-        const extractionPromises = batchPages.map(async (pageNum) => {
+        // Render all pages in this batch with a single doc open (avoids reopening PDF per page)
+        let renderedPages: Map<number, string>;
+        try {
+          const doc = mupdf.Document.openDocument(Buffer.from(pdfBuffer), "application/pdf");
           try {
-            const imageBase64 = renderPageToJpegBase64(pdfBuffer, pageNum);
+            renderedPages = renderPagesFromDoc(doc, batchPages, jpegQuality);
+          } finally {
+            doc.destroy();
+          }
+        } catch (err) {
+          const errMsg = `Failed to open PDF for pages ${batchStart}-${batchEnd}: ${err instanceof Error ? err.message : String(err)}`;
+          console.error(`[Extraction] ${errMsg}`);
+          errorLog.push(errMsg);
+          continue; // Skip this batch, try next
+        }
+
+        // Send rendered pages to OpenAI concurrently (like Python's asyncio.gather)
+        const extractionPromises = batchPages.map(async (pageNum) => {
+          const imageBase64 = renderedPages.get(pageNum);
+          if (!imageBase64) {
+            return { pageNum, result: { found_recipe: false, page_type: 'error', notes: `Failed to render page ${pageNum}` } as ExtractionResult };
+          }
+          try {
             const result = await callOpenAIVision(imageBase64, pageNum);
             return { pageNum, result };
           } catch (err) {
-            return { pageNum, result: { found_recipe: false, page_type: 'error', notes: `Render error: ${err instanceof Error ? err.message : String(err)}` } as ExtractionResult };
+            return { pageNum, result: { found_recipe: false, page_type: 'error', notes: `API error: ${err instanceof Error ? err.message : String(err)}` } as ExtractionResult };
           }
         });
         const results = await Promise.allSettled(extractionPromises);
+
+        // Clear rendered pages from memory
+        renderedPages.clear();
 
         // Process results in page order
         for (const settled of results) {
@@ -832,6 +879,13 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
           }
 
           const { pageNum, result } = settled.value;
+
+          // Per-page logging
+          if (result.found_recipe && result.recipes && result.recipes.length > 0) {
+            console.log(`[Extraction] Page ${pageNum}/${totalPages} - ${result.recipes.length} recipe(s) found`);
+          } else {
+            console.log(`[Extraction] Page ${pageNum}/${totalPages} - no recipe (${result.page_type || 'unknown'})`);
+          }
 
           if (result.found_recipe && result.recipes && result.recipes.length > 0) {
             for (const recipe of result.recipes) {
@@ -924,12 +978,16 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
           }
         }
 
-        // Update progress after each batch
-        await updateJobProgress(job.id, job.cookbookId, batchEnd, recipesExtracted, processingLog);
+        // FORCE progress write after every batch (critical for crash recovery on large PDFs)
+        await updateJobProgress(job.id, job.cookbookId, batchEnd, recipesExtracted, processingLog, true);
 
         // Small delay between batches to respect rate limits
         await delay(RATE_LIMIT_DELAY_MS);
       }
+
+      // Help GC reclaim memory from large PDF buffers
+      // @ts-ignore - intentional dereference for memory management
+      pdfBuffer = null;
 
       // Process queued image generations (non-blocking)
       processImageQueue().catch((err) => {

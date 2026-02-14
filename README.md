@@ -19,7 +19,11 @@ Recipe extraction platform for institutional food service in France (schools, ho
 - MuPDF renders each page as JPEG at 2x resolution
 - GPT-5.2 Vision extracts recipes with ingredients, instructions, dietary flags, difficulty
 - Temperature detection: Celsius, Fahrenheit, and French thermostat (1-10) with automatic conversion
-- Batch processing: 5 pages concurrently
+- Batch processing: 5 pages concurrently with single PDF doc open per batch (memory efficient)
+- 90-second timeout per OpenAI API call to prevent hung jobs
+- Forced progress saves after every batch for crash recovery on large PDFs (500+ pages)
+- Dynamic JPEG quality (80 for large PDFs, 90 for small) to reduce memory pressure
+- Max 2000 recipes per PDF (supports large institutional cookbooks)
 - Real-time extraction monitor with per-cookbook tabs and live recipe feed
 - Pause/resume/stop controls during extraction
 - Automatic image generation per recipe via FAL AI (French cuisine style prompt)
