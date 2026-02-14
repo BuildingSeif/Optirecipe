@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 
+// Prisma client with Country and Region models
 const prisma = new PrismaClient();
 
 // IMPORTANT: SQLite optimizations for better performance

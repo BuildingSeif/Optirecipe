@@ -19,7 +19,7 @@ async function generateRecipeImage(title: string, description?: string): Promise
   }
 
   const descriptionPart = description ? ` ${description}.` : "";
-  const prompt = `Professional food photography of ${title}.${descriptionPart} Appetizing, high-quality, restaurant-style presentation on a clean plate, soft natural lighting, shallow depth of field, delicious looking food.`;
+  const prompt = `Professional food photography of ${title}.${descriptionPart} Appetizing presentation on a clean plate, soft natural lighting, top-down angle, French cuisine style, high-end restaurant quality. No text or watermarks.`;
 
   try {
     console.log(`Generating image for recipe: ${title}`);
@@ -147,6 +147,26 @@ NIVEAUX DE DIFFICULTE:
 - "facile": recettes simples, peu d'etapes, ingredients basiques
 - "moyen": technique moderee, plusieurs etapes
 - "difficile": technique avancee, longue preparation, ingredients rares
+
+DETECTION ET CONVERSION DES TEMPERATURES:
+Detecte TOUTES les temperatures dans le texte, y compris les formats suivants:
+- "180°C" → temperature_celsius: 180, temperature_fahrenheit: 356
+- "four a 180 degres" → temperature_celsius: 180, temperature_fahrenheit: 356
+- "350°F" → temperature_celsius: 177, temperature_fahrenheit: 350
+- Thermostat (conversion obligatoire):
+  Thermostat 1 = 30°C = 86°F
+  Thermostat 2 = 60°C = 140°F
+  Thermostat 3 = 90°C = 194°F
+  Thermostat 4 = 120°C = 248°F
+  Thermostat 5 = 150°C = 302°F
+  Thermostat 6 = 180°C = 356°F
+  Thermostat 7 = 210°C = 410°F
+  Thermostat 8 = 240°C = 464°F
+  Thermostat 9 = 270°C = 518°F
+  Thermostat 10 = 300°C = 572°F
+
+CHAQUE instruction contenant une temperature DOIT inclure temperature_celsius ET temperature_fahrenheit.
+Formule de conversion: °F = (°C × 9/5) + 32, arrondi a l'entier le plus proche.
 
 FORMAT DE SORTIE (JSON STRICT):
 

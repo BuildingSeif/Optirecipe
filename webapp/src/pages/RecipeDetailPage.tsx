@@ -99,6 +99,11 @@ export default function RecipeDetailPage() {
     queryFn: () => api.get<CategoryData[]>("/api/categories"),
   });
 
+  const { data: countriesData } = useQuery({
+    queryKey: ["countries"],
+    queryFn: () => api.get<{ id: string; name: string; code: string; regions: { id: string; name: string }[] }[]>("/api/countries"),
+  });
+
   // Update form data when recipe changes
   useEffect(() => {
     if (recipe && !isEditing) {
@@ -493,7 +498,14 @@ export default function RecipeDetailPage() {
                         {inst.step}
                       </span>
                       <div className="pt-1">
-                        <p className="text-white">{inst.text}</p>
+                        <p className="text-white">
+                          {inst.text}
+                          {inst.temperature_celsius ? (
+                            <span className="text-xs text-primary/80 font-medium ml-2">
+                              {inst.temperature_celsius}°C ({inst.temperature_fahrenheit}°F)
+                            </span>
+                          ) : null}
+                        </p>
                         {inst.time_minutes ? (
                           <p className="text-sm text-gray-400 mt-1">
                             <Clock className="h-3 w-3 inline mr-1" />
@@ -666,6 +678,49 @@ export default function RecipeDetailPage() {
                   )}
                 </div>
 
+                {/* Country */}
+                <div>
+                  <Label className="text-gray-500">Pays</Label>
+                  {isEditing ? (
+                    <Select
+                      value={formData.country || "France"}
+                      onValueChange={(v) => setFormData({ ...formData, country: v, region: v !== "France" ? "" : formData.region })}
+                    >
+                      <SelectTrigger className="mt-1 glass-input border-white/10 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {countriesData?.map((c) => (
+                          <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="font-medium text-white">{recipe.country || "Non defini"}</p>
+                  )}
+                </div>
+
+                {/* Region (only if France) */}
+                {isEditing && formData.country === "France" ? (
+                  <div>
+                    <Label className="text-gray-500">Region</Label>
+                    <Select
+                      value={formData.region || ""}
+                      onValueChange={(v) => setFormData({ ...formData, region: v })}
+                    >
+                      <SelectTrigger className="mt-1 glass-input border-white/10 text-white">
+                        <SelectValue placeholder="Selectionner une region" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Aucune</SelectItem>
+                        {countriesData?.find((c) => c.name === "France")?.regions.map((r) => (
+                          <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
+
                 <div>
                   <Label className="text-gray-500">Type</Label>
                   {isEditing ? (
@@ -689,12 +744,12 @@ export default function RecipeDetailPage() {
                   )}
                 </div>
 
-                {recipe.region && (
+                {!isEditing && recipe.country ? (
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-gray-500" />
-                    <span className="text-white">{recipe.region}</span>
+                    <span className="text-white">{recipe.country}{recipe.region ? ` - ${recipe.region}` : ""}</span>
                   </div>
-                )}
+                ) : null}
 
                 <div>
                   <Label className="text-gray-500">Regimes alimentaires</Label>

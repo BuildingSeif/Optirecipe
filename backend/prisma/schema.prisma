@@ -279,3 +279,26 @@ model SubCategory {
   @@unique([name, categoryId])
   @@index([categoryId])
 }
+
+// ==================== Geography Tables ====================
+
+model Country {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String   @unique
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  regions   Region[]
+}
+
+model Region {
+  id        String   @id @default(cuid())
+  name      String
+  countryId String
+  country   Country  @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([name, countryId])
+  @@index([countryId])
+}

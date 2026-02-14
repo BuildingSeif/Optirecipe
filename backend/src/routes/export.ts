@@ -123,12 +123,42 @@ exportRouter.post("/", zValidator("json", ExportOptionsSchema), async (c) => {
     };
   });
 
+  // Compute stats
+  const byCategory: Record<string, number> = {};
+  const byType: Record<string, number> = {};
+  const byDifficulty: Record<string, number> = {};
+  const dietaryStats = { vegetarian: 0, vegan: 0, gluten_free: 0, lactose_free: 0, halal: 0 };
+
+  for (const r of recipes) {
+    // By category
+    const cat = r.category || "Non classee";
+    byCategory[cat] = (byCategory[cat] || 0) + 1;
+    // By type
+    const t = r.type || "both";
+    byType[t] = (byType[t] || 0) + 1;
+    // By difficulty
+    const d = r.difficulty || "non defini";
+    byDifficulty[d] = (byDifficulty[d] || 0) + 1;
+    // Dietary
+    if (r.is_vegetarian) dietaryStats.vegetarian++;
+    if (r.is_vegan) dietaryStats.vegan++;
+    if (r.is_gluten_free) dietaryStats.gluten_free++;
+    if (r.is_lactose_free) dietaryStats.lactose_free++;
+    if (r.is_halal) dietaryStats.halal++;
+  }
+
   const exportData: OptiRecipeExport = {
     export_info: {
       date: new Date().toISOString(),
       total_recipes: exportRecipes.length,
       exported_by: "OptiRecipe",
       filters_applied: filtersApplied,
+      stats: {
+        by_category: byCategory,
+        by_type: byType,
+        by_difficulty: byDifficulty,
+        dietary: dietaryStats,
+      },
     },
     recipes: exportRecipes,
   };

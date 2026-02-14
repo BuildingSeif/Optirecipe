@@ -42,6 +42,9 @@ recipesRouter.get("/", zValidator("query", RecipeFiltersSchema), async (c) => {
     where.OR = [
       { title: { contains: search } },
       { description: { contains: search } },
+      { category: { contains: search } },
+      { subCategory: { contains: search } },
+      { ingredients: { contains: search } },
     ];
   }
 

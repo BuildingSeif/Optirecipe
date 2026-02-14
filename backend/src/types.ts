@@ -348,6 +348,18 @@ export interface OptiRecipeExportInfo {
     cookbook?: string;
     category?: string;
   };
+  stats?: {
+    by_category: Record<string, number>;
+    by_type: Record<string, number>;
+    by_difficulty: Record<string, number>;
+    dietary: {
+      vegetarian: number;
+      vegan: number;
+      gluten_free: number;
+      lactose_free: number;
+      halal: number;
+    };
+  };
 }
 
 export interface OptiRecipeExportRecipe {

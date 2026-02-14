@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { api } from "@/lib/api";
-import { ChefHat, Search, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { ChefHat, Search, Loader2, CheckCircle2, XCircle, Trash2 } from "lucide-react";
 import type { Recipe, Cookbook } from "../../../backend/src/types";
 
 interface RecipesResponse {
@@ -42,7 +42,7 @@ function StatusBadge({ status }: { status: string }) {
 export default function RecipesPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedRecipes, setSelectedRecipes] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const search = searchParams.get("search") || "";
   const status = searchParams.get("status") || "all";
@@ -76,14 +76,27 @@ export default function RecipesPage() {
     },
   });
 
-  const bulkUpdateMutation = useMutation({
-    mutationFn: (params: { status: string }) =>
-      api.patch("/api/recipes/bulk/status", { ids: selectedRecipes, status: params.status }),
+  const bulkStatusMutation = useMutation({
+    mutationFn: async ({ ids, status }: { ids: string[]; status: string }) => {
+      return api.patch<{ updated: number }>("/api/recipes/bulk/status", { ids, status });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recipes"] });
-      setSelectedRecipes([]);
+      setSelectedIds(new Set());
     },
   });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(ids.map((id) => api.delete(`/api/recipes/${id}`)));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recipes"] });
+      setSelectedIds(new Set());
+    },
+  });
+
+  const recipes = data?.recipes ?? [];
 
   const updateFilter = (key: string, value: string) => {
     const newParams = new URLSearchParams(searchParams);
@@ -94,12 +107,6 @@ export default function RecipesPage() {
     }
     newParams.set("page", "1");
     setSearchParams(newParams);
-  };
-
-  const toggleRecipeSelection = (id: string) => {
-    setSelectedRecipes((prev) =>
-      prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
-    );
   };
 
   return (
@@ -172,36 +179,40 @@ export default function RecipesPage() {
           ) : null}
         </div>
 
-        {/* Bulk Actions */}
-        {selectedRecipes.length > 0 ? (
-          <div className="flex items-center justify-between p-4 bg-primary/20 rounded-xl border border-primary/30">
-            <span className="text-sm text-white font-semibold">{selectedRecipes.length} selectionnee(s)</span>
-            <div className="flex gap-2">
-              <GlassButton size="sm" variant="success" onClick={() => bulkUpdateMutation.mutate({ status: "approved" })}>
-                <CheckCircle2 className="mr-1 h-4 w-4" /> Approuver
-              </GlassButton>
-              <GlassButton size="sm" variant="destructive" onClick={() => bulkUpdateMutation.mutate({ status: "rejected" })}>
-                <XCircle className="mr-1 h-4 w-4" /> Rejeter
-              </GlassButton>
-            </div>
-          </div>
-        ) : null}
-
         {/* Results */}
         {isLoading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
-        ) : data?.recipes && data.recipes.length > 0 ? (
+        ) : recipes.length > 0 ? (
           <>
-            <div className="text-sm text-white/70 font-medium">{data.pagination.total} recettes</div>
+            <div className="flex items-center gap-3 text-sm text-white/70 font-medium">
+              <Checkbox
+                checked={recipes.length > 0 && recipes.every((r) => selectedIds.has(r.id))}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    setSelectedIds(new Set(recipes.map((r) => r.id)));
+                  } else {
+                    setSelectedIds(new Set());
+                  }
+                }}
+              />
+              <span>{data?.pagination.total ?? 0} recettes</span>
+            </div>
 
             <div className="glass-card-static rounded-xl divide-y divide-white/10">
-              {data.recipes.map((recipe) => (
+              {recipes.map((recipe) => (
                 <div key={recipe.id} className="flex items-center gap-4 p-4 hover:bg-white/10 transition-colors">
                   <Checkbox
-                    checked={selectedRecipes.includes(recipe.id)}
-                    onCheckedChange={() => toggleRecipeSelection(recipe.id)}
+                    checked={selectedIds.has(recipe.id)}
+                    onCheckedChange={(checked) => {
+                      const next = new Set(selectedIds);
+                      if (checked) next.add(recipe.id);
+                      else next.delete(recipe.id);
+                      setSelectedIds(next);
+                    }}
+                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                    className="flex-shrink-0"
                   />
                   <Link to={`/recipes/${recipe.id}`} className="flex-1 flex items-center gap-4">
                     {/* Thumbnail */}
@@ -246,7 +257,7 @@ export default function RecipesPage() {
               ))}
             </div>
 
-            {data.pagination.totalPages > 1 ? (
+            {data?.pagination && data.pagination.totalPages > 1 ? (
               <div className="flex items-center justify-center gap-4 text-sm">
                 <Button
                   variant="ghost"
@@ -277,6 +288,54 @@ export default function RecipesPage() {
           </div>
         )}
       </div>
+
+      {/* Floating bulk action bar */}
+      {selectedIds.size > 0 ? (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 glass-card-static px-6 py-3 rounded-full border border-primary/30 shadow-2xl">
+          <span className="text-sm font-medium text-white/80">
+            {selectedIds.size} recette{selectedIds.size > 1 ? "s" : ""} selectionnee{selectedIds.size > 1 ? "s" : ""}
+          </span>
+          <div className="w-px h-6 bg-white/20" />
+          <GlassButton
+            variant="success"
+            size="sm"
+            onClick={() => bulkStatusMutation.mutate({ ids: Array.from(selectedIds), status: "approved" })}
+            disabled={bulkStatusMutation.isPending}
+          >
+            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+            Approuver tout
+          </GlassButton>
+          <GlassButton
+            variant="destructive"
+            size="sm"
+            onClick={() => bulkStatusMutation.mutate({ ids: Array.from(selectedIds), status: "rejected" })}
+            disabled={bulkStatusMutation.isPending}
+          >
+            <XCircle className="mr-1.5 h-3.5 w-3.5" />
+            Rejeter tout
+          </GlassButton>
+          <GlassButton
+            variant="destructive"
+            size="sm"
+            onClick={() => {
+              if (window.confirm(`Supprimer ${selectedIds.size} recette(s) ? Cette action est irreversible.`)) {
+                bulkDeleteMutation.mutate(Array.from(selectedIds));
+              }
+            }}
+            disabled={bulkDeleteMutation.isPending}
+          >
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+            Supprimer
+          </GlassButton>
+          <GlassButton
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            Deselectionner
+          </GlassButton>
+        </div>
+      ) : null}
     </DashboardLayout>
   );
 }
