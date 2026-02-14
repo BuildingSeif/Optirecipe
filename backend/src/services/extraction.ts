@@ -606,6 +606,45 @@ async function processImageQueue(): Promise<void> {
   imageGenRunning = false;
 }
 
+/**
+ * Recover missing recipe images after server restart.
+ * Finds all recipes with no imageUrl and queues them for generation.
+ * Should be called on startup with a delay to avoid competing with extraction recovery.
+ */
+export async function recoverMissingImages(): Promise<number> {
+  try {
+    const recipesWithoutImages = await prisma.recipe.findMany({
+      where: { imageUrl: null },
+      select: { id: true, title: true, description: true },
+    });
+
+    if (recipesWithoutImages.length === 0) {
+      console.log("[ImageRecovery] All recipes have images, nothing to recover.");
+      return 0;
+    }
+
+    console.log(`[ImageRecovery] Found ${recipesWithoutImages.length} recipe(s) missing images, queuing for generation...`);
+
+    for (const recipe of recipesWithoutImages) {
+      imageGenerationQueue.push({
+        recipeId: recipe.id,
+        title: recipe.title,
+        description: recipe.description ?? undefined,
+      });
+    }
+
+    // Kick off the queue processing (non-blocking)
+    processImageQueue().catch((err) => {
+      console.error("[ImageRecovery] Queue processing error:", err);
+    });
+
+    return recipesWithoutImages.length;
+  } catch (error) {
+    console.error("[ImageRecovery] Error recovering missing images:", error);
+    return 0;
+  }
+}
+
 export async function extractRecipesFromPDF(jobId: string): Promise<void> {
   // Check if this is a small PDF that can use the fast lane
   try {
