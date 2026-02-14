@@ -1,12 +1,9 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { emailOTP } from "better-auth/plugins";
-import { createVibecodeSDK } from "@vibecodeapp/backend-sdk";
 import { prisma } from "./prisma";
 import { env } from "./env";
-
-// Initialize Vibecode SDK for email sending
-const vibecode = createVibecodeSDK();
+import { sendOTPEmail } from "./services/email";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "sqlite" }),
@@ -24,12 +21,7 @@ export const auth = betterAuth({
         console.log(`[Auth] Sending OTP to ${email}, type: ${type}`);
 
         try {
-          await vibecode.email.sendOTP({
-            to: email,
-            code: String(otp),
-            fromName: "OptiRecipe",
-            lang: "fr",
-          });
+          await sendOTPEmail(email, String(otp));
           console.log(`[Auth] OTP sent successfully to ${email}`);
         } catch (error) {
           console.error(`[Auth] Failed to send OTP to ${email}:`, error);

@@ -2,6 +2,7 @@ import { prisma } from "../prisma";
 import { env } from "../env";
 import { createVibecodeSDK } from "@vibecodeapp/backend-sdk";
 import type { Ingredient, Instruction } from "../types";
+import { sendExtractionCompleteEmail } from "./email";
 
 // PDF processing imports
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
@@ -722,6 +723,26 @@ export async function extractRecipesFromPDF(jobId: string): Promise<void> {
       });
 
       console.log(`Processing completed for job ${job.id}: ${recipesExtracted} recipes extracted from ${totalPages} pages`);
+
+      // Send email notification if extraction was successful (not cancelled)
+      if (finalStatus === "completed" && recipesExtracted > 0) {
+        try {
+          const user = await prisma.user.findUnique({ where: { id: job.userId } });
+          if (user?.email) {
+            const appUrl = env.BACKEND_URL.replace(/:\d+$/, "").replace("preview-", "");
+            await sendExtractionCompleteEmail(
+              user.email,
+              job.cookbook.name,
+              recipesExtracted,
+              totalPages,
+              appUrl
+            );
+          }
+        } catch (emailError) {
+          console.error("Failed to send extraction email:", emailError);
+          // Non-critical, don't fail the job
+        }
+      }
 
     } catch (pdfError) {
       const errorMsg = `Erreur PDF: ${pdfError instanceof Error ? pdfError.message : String(pdfError)}`;

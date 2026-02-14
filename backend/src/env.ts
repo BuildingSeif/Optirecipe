@@ -19,8 +19,11 @@ const envSchema = z.object({
   // OpenAI for recipe extraction
   OPENAI_API_KEY: z.string().optional(),
 
-  // FAL AI for image generation (Nano Banana Pro)
+  // FAL AI for image generation (Flux Pro)
   FAL_KEY: z.string().optional(),
+
+  // Resend for email notifications
+  RESEND_API_KEY: z.string().optional(),
 });
 
 /**
