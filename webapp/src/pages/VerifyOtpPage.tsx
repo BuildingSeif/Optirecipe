@@ -36,8 +36,9 @@ export default function VerifyOtpPage() {
         setError(result.error.message || "Code de vérification invalide");
         setIsLoading(false);
       } else {
-        // Use window.location for a full page reload to ensure cookies are properly set
-        window.location.href = "/dashboard";
+        // Small delay to let the auth session propagate, then navigate
+        await new Promise((r) => setTimeout(r, 300));
+        navigate("/dashboard", { replace: true });
       }
     } catch {
       setError("Une erreur est survenue. Veuillez réessayer.");
