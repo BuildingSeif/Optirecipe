@@ -36,8 +36,10 @@ export default function VerifyOtpPage() {
         setError(result.error.message || "Code de vérification invalide");
         setIsLoading(false);
       } else {
-        // Small delay to let the auth session propagate, then navigate
-        await new Promise((r) => setTimeout(r, 300));
+        // Wait for the internal session signal to trigger (10ms), then
+        // explicitly fetch session to populate the store before navigating
+        await new Promise((r) => setTimeout(r, 100));
+        await authClient.getSession();
         navigate("/dashboard", { replace: true });
       }
     } catch {

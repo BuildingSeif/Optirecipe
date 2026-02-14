@@ -1,13 +1,26 @@
+import { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { useSession } from "@/lib/auth-client";
 import { Loader2 } from "lucide-react";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = useSession();
+  const [hasWaited, setHasWaited] = useState(false);
 
-  if (isPending) {
+  // Give the session store a moment to sync after navigation
+  // This prevents a flash redirect to /login when the session atom
+  // hasn't updated yet after a sign-in
+  useEffect(() => {
+    if (!isPending && !session?.user && !hasWaited) {
+      const timer = setTimeout(() => setHasWaited(true), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isPending, session, hasWaited]);
+
+  // Show loader while session is loading OR while we wait for the first check
+  if (isPending || (!session?.user && !hasWaited)) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-muted-foreground">Chargement...</p>
