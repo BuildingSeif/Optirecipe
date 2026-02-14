@@ -188,11 +188,11 @@ function CookbookMonitor({ cookbookId }: { cookbookId: string }) {
       api.get<CookbookDetail>(`/api/cookbooks/${cookbookId}`),
     refetchInterval: (query) => {
       const data = query.state.data;
-      if (data?.status === "processing") return 3000;
-      if (data?.status === "paused") return 10000;
+      if (data?.status === "processing") return 5000;
+      if (data?.status === "paused") return 15000;
       return false;
     },
-    staleTime: 5000,
+    staleTime: 10000,
     refetchOnWindowFocus: false,
   });
 
@@ -505,11 +505,11 @@ export default function ExtractionMonitor({
         api.get<CookbookDetail>(`/api/cookbooks/${cbId}`),
       refetchInterval: (query: { state: { data: CookbookDetail | undefined } }) => {
         const data = query.state.data;
-        if (data?.status === "processing") return 3000;
-        if (data?.status === "paused") return 10000;
+        if (data?.status === "processing") return 5000;
+        if (data?.status === "paused") return 15000;
         return false;
       },
-      staleTime: 5000,
+      staleTime: 10000,
       refetchOnWindowFocus: false,
     })),
   });

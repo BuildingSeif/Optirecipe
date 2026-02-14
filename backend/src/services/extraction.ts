@@ -323,27 +323,31 @@ const MAX_RETRIES = 3;
 const MAX_RECIPES_PER_PDF = 500;
 const BATCH_SIZE = 5; // Pages per batch for OpenAI PDF processing
 
-// Global extraction queue — large PDFs run one at a time, small PDFs run immediately
+// Global extraction queue — smart concurrency for multi-user scale
 const extractionQueue: string[] = [];
-let extractionRunning = false;
-const SMALL_PDF_THRESHOLD = 20; // Pages — PDFs this size or smaller skip the queue
+let largeRunning = 0;
+let smallRunning = 0;
+const SMALL_PDF_THRESHOLD = 20; // Pages — PDFs this size or smaller use the fast lane
+const MAX_LARGE_CONCURRENT = 3;  // Max large PDFs extracting at once
+const MAX_SMALL_CONCURRENT = 5;  // Max small PDFs extracting at once
 
 async function processExtractionQueue(): Promise<void> {
-  if (extractionRunning) return;
-  extractionRunning = true;
-
-  while (extractionQueue.length > 0) {
+  // Launch as many queued jobs as slots allow
+  while (extractionQueue.length > 0 && largeRunning < MAX_LARGE_CONCURRENT) {
     const jobId = extractionQueue.shift()!;
-    console.log(`[Queue] Starting extraction for job ${jobId} (${extractionQueue.length} remaining in queue)`);
-    try {
-      await extractRecipesFromPDFInternal(jobId);
-    } catch (error) {
-      console.error(`[Queue] Extraction failed for job ${jobId}:`, error);
-    }
+    largeRunning++;
+    console.log(`[Queue] Starting large extraction for job ${jobId} (${largeRunning}/${MAX_LARGE_CONCURRENT} slots, ${extractionQueue.length} queued)`);
+    extractRecipesFromPDFInternal(jobId)
+      .catch((error) => {
+        console.error(`[Queue] Extraction failed for job ${jobId}:`, error);
+      })
+      .finally(() => {
+        largeRunning--;
+        console.log(`[Queue] Large slot freed (${largeRunning}/${MAX_LARGE_CONCURRENT} active, ${extractionQueue.length} queued)`);
+        // Try to start next queued job
+        processExtractionQueue().catch(() => {});
+      });
   }
-
-  extractionRunning = false;
-  console.log("[Queue] Extraction queue empty");
 }
 
 // Helper to delay execution
@@ -603,7 +607,7 @@ async function processImageQueue(): Promise<void> {
 }
 
 export async function extractRecipesFromPDF(jobId: string): Promise<void> {
-  // Check if this is a small PDF that can skip the queue
+  // Check if this is a small PDF that can use the fast lane
   try {
     const job = await prisma.processingJob.findUnique({
       where: { id: jobId },
@@ -615,20 +619,30 @@ export async function extractRecipesFromPDF(jobId: string): Promise<void> {
     const isSmallByPages = pageCount > 0 && pageCount <= SMALL_PDF_THRESHOLD;
     const isSmallBySize = fileSize > 0 && fileSize < 5 * 1024 * 1024; // Under 5MB
 
-    // Small PDFs run immediately in parallel — they won't flood rate limits
+    // Small PDFs use capped fast lane (max MAX_SMALL_CONCURRENT at once)
     if (isSmallByPages || isSmallBySize) {
-      const reason = isSmallByPages ? `${pageCount} pages` : `${(fileSize / 1024 / 1024).toFixed(1)}MB`;
-      console.log(`[Queue] Small PDF "${job?.cookbook?.name}" (${reason}) — running immediately`);
-      extractRecipesFromPDFInternal(jobId).catch((err) => {
-        console.error(`[Queue] Small PDF extraction failed for job ${jobId}:`, err);
-      });
-      return;
+      if (smallRunning >= MAX_SMALL_CONCURRENT) {
+        // Fast lane full — queue it with large PDFs instead of dropping
+        console.log(`[Queue] Small PDF fast lane full (${smallRunning}/${MAX_SMALL_CONCURRENT}), queuing "${job?.cookbook?.name}"`);
+      } else {
+        const reason = isSmallByPages ? `${pageCount} pages` : `${(fileSize / 1024 / 1024).toFixed(1)}MB`;
+        console.log(`[Queue] Small PDF "${job?.cookbook?.name}" (${reason}) — fast lane (${smallRunning + 1}/${MAX_SMALL_CONCURRENT})`);
+        smallRunning++;
+        extractRecipesFromPDFInternal(jobId)
+          .catch((err) => {
+            console.error(`[Queue] Small PDF extraction failed for job ${jobId}:`, err);
+          })
+          .finally(() => {
+            smallRunning--;
+          });
+        return;
+      }
     }
   } catch {
     // If we can't check, fall through to queue
   }
 
-  // Large or unknown PDFs go through the serial queue
+  // Large PDFs (or overflow from small lane) go through the concurrent queue
   extractionQueue.push(jobId);
   console.log(`[Queue] Job ${jobId} added to extraction queue (position ${extractionQueue.length})`);
   processExtractionQueue().catch((err) => {
@@ -739,7 +753,7 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
         // Check if job was paused
         if (pausedJobs.has(job.id)) {
           processingLog.push(`Traitement mis en pause par l'utilisateur`);
-          await updateJobProgress(job.id, job.cookbookId, batchStart - 1, recipesExtracted, processingLog);
+          await updateJobProgress(job.id, job.cookbookId, batchStart - 1, recipesExtracted, processingLog, true);
           await prisma.processingJob.update({
             where: { id: job.id },
             data: { status: "paused" },
@@ -986,17 +1000,31 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
   } finally {
     cancelledJobs.delete(jobId);
     pausedJobs.delete(jobId);
+    lastProgressUpdate.delete(jobId);
   }
 }
 
-// Helper function to update job progress
+// Throttled progress updates — avoid hammering SQLite with writes
+const lastProgressUpdate = new Map<string, number>();
+const PROGRESS_UPDATE_INTERVAL_MS = 3000; // Write progress at most every 3s per job
+
 async function updateJobProgress(
   jobId: string,
   cookbookId: string,
   currentPage: number,
   recipesExtracted: number,
-  processingLog: string[]
+  processingLog: string[],
+  force = false
 ): Promise<void> {
+  const now = Date.now();
+  const lastUpdate = lastProgressUpdate.get(jobId) || 0;
+
+  // Skip if we updated recently (unless forced — completion, errors, pauses)
+  if (!force && now - lastUpdate < PROGRESS_UPDATE_INTERVAL_MS) {
+    return;
+  }
+  lastProgressUpdate.set(jobId, now);
+
   await prisma.processingJob.update({
     where: { id: jobId },
     data: {
