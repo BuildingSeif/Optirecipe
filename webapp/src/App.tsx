@@ -10,6 +10,7 @@ import { PersistentBackground } from "@/components/layout/PersistentBackground";
 // Pages
 import LoginPage from "@/pages/LoginPage";
 import VerifyOtpPage from "@/pages/VerifyOtpPage";
+import SignupPage from "@/pages/SignupPage";
 import CompleteProfilePage from "@/pages/CompleteProfilePage";
 import DashboardPage from "@/pages/DashboardPage";
 import UploadPage from "@/pages/UploadPage";
@@ -45,6 +46,14 @@ function AppContent() {
           element={
             <GuestRoute>
               <LoginPage />
+            </GuestRoute>
+          }
+        />
+        <Route
+          path="/signup"
+          element={
+            <GuestRoute>
+              <SignupPage />
             </GuestRoute>
           }
         />

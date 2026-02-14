@@ -4,28 +4,30 @@ import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
-import { Loader2, Mail, Lock } from "lucide-react";
+import { Loader2, Mail, Lock, User } from "lucide-react";
 
-export default function LoginPage() {
+export default function SignupPage() {
   const navigate = useNavigate();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSignIn = async (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
 
     try {
-      const result = await authClient.signIn.email({
+      const result = await authClient.signUp.email({
+        name: name.trim(),
         email: email.trim().toLowerCase(),
         password,
       });
 
       if (result.error) {
-        setError(result.error.message || "Email ou mot de passe incorrect");
+        setError(result.error.message || "Erreur lors de la création du compte");
       } else {
         navigate("/dashboard", { replace: true });
       }
@@ -47,12 +49,29 @@ export default function LoginPage() {
             </div>
             <h1 className="text-2xl font-semibold text-white animate-blur-in">OptiRecipe</h1>
             <p className="text-gray-400 mt-2">
-              Connectez-vous à votre espace
+              Créer votre compte
             </p>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSignIn} className="space-y-4">
+          <form onSubmit={handleSignUp} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-gray-300">Nom complet</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  id="name"
+                  type="text"
+                  placeholder="Votre nom"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 rounded-lg text-white placeholder:text-gray-500 bg-white/5 border border-white/10 focus:border-primary/50 focus:outline-none transition-colors"
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="email" className="text-gray-300">Adresse email</Label>
               <div className="relative">
@@ -77,7 +96,7 @@ export default function LoginPage() {
                 <input
                   id="password"
                   type="password"
-                  placeholder="Votre mot de passe"
+                  placeholder="Min. 8 caractères"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-lg text-white placeholder:text-gray-500 bg-white/5 border border-white/10 focus:border-primary/50 focus:outline-none transition-colors"
@@ -102,18 +121,18 @@ export default function LoginPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Connexion...
+                  Création...
                 </>
               ) : (
-                "Se connecter"
+                "Créer mon compte"
               )}
             </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-gray-400">
-            Pas encore de compte ?{" "}
-            <Link to="/signup" className="text-primary hover:underline">
-              Créer un compte
+            Déjà un compte ?{" "}
+            <Link to="/login" className="text-primary hover:underline">
+              Se connecter
             </Link>
           </p>
         </div>
