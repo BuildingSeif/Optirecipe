@@ -96,14 +96,17 @@ This workspace contains a mobile app and backend server.
   - DO NOT use direct fetch() for chunked uploads — must use api.raw() for auth + CORS
 
   ## Extraction Queue & Recovery
-  - backend/src/services/extraction.ts: Global queue processes ONE PDF at a time
-  - extractRecipesFromPDF() queues jobs, processExtractionQueue() runs sequentially
+  - backend/src/services/extraction.ts: Global queue with smart priority
+  - Small PDFs (≤20 pages OR <5MB): run immediately, skip the queue
+  - Large PDFs: serialized through extractionQueue, one at a time
+  - extractRecipesFromPDF() checks size, queues or runs directly
   - backend/src/index.ts: recoverOrphanedJobs() runs 3s after startup
     - Jobs with progress: auto-resumed from currentPage
     - Jobs without progress: marked as failed with French error message
   - Multiple uploads queue into extraction: upload 5 PDFs, they extract one-by-one
-  - DO NOT remove the extraction queue — concurrent extractions flood OpenAI rate limits
+  - DO NOT remove the extraction queue — concurrent large extractions flood OpenAI rate limits
   - DO NOT remove startup recovery — orphaned jobs cause infinite frontend polling
+  - DO NOT remove the small PDF fast-track — users expect quick results on small files
 
   ## PDF Extraction Pipeline (HARDENED — DO NOT MODIFY)
   - backend/src/services/extraction.ts: MuPDF renders pages to JPEG, sends to GPT-5.2 Vision

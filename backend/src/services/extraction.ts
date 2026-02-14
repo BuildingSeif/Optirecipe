@@ -323,9 +323,10 @@ const MAX_RETRIES = 3;
 const MAX_RECIPES_PER_PDF = 500;
 const BATCH_SIZE = 5; // Pages per batch for OpenAI PDF processing
 
-// Global extraction queue — only one PDF at a time to avoid OpenAI rate limits
+// Global extraction queue — large PDFs run one at a time, small PDFs run immediately
 const extractionQueue: string[] = [];
 let extractionRunning = false;
+const SMALL_PDF_THRESHOLD = 20; // Pages — PDFs this size or smaller skip the queue
 
 async function processExtractionQueue(): Promise<void> {
   if (extractionRunning) return;
@@ -602,9 +603,34 @@ async function processImageQueue(): Promise<void> {
 }
 
 export async function extractRecipesFromPDF(jobId: string): Promise<void> {
+  // Check if this is a small PDF that can skip the queue
+  try {
+    const job = await prisma.processingJob.findUnique({
+      where: { id: jobId },
+      include: { cookbook: { select: { totalPages: true, fileSize: true, name: true } } },
+    });
+
+    const pageCount = job?.cookbook?.totalPages || 0;
+    const fileSize = job?.cookbook?.fileSize || 0;
+    const isSmallByPages = pageCount > 0 && pageCount <= SMALL_PDF_THRESHOLD;
+    const isSmallBySize = fileSize > 0 && fileSize < 5 * 1024 * 1024; // Under 5MB
+
+    // Small PDFs run immediately in parallel — they won't flood rate limits
+    if (isSmallByPages || isSmallBySize) {
+      const reason = isSmallByPages ? `${pageCount} pages` : `${(fileSize / 1024 / 1024).toFixed(1)}MB`;
+      console.log(`[Queue] Small PDF "${job?.cookbook?.name}" (${reason}) — running immediately`);
+      extractRecipesFromPDFInternal(jobId).catch((err) => {
+        console.error(`[Queue] Small PDF extraction failed for job ${jobId}:`, err);
+      });
+      return;
+    }
+  } catch {
+    // If we can't check, fall through to queue
+  }
+
+  // Large or unknown PDFs go through the serial queue
   extractionQueue.push(jobId);
   console.log(`[Queue] Job ${jobId} added to extraction queue (position ${extractionQueue.length})`);
-  // Start processing if not already running
   processExtractionQueue().catch((err) => {
     console.error("[Queue] Queue processing error:", err);
   });
