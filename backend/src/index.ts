@@ -19,6 +19,7 @@ import { nonRecipeContentRouter } from "./routes/nonRecipeContent";
 import { categoriesRouter } from "./routes/categories";
 import { countriesRouter } from "./routes/countries";
 import { otpRouter } from "./routes/otp";
+import { extractRecipesFromPDF } from "./services/extraction";
 
 // Type the Hono app with user/session variables
 const app = new Hono<{
@@ -159,6 +160,57 @@ app.route("/api/user", userRouter);
 app.route("/api/non-recipe-content", nonRecipeContentRouter);
 app.route("/api/categories", categoriesRouter);
 app.route("/api/countries", countriesRouter);
+
+// Recover orphaned processing jobs on startup
+// If the server crashed/restarted, jobs stuck in "processing" need to be detected
+async function recoverOrphanedJobs() {
+  try {
+    const orphanedJobs = await prisma.processingJob.findMany({
+      where: { status: { in: ["processing", "pending"] } },
+      include: { cookbook: true },
+    });
+
+    if (orphanedJobs.length === 0) return;
+
+    console.log(`[Recovery] Found ${orphanedJobs.length} orphaned job(s), recovering...`);
+
+    for (const job of orphanedJobs) {
+      // If the job had made progress, resume from where it left off
+      const hasProgress = (job.currentPage ?? 0) > 0;
+
+      if (hasProgress) {
+        console.log(`[Recovery] Resuming job ${job.id} for "${job.cookbook.name}" from page ${job.currentPage}`);
+        // Re-launch extraction from where it left off
+        extractRecipesFromPDF(job.id).catch((error) => {
+          console.error(`[Recovery] Failed to resume job ${job.id}:`, error);
+        });
+      } else {
+        // No progress was made - mark as failed so user can retry
+        console.log(`[Recovery] Marking job ${job.id} for "${job.cookbook.name}" as failed (no progress)`);
+        await prisma.processingJob.update({
+          where: { id: job.id },
+          data: {
+            status: "failed",
+            completedAt: new Date(),
+            errorLog: JSON.stringify(["Le serveur a redemarre pendant le traitement. Veuillez relancer l'extraction."]),
+          },
+        });
+        await prisma.cookbook.update({
+          where: { id: job.cookbookId },
+          data: {
+            status: "failed",
+            errorMessage: "Le serveur a redemarre pendant le traitement. Veuillez relancer l'extraction.",
+          },
+        });
+      }
+    }
+  } catch (error) {
+    console.error("[Recovery] Error recovering orphaned jobs:", error);
+  }
+}
+
+// Run recovery after a short delay to let the server fully start
+setTimeout(recoverOrphanedJobs, 3000);
 
 const port = Number(process.env.PORT) || 3000;
 

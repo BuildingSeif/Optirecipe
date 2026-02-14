@@ -323,6 +323,28 @@ const MAX_RETRIES = 3;
 const MAX_RECIPES_PER_PDF = 500;
 const BATCH_SIZE = 5; // Pages per batch for OpenAI PDF processing
 
+// Global extraction queue — only one PDF at a time to avoid OpenAI rate limits
+const extractionQueue: string[] = [];
+let extractionRunning = false;
+
+async function processExtractionQueue(): Promise<void> {
+  if (extractionRunning) return;
+  extractionRunning = true;
+
+  while (extractionQueue.length > 0) {
+    const jobId = extractionQueue.shift()!;
+    console.log(`[Queue] Starting extraction for job ${jobId} (${extractionQueue.length} remaining in queue)`);
+    try {
+      await extractRecipesFromPDFInternal(jobId);
+    } catch (error) {
+      console.error(`[Queue] Extraction failed for job ${jobId}:`, error);
+    }
+  }
+
+  extractionRunning = false;
+  console.log("[Queue] Extraction queue empty");
+}
+
 // Helper to delay execution
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -580,6 +602,15 @@ async function processImageQueue(): Promise<void> {
 }
 
 export async function extractRecipesFromPDF(jobId: string): Promise<void> {
+  extractionQueue.push(jobId);
+  console.log(`[Queue] Job ${jobId} added to extraction queue (position ${extractionQueue.length})`);
+  // Start processing if not already running
+  processExtractionQueue().catch((err) => {
+    console.error("[Queue] Queue processing error:", err);
+  });
+}
+
+async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
   console.log(`Starting processing for job: ${jobId}`);
 
   try {

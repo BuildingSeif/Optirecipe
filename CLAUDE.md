@@ -86,10 +86,24 @@ This workspace contains a mobile app and backend server.
   - DO NOT revert to glass-card-static or gradient text on section headings
 
   ## PDF Upload Pipeline
-  - webapp/src/pages/UploadPage.tsx: Uses api.raw() for upload (NOT XHR)
+  - webapp/src/pages/UploadPage.tsx: Uses api.raw() for ALL uploads (direct + chunked)
+  - Chunked upload (>10MB): api.raw() for init/chunk/complete endpoints (NOT direct fetch)
+  - Direct upload (<10MB): api.raw() for /api/upload/pdf
+  - Max 5 PDFs per batch, uploads run concurrently, extraction queued sequentially
   - backend/src/routes/upload.ts: Vibecode SDK storage upload
   - CORS config in index.ts: allowHeaders includes "Authorization"
   - DO NOT use XMLHttpRequest for uploads — causes CORS preflight failures
+  - DO NOT use direct fetch() for chunked uploads — must use api.raw() for auth + CORS
+
+  ## Extraction Queue & Recovery
+  - backend/src/services/extraction.ts: Global queue processes ONE PDF at a time
+  - extractRecipesFromPDF() queues jobs, processExtractionQueue() runs sequentially
+  - backend/src/index.ts: recoverOrphanedJobs() runs 3s after startup
+    - Jobs with progress: auto-resumed from currentPage
+    - Jobs without progress: marked as failed with French error message
+  - Multiple uploads queue into extraction: upload 5 PDFs, they extract one-by-one
+  - DO NOT remove the extraction queue — concurrent extractions flood OpenAI rate limits
+  - DO NOT remove startup recovery — orphaned jobs cause infinite frontend polling
 
   ## PDF Extraction Pipeline (HARDENED — DO NOT MODIFY)
   - backend/src/services/extraction.ts: MuPDF renders pages to JPEG, sends to GPT-5.2 Vision

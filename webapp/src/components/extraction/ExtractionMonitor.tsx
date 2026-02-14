@@ -193,6 +193,7 @@ function CookbookMonitor({ cookbookId }: { cookbookId: string }) {
       return false;
     },
     staleTime: 5000,
+    refetchOnWindowFocus: false,
   });
 
   const latestJob = cookbook?.processingJobs?.[0];
@@ -509,6 +510,7 @@ export default function ExtractionMonitor({
         return false;
       },
       staleTime: 5000,
+      refetchOnWindowFocus: false,
     })),
   });
 

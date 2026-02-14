@@ -71,6 +71,7 @@ export default function CookbookDetailPage() {
       return false;
     },
     staleTime: 5000,
+    refetchOnWindowFocus: false,
     retry: 2,
   });
 

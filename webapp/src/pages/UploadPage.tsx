@@ -26,6 +26,8 @@ import type { Cookbook } from "../../../backend/src/types";
 const CHUNK_SIZE = 5 * 1024 * 1024;
 // Files larger than 10MB use chunked upload
 const CHUNKED_UPLOAD_THRESHOLD = 10 * 1024 * 1024;
+// Maximum number of PDFs per batch
+const MAX_FILES = 5;
 
 type TabType = "pdf" | "ckbk" | "web";
 
@@ -210,8 +212,16 @@ export default function UploadPage() {
       setFiles((prev) => [...prev, rejectedFile]);
     });
 
-    // Handle accepted files
-    const newFiles: FileUploadState[] = acceptedFiles.map((file) => ({
+    // Handle accepted files (enforce max limit)
+    const currentCount = files.filter((f) => f.status !== "error").length;
+    const remaining = MAX_FILES - currentCount;
+    const filesToAdd = acceptedFiles.slice(0, Math.max(0, remaining));
+
+    if (acceptedFiles.length > remaining) {
+      // Silently cap at MAX_FILES — extra files are ignored
+    }
+
+    const newFiles: FileUploadState[] = filesToAdd.map((file) => ({
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       file,
       name: file.name.replace(/\.pdf$/i, ""),
@@ -226,8 +236,8 @@ export default function UploadPage() {
     onDrop,
     accept: { "application/pdf": [".pdf"] },
     maxSize: 500 * 1024 * 1024, // 500MB max
+    maxFiles: MAX_FILES,
     multiple: true,
-    // Disable default browser file size validation which can be inconsistent
     validator: undefined,
   });
 
@@ -436,13 +446,14 @@ export default function UploadPage() {
 
     setIsUploading(true);
 
-    for (const fileState of pendingFiles) {
-      try {
-        await uploadSingleFile(fileState);
-      } catch {
-        // Error already handled in uploadSingleFile
-      }
-    }
+    // Upload all files concurrently (storage uploads, not extraction)
+    await Promise.allSettled(
+      pendingFiles.map((fileState) =>
+        uploadSingleFile(fileState).catch(() => {
+          // Error already handled in uploadSingleFile
+        })
+      )
+    );
 
     setIsUploading(false);
   };
@@ -579,7 +590,7 @@ export default function UploadPage() {
             <p className="text-white font-semibold text-lg font-heading">
               {isDragActive ? "Deposez ici" : "Glissez vos PDFs"}
             </p>
-            <p className="text-sm text-white/60 mt-1">ou cliquez pour selectionner (plusieurs fichiers possibles)</p>
+            <p className="text-sm text-white/60 mt-1">ou cliquez pour selectionner (jusqu'a {MAX_FILES} fichiers)</p>
           </div>
 
           {/* File List */}
