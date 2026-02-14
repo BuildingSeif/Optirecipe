@@ -22,19 +22,6 @@ import {
 import ExtractionMonitor from "@/components/extraction/ExtractionMonitor";
 import type { Cookbook } from "../../../backend/src/types";
 
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
-
-function getAuthToken(): string | null {
-  try {
-    const raw = localStorage.getItem("optirecipe_session");
-    if (raw) {
-      const s = JSON.parse(raw);
-      return s?.session?.token || null;
-    }
-  } catch { /* ignore */ }
-  return null;
-}
-
 // Chunk size for large file uploads (5MB chunks)
 const CHUNK_SIZE = 5 * 1024 * 1024;
 // Files larger than 10MB use chunked upload
@@ -271,12 +258,9 @@ export default function UploadPage() {
 
     try {
       // Step 1: Initialize upload
-      const token = getAuthToken();
-      const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-      const initResponse = await fetch(`${API_BASE_URL}/api/upload/init`, {
+      const initResponse = await api.raw("/api/upload/init", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders },
-        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fileName: file.name,
           fileSize: file.size,
@@ -285,7 +269,7 @@ export default function UploadPage() {
       });
 
       if (!initResponse.ok) {
-        const error = await initResponse.json();
+        const error = await initResponse.json().catch(() => ({ error: { message: "Failed to initialize upload" } }));
         throw new Error(error.error?.message || "Failed to initialize upload");
       }
 
@@ -301,45 +285,39 @@ export default function UploadPage() {
         const formData = new FormData();
         formData.append("chunk", chunk);
 
-        const chunkResponse = await fetch(
-          `${API_BASE_URL}/api/upload/chunk/${uploadId}/${i}`,
+        const chunkResponse = await api.raw(
+          `/api/upload/chunk/${uploadId}/${i}`,
           {
             method: "POST",
-            headers: authHeaders,
-            credentials: "include",
             body: formData,
           }
         );
 
         if (!chunkResponse.ok) {
           // Abort on failure
-          await fetch(`${API_BASE_URL}/api/upload/abort/${uploadId}`, {
+          await api.raw(`/api/upload/abort/${uploadId}`, {
             method: "DELETE",
-            headers: authHeaders,
-            credentials: "include",
-          });
+          }).catch(() => {});
           throw new Error(`Failed to upload chunk ${i + 1}/${totalChunks}`);
         }
 
         // Update progress
-        const progress = Math.round(((i + 1) / totalChunks) * 95); // Leave 5% for completion
+        const progress = Math.round(((i + 1) / totalChunks) * 95);
         updateFileState(fileState.id, { progress });
       }
 
       // Step 3: Complete upload
       updateFileState(fileState.id, { progress: 98 });
 
-      const completeResponse = await fetch(
-        `${API_BASE_URL}/api/upload/complete/${uploadId}`,
+      const completeResponse = await api.raw(
+        `/api/upload/complete/${uploadId}`,
         {
           method: "POST",
-          headers: authHeaders,
-          credentials: "include",
         }
       );
 
       if (!completeResponse.ok) {
-        const error = await completeResponse.json();
+        const error = await completeResponse.json().catch(() => ({ error: { message: "Failed to complete upload" } }));
         throw new Error(error.error?.message || "Failed to complete upload");
       }
 
@@ -353,7 +331,11 @@ export default function UploadPage() {
 
       return completeData.filePath;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Upload failed";
+      const message = error instanceof Error
+        ? (error.message.includes("fetch")
+          ? "Erreur de connexion. Veuillez verifier votre connexion et reessayer."
+          : error.message)
+        : "Echec de l'upload";
       updateFileState(fileState.id, {
         status: "error",
         error: message,
