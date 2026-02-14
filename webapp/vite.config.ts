@@ -10,6 +10,9 @@ export default defineConfig(({ mode }) => ({
     port: 8000,
     allowedHosts: true, // Allow all hosts
   },
+  define: {
+    __BUILD_TIMESTAMP__: JSON.stringify(Date.now()),
+  },
   plugins: [
     react(),
     mode === "development" && vibecodePlugin(),
