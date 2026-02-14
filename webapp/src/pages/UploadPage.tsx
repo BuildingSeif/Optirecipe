@@ -21,6 +21,17 @@ import type { Cookbook } from "../../../backend/src/types";
 
 const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 
+function getAuthToken(): string | null {
+  try {
+    const raw = localStorage.getItem("optirecipe_session");
+    if (raw) {
+      const s = JSON.parse(raw);
+      return s?.session?.token || null;
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
 // Chunk size for large file uploads (5MB chunks)
 const CHUNK_SIZE = 5 * 1024 * 1024;
 // Files larger than 10MB use chunked upload
@@ -252,9 +263,11 @@ export default function UploadPage() {
 
     try {
       // Step 1: Initialize upload
+      const token = getAuthToken();
+      const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
       const initResponse = await fetch(`${API_BASE_URL}/api/upload/init`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders },
         credentials: "include",
         body: JSON.stringify({
           fileName: file.name,
@@ -284,6 +297,7 @@ export default function UploadPage() {
           `${API_BASE_URL}/api/upload/chunk/${uploadId}/${i}`,
           {
             method: "POST",
+            headers: authHeaders,
             credentials: "include",
             body: formData,
           }
@@ -293,6 +307,7 @@ export default function UploadPage() {
           // Abort on failure
           await fetch(`${API_BASE_URL}/api/upload/abort/${uploadId}`, {
             method: "DELETE",
+            headers: authHeaders,
             credentials: "include",
           });
           throw new Error(`Failed to upload chunk ${i + 1}/${totalChunks}`);
@@ -310,6 +325,7 @@ export default function UploadPage() {
         `${API_BASE_URL}/api/upload/complete/${uploadId}`,
         {
           method: "POST",
+          headers: authHeaders,
           credentials: "include",
         }
       );
@@ -402,6 +418,8 @@ export default function UploadPage() {
 
       xhr.open("POST", `${API_BASE_URL}/api/upload/pdf`);
       xhr.withCredentials = true;
+      const token = getAuthToken();
+      if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
       xhr.timeout = 600000; // 10 minute timeout for large files
       xhr.send(formData);
     });

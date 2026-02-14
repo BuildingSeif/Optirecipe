@@ -7,7 +7,6 @@ import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 import { User, Mail, LogOut, Camera, Loader2, Check } from "lucide-react";
 
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -55,10 +54,9 @@ export default function SettingsPage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch(`${API_BASE_URL}/api/user/avatar`, {
+      const response = await api.raw("/api/user/avatar", {
         method: "POST",
         body: formData,
-        credentials: "include",
       });
 
       if (!response.ok) {

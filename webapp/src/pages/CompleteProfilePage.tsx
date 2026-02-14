@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
 import { Loader2, User, Camera, Upload } from "lucide-react";
 
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 
 export default function CompleteProfilePage() {
   const navigate = useNavigate();
@@ -37,10 +36,9 @@ export default function CompleteProfilePage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch(`${API_BASE_URL}/api/user/avatar`, {
+      const response = await api.raw("/api/user/avatar", {
         method: "POST",
         body: formData,
-        credentials: "include",
       });
 
       if (!response.ok) {
