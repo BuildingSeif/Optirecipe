@@ -4,8 +4,8 @@ import { createVibecodeSDK } from "@vibecodeapp/backend-sdk";
 import type { Ingredient, Instruction } from "../types";
 import { sendExtractionCompleteEmail } from "./email";
 
-// PDF processing imports
-import { PDFParse } from "pdf-parse";
+// PDF rendering - MuPDF (same engine as PyMuPDF used in working Python version)
+import * as mupdf from "mupdf";
 
 // Initialize Vibecode SDK for file access
 const vibecode = createVibecodeSDK();
@@ -327,18 +327,30 @@ async function fetchPDFFromStorage(filePath: string, fileUrl?: string | null): P
   return await response.arrayBuffer();
 }
 
-// Call OpenAI API with PDF file input to extract recipes from a range of pages
-async function callOpenAIVisionWithPDF(
-  pdfBase64: string,
-  pageStart: number,
-  pageEnd: number,
-  totalPages: number
-): Promise<ExtractionResult> {
+// Render a single PDF page to a JPEG base64 string using MuPDF
+function renderPageToJpegBase64(pdfBuffer: ArrayBuffer, pageNum: number): string {
+  const doc = mupdf.Document.openDocument(Buffer.from(pdfBuffer), "application/pdf");
+  const page = doc.loadPage(pageNum - 1); // 0-indexed
+
+  // Scale 2x for good quality (matches Python's resolution=2.0)
+  const scale = 2.0;
+  const pixmap = page.toPixmap(mupdf.Matrix.scale(scale, scale), mupdf.ColorSpace.DeviceRGB);
+  const jpegBuffer = pixmap.asJPEG(90);
+
+  return Buffer.from(jpegBuffer).toString("base64");
+}
+
+// Get total page count from PDF using MuPDF
+function getPdfPageCount(pdfBuffer: ArrayBuffer): number {
+  const doc = mupdf.Document.openDocument(Buffer.from(pdfBuffer), "application/pdf");
+  return doc.countPages();
+}
+
+// Call OpenAI Vision API to extract recipes from a single page image
+async function callOpenAIVision(imageBase64: string, pageNum: number): Promise<ExtractionResult> {
   if (!env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
-
-  const pageRangeInstruction = `Analyse les pages ${pageStart} a ${pageEnd} de ce PDF (${totalPages} pages au total).`;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
@@ -356,19 +368,19 @@ async function callOpenAIVisionWithPDF(
               content: [
                 {
                   type: 'text',
-                  text: `${pageRangeInstruction}\n\n${EXTRACTION_PROMPT}`,
+                  text: EXTRACTION_PROMPT,
                 },
                 {
-                  type: 'file',
-                  file: {
-                    filename: 'cookbook.pdf',
-                    file_data: `data:application/pdf;base64,${pdfBase64}`,
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:image/jpeg;base64,${imageBase64}`,
+                    detail: 'high',
                   },
                 },
               ],
             },
           ],
-          max_completion_tokens: 16384,
+          max_completion_tokens: 8192,
           temperature: 0.1,
         }),
       });
@@ -376,10 +388,9 @@ async function callOpenAIVisionWithPDF(
       if (!response.ok) {
         const errorText = await response.text();
 
-        // Handle rate limiting
         if (response.status === 429) {
-          console.log(`Rate limited on pages ${pageStart}-${pageEnd}, waiting before retry...`);
-          await delay(5000 * attempt); // Exponential backoff
+          console.log(`Rate limited on page ${pageNum}, waiting before retry...`);
+          await delay(5000 * attempt);
           continue;
         }
 
@@ -416,14 +427,14 @@ async function callOpenAIVisionWithPDF(
 
     } catch (error) {
       if (attempt === MAX_RETRIES) {
-        console.error(`Failed to process pages ${pageStart}-${pageEnd} after ${MAX_RETRIES} attempts:`, error);
+        console.error(`Failed to process page ${pageNum} after ${MAX_RETRIES} attempts:`, error);
         return {
           found_recipe: false,
           page_type: 'error',
-          notes: `Error processing pages ${pageStart}-${pageEnd}: ${error instanceof Error ? error.message : String(error)}`,
+          notes: `Error processing page ${pageNum}: ${error instanceof Error ? error.message : String(error)}`,
         };
       }
-      console.log(`Attempt ${attempt} failed for pages ${pageStart}-${pageEnd}, retrying...`);
+      console.log(`Attempt ${attempt} failed for page ${pageNum}, retrying...`);
       await delay(2000 * attempt);
     }
   }
@@ -431,7 +442,7 @@ async function callOpenAIVisionWithPDF(
   return {
     found_recipe: false,
     page_type: 'error',
-    notes: `Failed to process pages ${pageStart}-${pageEnd} after retries`,
+    notes: `Failed to process page ${pageNum} after retries`,
   };
 }
 
@@ -510,15 +521,9 @@ export async function extractRecipesFromPDF(jobId: string): Promise<void> {
       const pdfBuffer = await fetchPDFFromStorage(job.cookbook.filePath, job.cookbook.fileUrl);
       processingLog.push(`PDF telecharge: ${(pdfBuffer.byteLength / 1024 / 1024).toFixed(2)} MB`);
 
-      // Convert PDF buffer to base64 for OpenAI file input
-      const pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
-
-      // Use pdf-parse to get page count
+      // Get page count using MuPDF
       processingLog.push("Analyse du PDF...");
-      const pdfParser = new PDFParse({ data: new Uint8Array(pdfBuffer) });
-      const pdfInfo = await pdfParser.getInfo();
-      const totalPages = pdfInfo.total;
-      await pdfParser.destroy();
+      const totalPages = getPdfPageCount(pdfBuffer);
 
       processingLog.push(`PDF charge: ${totalPages} pages detectees`);
       await updateJobProgress(job.id, job.cookbookId, 0, recipesExtracted, processingLog);
@@ -533,7 +538,7 @@ export async function extractRecipesFromPDF(jobId: string): Promise<void> {
         data: { totalPages },
       });
 
-      // Process pages in batches of BATCH_SIZE (5 pages at a time)
+      // Process pages in batches of BATCH_SIZE (concurrent per batch, like Python version)
       for (let batchStart = startPage; batchStart <= totalPages; batchStart += BATCH_SIZE) {
         // Check if job was cancelled
         if (cancelledJobs.has(job.id)) {
@@ -559,91 +564,110 @@ export async function extractRecipesFromPDF(jobId: string): Promise<void> {
         }
 
         const batchEnd = Math.min(batchStart + BATCH_SIZE - 1, totalPages);
+        const batchPages = Array.from({ length: batchEnd - batchStart + 1 }, (_, i) => batchStart + i);
 
-        processingLog.push(`Traitement du lot de pages ${batchStart}-${batchEnd}/${totalPages}...`);
+        processingLog.push(`Traitement des pages ${batchStart}-${batchEnd}/${totalPages}...`);
         await updateJobProgress(job.id, job.cookbookId, batchStart, recipesExtracted, processingLog);
 
-        // Send the entire PDF to OpenAI with instructions to analyze this page range
-        const result = await callOpenAIVisionWithPDF(pdfBase64, batchStart, batchEnd, totalPages);
-
-        // Process the result
-        if (result.found_recipe && result.recipes && result.recipes.length > 0) {
-          for (const recipe of result.recipes) {
-            if (recipesExtracted >= MAX_RECIPES_PER_PDF) break;
-
-            processingLog.push(`Pages ${batchStart}-${batchEnd}: Recette trouvee - ${recipe.title}`);
-
-            const createdRecipe = await prisma.recipe.create({
-              data: {
-                cookbookId: job.cookbookId,
-                userId: job.userId,
-                title: recipe.title,
-                originalTitle: recipe.original_title,
-                description: recipe.description,
-                sourcePage: batchStart,
-                sourceType: "pdf",
-                category: recipe.category,
-                subCategory: recipe.sub_category,
-                ingredients: JSON.stringify(recipe.ingredients),
-                instructions: JSON.stringify(recipe.instructions),
-                prepTimeMinutes: recipe.prep_time_minutes,
-                cookTimeMinutes: recipe.cook_time_minutes,
-                servings: recipe.servings || 4,
-                region: recipe.region,
-                country: recipe.country || "France",
-                season: recipe.season,
-                dietTags: JSON.stringify(recipe.diet_tags || []),
-                mealType: recipe.meal_type,
-                tips: recipe.tips,
-                status: "approved",
-              },
-            });
-
-            recipesExtracted++;
-
-            // Generate image for the recipe (async, don't wait)
-            generateRecipeImage(recipe.title, recipe.description)
-              .then(async (imageUrl) => {
-                if (imageUrl) {
-                  await prisma.recipe.update({
-                    where: { id: createdRecipe.id },
-                    data: { imageUrl },
-                  });
-                  console.log(`Image generated for recipe: ${recipe.title}`);
-                }
-              })
-              .catch((err) => {
-                console.error(`Failed to generate image for ${recipe.title}:`, err);
-              });
+        // Render each page to JPEG and call OpenAI Vision concurrently (like Python's asyncio.gather)
+        const extractionPromises = batchPages.map(async (pageNum) => {
+          try {
+            const imageBase64 = renderPageToJpegBase64(pdfBuffer, pageNum);
+            const result = await callOpenAIVision(imageBase64, pageNum);
+            return { pageNum, result };
+          } catch (err) {
+            return { pageNum, result: { found_recipe: false, page_type: 'error', notes: `Render error: ${err instanceof Error ? err.message : String(err)}` } as ExtractionResult };
           }
-        } else {
-          const pageType = result.page_type || "inconnu";
-          const notes = result.notes ? ` - ${result.notes}` : "";
-          processingLog.push(`Pages ${batchStart}-${batchEnd}: Pas de recette (${pageType}${notes})`);
+        });
+        const results = await Promise.allSettled(extractionPromises);
 
-          // Store non-recipe content in database if there are useful notes
-          if (result.notes) {
-            const pageTypeToContentType: Record<string, string> = {
-              sommaire: "intro",
-              introduction: "intro",
-              technique: "technique",
-              conseil: "tip",
-              astuce: "tip",
-              glossaire: "glossary",
-            };
-            const mappedType = pageTypeToContentType[pageType] || "other";
+        // Process results in page order
+        for (const settled of results) {
+          if (settled.status === "rejected") {
+            errorLog.push(`Page: Erreur - ${settled.reason instanceof Error ? settled.reason.message : String(settled.reason)}`);
+            continue;
+          }
 
-            await prisma.nonRecipeContent.create({
-              data: {
-                cookbookId: job.cookbookId,
-                userId: job.userId,
-                type: mappedType,
-                title: result.page_type || null,
-                content: result.notes,
-                page: batchStart,
-                bookName: job.cookbook.name,
-              },
-            });
+          const { pageNum, result } = settled.value;
+
+          if (result.found_recipe && result.recipes && result.recipes.length > 0) {
+            for (const recipe of result.recipes) {
+              if (recipesExtracted >= MAX_RECIPES_PER_PDF) break;
+
+              processingLog.push(`Page ${pageNum}: Recette trouvee - ${recipe.title}`);
+
+              const createdRecipe = await prisma.recipe.create({
+                data: {
+                  cookbookId: job.cookbookId,
+                  userId: job.userId,
+                  title: recipe.title,
+                  originalTitle: recipe.original_title,
+                  description: recipe.description,
+                  sourcePage: pageNum,
+                  sourceType: "pdf",
+                  category: recipe.category,
+                  subCategory: recipe.sub_category,
+                  ingredients: JSON.stringify(recipe.ingredients),
+                  instructions: JSON.stringify(recipe.instructions),
+                  prepTimeMinutes: recipe.prep_time_minutes,
+                  cookTimeMinutes: recipe.cook_time_minutes,
+                  servings: recipe.servings || 4,
+                  region: recipe.region,
+                  country: recipe.country || "France",
+                  season: recipe.season,
+                  dietTags: JSON.stringify(recipe.diet_tags || []),
+                  mealType: recipe.meal_type,
+                  tips: recipe.tips,
+                  status: "approved",
+                },
+              });
+
+              recipesExtracted++;
+
+              // Generate image for the recipe (async, don't wait)
+              generateRecipeImage(recipe.title, recipe.description)
+                .then(async (imageUrl) => {
+                  if (imageUrl) {
+                    await prisma.recipe.update({
+                      where: { id: createdRecipe.id },
+                      data: { imageUrl },
+                    });
+                    console.log(`Image generated for recipe: ${recipe.title}`);
+                  }
+                })
+                .catch((err) => {
+                  console.error(`Failed to generate image for ${recipe.title}:`, err);
+                });
+            }
+          } else {
+            const pageType = result.page_type || "inconnu";
+            const notes = result.notes ? ` - ${result.notes}` : "";
+            processingLog.push(`Page ${pageNum}: Pas de recette (${pageType}${notes})`);
+
+            // Store non-recipe content
+            if (result.notes) {
+              const pageTypeToContentType: Record<string, string> = {
+                sommaire: "intro",
+                introduction: "intro",
+                technique: "technique",
+                conseil: "tip",
+                astuce: "tip",
+                glossaire: "glossary",
+              };
+              const mappedType = pageTypeToContentType[pageType] || "other";
+
+              await prisma.nonRecipeContent.create({
+                data: {
+                  cookbookId: job.cookbookId,
+                  userId: job.userId,
+                  type: mappedType,
+                  title: result.page_type || null,
+                  content: result.notes,
+                  page: pageNum,
+                  bookName: job.cookbook.name,
+                },
+              });
+            }
           }
         }
 
