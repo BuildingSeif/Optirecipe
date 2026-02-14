@@ -18,6 +18,7 @@ import { userRouter } from "./routes/user";
 import { nonRecipeContentRouter } from "./routes/nonRecipeContent";
 import { categoriesRouter } from "./routes/categories";
 import { countriesRouter } from "./routes/countries";
+import { otpRouter } from "./routes/otp";
 
 // Type the Hono app with user/session variables
 const app = new Hono<{
@@ -104,6 +105,9 @@ const EMAIL_WHITELIST = [
   "nicolas.bertin@opti-marche.com",
   "nouhaila.ezzahr@opti-marche.com",
 ];
+
+// Mount OTP routes (public, no auth required)
+app.route("/api/otp", otpRouter);
 
 // Intercept sign-in and sign-up to check whitelist
 app.post("/api/auth/sign-in/email", async (c) => {

@@ -1,28 +1,27 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "@/lib/auth-context";
+import { useNavigate } from "react-router-dom";
 import { GlassButton } from "@/components/ui/glass-button";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
-import { Loader2, Mail, Lock } from "lucide-react";
+import { Loader2, Mail } from "lucide-react";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { setSession } = useAuth();
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const handleSignIn = async (e: React.FormEvent) => {
+  const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
     setIsLoading(true);
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/auth/sign-in/email`, {
+      const res = await fetch(`${BACKEND_URL}/api/otp/request-otp`, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -31,27 +30,27 @@ export default function LoginPage() {
         },
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
-          password,
         }),
       });
 
       const data = await res.json();
 
+      if (res.status === 403) {
+        setError("Acces non autorise. Contactez l'administrateur.");
+        return;
+      }
+
       if (!res.ok || data.error) {
-        setError(data.error?.message || data.message || "Email ou mot de passe incorrect");
+        setError(data.error?.message || data.message || "Une erreur est survenue. Veuillez reessayer.");
         return;
       }
 
-      // Use user data directly from sign-in response
-      if (data.user) {
-        setSession({ user: data.user, session: { token: data.token } });
-        navigate("/dashboard", { replace: true });
-        return;
-      }
-
-      setError("Session non établie. Veuillez réessayer.");
+      setSuccess("Code envoye!");
+      setTimeout(() => {
+        navigate("/verify-otp", { state: { email: email.trim().toLowerCase() } });
+      }, 1000);
     } catch {
-      setError("Impossible de contacter le serveur. Veuillez réessayer.");
+      setError("Impossible de contacter le serveur. Veuillez reessayer.");
     } finally {
       setIsLoading(false);
     }
@@ -68,12 +67,12 @@ export default function LoginPage() {
             </div>
             <h1 className="text-2xl font-heading tracking-tight text-white">OptiRecipe</h1>
             <p className="text-white/45 mt-2">
-              Connectez-vous à votre espace
+              Connectez-vous a votre espace
             </p>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSignIn} className="space-y-4">
+          <form onSubmit={handleRequestOtp} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email" className="text-gray-300">Adresse email</Label>
               <div className="relative">
@@ -91,27 +90,15 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-gray-300">Mot de passe</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  id="password"
-                  type="password"
-                  placeholder="Votre mot de passe"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl ct-input"
-                  required
-                  disabled={isLoading}
-                  minLength={8}
-                />
-              </div>
-            </div>
-
             {error ? (
               <p className="text-sm text-red-400 animate-fade-in">
                 {error}
+              </p>
+            ) : null}
+
+            {success ? (
+              <p className="text-sm text-green-400 animate-fade-in">
+                {success}
               </p>
             ) : null}
 
@@ -125,20 +112,13 @@ export default function LoginPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Connexion...
+                  Envoi en cours...
                 </>
               ) : (
-                "Se connecter"
+                "Recevoir le code"
               )}
             </GlassButton>
           </form>
-
-          <p className="mt-6 text-center text-sm text-white/45">
-            Pas encore de compte ?{" "}
-            <Link to="/signup" className="text-primary hover:underline">
-              Créer un compte
-            </Link>
-          </p>
         </div>
 
         <p className="mt-6 text-center text-xs text-white/80">
