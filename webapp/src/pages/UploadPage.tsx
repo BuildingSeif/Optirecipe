@@ -73,7 +73,7 @@ function CKBKTab() {
   return (
     <div className="max-w-lg mx-auto py-8">
       {/* Main Card Container */}
-      <div className="glass-card-static p-8 rounded-2xl space-y-6">
+      <div className="ct-card p-8 space-y-6">
         {/* Icon */}
         <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto">
           <BookOpen className="h-8 w-8 text-primary" />
@@ -86,7 +86,7 @@ function CKBKTab() {
 
         {/* Heading */}
         <div className="space-y-3 text-center">
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">Import CKBK</h2>
+          <h2 className="text-2xl font-bold text-white font-heading">Import CKBK</h2>
           <p className="text-white/80 max-w-md mx-auto leading-relaxed">
             Importez directement depuis la base de donnees CKBK, la plus grande collection de livres de cuisine premium au monde. Les recettes en anglais seront automatiquement traduites et converties en grammes.
           </p>
@@ -105,8 +105,8 @@ function CKBKTab() {
         </div>
 
         {/* Features */}
-        <div className="bg-gradient-to-br from-[#0a1628] to-[#0d1f3c] p-5 rounded-xl text-left space-y-3 border border-white/10">
-          <h3 className="text-sm font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent mb-3">Fonctionnalites</h3>
+        <div className="bg-white/[0.04] p-5 rounded-xl text-left space-y-3 border border-white/10">
+          <h3 className="text-sm font-semibold text-white font-heading mb-3">Fonctionnalites</h3>
           <FeatureItem text="Traduction automatique anglais -> francais" />
           <FeatureItem text="Conversion cups/oz -> grammes" />
           <FeatureItem text="Import en lot (plusieurs recettes)" />
@@ -128,7 +128,7 @@ function WebSitesTab() {
   return (
     <div className="max-w-lg mx-auto py-8">
       {/* Main Card Container */}
-      <div className="glass-card-static p-8 rounded-2xl space-y-6">
+      <div className="ct-card p-8 space-y-6">
         {/* Icon */}
         <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto">
           <Globe className="h-8 w-8 text-primary" />
@@ -141,15 +141,15 @@ function WebSitesTab() {
 
         {/* Heading */}
         <div className="space-y-3 text-center">
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">Import depuis sites web</h2>
+          <h2 className="text-2xl font-bold text-white font-heading">Import depuis sites web</h2>
           <p className="text-white/80 max-w-md mx-auto leading-relaxed">
             Extrayez des recettes depuis les meilleurs sites culinaires francais. Contenu editorial de qualite, sans les publicites.
           </p>
         </div>
 
         {/* Supported Sites Grid */}
-        <div className="bg-gradient-to-br from-[#0a1628] to-[#0d1f3c] p-5 rounded-xl border border-white/10">
-          <h3 className="text-sm font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent mb-4 text-center">Sites supportes</h3>
+        <div className="bg-white/[0.04] p-5 rounded-xl border border-white/10">
+          <h3 className="text-sm font-semibold text-white font-heading mb-4 text-center">Sites supportes</h3>
           <div className="grid grid-cols-2 gap-3">
             {sites.map((site) => (
               <div
@@ -544,7 +544,14 @@ export default function UploadPage() {
   ];
 
   return (
-    <DashboardLayout title="Uploader">
+    <DashboardLayout
+      title="Uploader"
+      subtitle="Importez vos livres de cuisine"
+      breadcrumbs={[
+        { label: "Accueil", href: "/dashboard" },
+        { label: "Uploader" },
+      ]}
+    >
       {monitorCookbookIds.length > 0 ? (
         <ExtractionMonitor
           cookbookIds={monitorCookbookIds}
@@ -558,7 +565,7 @@ export default function UploadPage() {
       <>
       {/* Tabs */}
       <div className="flex justify-center mb-8">
-        <div className="inline-flex glass-card-static rounded-xl p-1">
+        <div className="inline-flex ct-card p-1">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -581,13 +588,13 @@ export default function UploadPage() {
           {/* Upload Zone - Always visible */}
           <div
             {...getRootProps()}
-            className={`glass-card-static p-12 text-center cursor-pointer border-2 border-dashed rounded-xl transition-all ${
+            className={`ct-card p-12 text-center cursor-pointer border-2 border-dashed transition-all ${
               isDragActive ? "border-primary bg-primary/20" : "border-primary/30 hover:border-primary/60"
             }`}
           >
             <input {...getInputProps()} />
             <Upload className="h-10 w-10 mx-auto text-primary mb-4" />
-            <p className="text-white font-semibold text-lg">
+            <p className="text-white font-semibold text-lg font-heading">
               {isDragActive ? "Deposez ici" : "Glissez vos PDFs"}
             </p>
             <p className="text-sm text-white/60 mt-1">ou cliquez pour selectionner (plusieurs fichiers possibles)</p>
@@ -595,9 +602,9 @@ export default function UploadPage() {
 
           {/* File List */}
           {files.length > 0 && (
-            <div className="glass-card-static p-6 rounded-xl space-y-4">
+            <div className="ct-card p-6 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-white font-semibold">
+                <h3 className="text-white font-semibold font-heading">
                   {files.length} fichier{files.length > 1 ? "s" : ""} selectionne{files.length > 1 ? "s" : ""}
                 </h3>
                 <Button variant="ghost" size="sm" onClick={clearAllFiles} disabled={isUploading || isProcessing} className="text-white/70 hover:text-white">
@@ -607,7 +614,7 @@ export default function UploadPage() {
 
               <div className="space-y-3 max-h-[300px] overflow-y-auto">
                 {files.map((fileState) => (
-                  <div key={fileState.id} className="bg-white/10 rounded-lg p-3 space-y-2">
+                  <div key={fileState.id} className="bg-white/[0.04] rounded-lg p-3 space-y-2 border border-white/[0.06]">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         {getStatusIcon(fileState.status)}
@@ -695,8 +702,8 @@ export default function UploadPage() {
 
           {/* Options Screen */}
           {showOptions && (
-            <div className="glass-card-static p-8 rounded-2xl space-y-6">
-              <h3 className="text-lg font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">
+            <div className="ct-card p-8 space-y-6">
+              <h3 className="text-lg font-semibold text-white font-heading">
                 Options d'extraction
               </h3>
 
@@ -704,14 +711,14 @@ export default function UploadPage() {
               <div className="space-y-3">
                 <p className="text-sm font-semibold text-white/80">Type de recettes</p>
                 <div className="flex gap-4">
-                  <label className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10 flex-1 cursor-pointer hover:border-primary/30 transition-colors">
+                  <label className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.04] border border-white/10 flex-1 cursor-pointer hover:border-primary/30 transition-colors">
                     <Checkbox checked={typePrivate} onCheckedChange={(c) => setTypePrivate(!!c)} />
                     <div>
                       <p className="text-white font-semibold text-sm">Prive</p>
                       <p className="text-white/50 text-xs">Recettes maison</p>
                     </div>
                   </label>
-                  <label className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10 flex-1 cursor-pointer hover:border-primary/30 transition-colors">
+                  <label className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.04] border border-white/10 flex-1 cursor-pointer hover:border-primary/30 transition-colors">
                     <Checkbox checked={typeCollective} onCheckedChange={(c) => setTypeCollective(!!c)} />
                     <div>
                       <p className="text-white font-semibold text-sm">Collectivite</p>
@@ -725,11 +732,11 @@ export default function UploadPage() {
               <div className="space-y-3">
                 <p className="text-sm font-semibold text-white/80">Options</p>
                 <div className="space-y-3">
-                  <label className="flex items-center gap-3 p-3 rounded-lg bg-white/5 opacity-60">
+                  <label className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.04] opacity-60">
                     <Checkbox checked={true} disabled />
                     <span className="text-white/70 text-sm">Extraire les recettes</span>
                   </label>
-                  <label className="flex items-center gap-3 p-3 rounded-lg bg-white/5 cursor-pointer hover:bg-white/10 transition-colors">
+                  <label className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.04] cursor-pointer hover:bg-white/10 transition-colors">
                     <Checkbox checked={generateImages} onCheckedChange={(c) => setGenerateImages(!!c)} />
                     <span className="text-white text-sm">Generer des images par recette</span>
                   </label>

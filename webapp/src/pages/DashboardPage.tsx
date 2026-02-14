@@ -59,28 +59,35 @@ export default function DashboardPage() {
   });
 
   const statCards = [
-    { title: "Total Livres", value: stats?.totalCookbooks ?? 0, icon: BookOpen, color: "text-primary" },
-    { title: "Total Recettes", value: stats?.totalRecipes ?? 0, icon: ChefHat, color: "text-primary" },
-    { title: "En attente", value: stats?.pendingRecipes ?? 0, icon: Clock, color: "text-amber-400" },
-    { title: "Approuvees", value: stats?.approvedRecipes ?? 0, icon: CheckCircle2, color: "text-emerald-400" },
+    { title: "Total Livres", value: stats?.totalCookbooks ?? 0, icon: BookOpen, bg: "bg-blue-500/15", iconColor: "text-blue-400" },
+    { title: "Total Recettes", value: stats?.totalRecipes ?? 0, icon: ChefHat, bg: "bg-violet-500/15", iconColor: "text-violet-400" },
+    { title: "En attente", value: stats?.pendingRecipes ?? 0, icon: Clock, bg: "bg-amber-500/15", iconColor: "text-amber-400" },
+    { title: "Approuvees", value: stats?.approvedRecipes ?? 0, icon: CheckCircle2, bg: "bg-emerald-500/15", iconColor: "text-emerald-400" },
   ];
 
   const pendingCount = stats?.pendingRecipes ?? 0;
 
   return (
-    <DashboardLayout title={`Bonjour, ${userName}`}>
+    <DashboardLayout
+      title={`Bonjour, ${userName}`}
+      breadcrumbs={[{ label: "Accueil" }]}
+    >
       <div className="space-y-8">
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {statCards.map((stat) => (
-            <div key={stat.title} className="bg-gradient-to-br from-[#0d1f3c]/90 to-[#091525]/90 backdrop-blur-xl p-5 rounded-xl border border-primary/20 shadow-lg shadow-primary/5">
-              <div className="flex items-center gap-3 mb-3">
-                <stat.icon className={`w-5 h-5 ${stat.color}`} />
-                <span className="text-white/80 text-sm font-medium">{stat.title}</span>
+            <div key={stat.title} className="ct-card ct-light-bar p-5">
+              <div className="relative">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-9 h-9 rounded-lg ${stat.bg} flex items-center justify-center`}>
+                    <stat.icon className={`w-[18px] h-[18px] ${stat.iconColor}`} />
+                  </div>
+                  <span className="text-white/50 text-sm">{stat.title}</span>
+                </div>
+                <p className="text-3xl font-bold text-white font-heading tracking-tight">
+                  {statsLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : stat.value}
+                </p>
               </div>
-              <p className="text-3xl font-bold text-white">
-                {statsLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : stat.value}
-              </p>
             </div>
           ))}
         </div>
@@ -115,9 +122,9 @@ export default function DashboardPage() {
         {/* Recent Activity */}
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Recent Jobs */}
-          <div className="bg-gradient-to-br from-[#0d1f3c]/90 to-[#091525]/90 backdrop-blur-xl p-6 rounded-xl border border-primary/20 shadow-lg shadow-primary/5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Activite recente</h3>
+          <div className="ct-card p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-[15px] font-semibold text-white font-heading">Activite recente</h3>
               <Link to="/cookbooks" className="text-primary text-sm font-medium flex items-center gap-1 hover:text-primary/80">
                 Voir tout <ArrowRight className="w-4 h-4" />
               </Link>
@@ -163,9 +170,9 @@ export default function DashboardPage() {
           </div>
 
           {/* Recent Recipes */}
-          <div className="bg-gradient-to-br from-[#0d1f3c]/90 to-[#091525]/90 backdrop-blur-xl p-6 rounded-xl border border-primary/20 shadow-lg shadow-primary/5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Dernieres recettes</h3>
+          <div className="ct-card p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-[15px] font-semibold text-white font-heading">Dernieres recettes</h3>
               <Link to="/recipes" className="text-primary text-sm font-medium flex items-center gap-1 hover:text-primary/80">
                 Voir tout <ArrowRight className="w-4 h-4" />
               </Link>

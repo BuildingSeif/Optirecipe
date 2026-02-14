@@ -7,7 +7,7 @@ import { GlassButton } from "@/components/ui/glass-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
-import { Loader2, User, Camera, Upload } from "lucide-react";
+import { Loader2, User, Camera } from "lucide-react";
 
 
 export default function CompleteProfilePage() {
@@ -90,38 +90,25 @@ export default function CompleteProfilePage() {
 
   if (sessionLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black">
+      <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black p-4 relative overflow-hidden">
-      {/* Spline 3D Background */}
-      <div className="absolute inset-0 z-0">
-        <iframe
-          src="https://my.spline.design/celestialflowabstractdigitalform-ObUlVgj70g2y4bbx5vBKSfxN/"
-          frameBorder="0"
-          width="100%"
-          height="100%"
-          id="aura-spline"
-          title="Background Animation"
-          style={{ pointerEvents: "none" }}
-        />
-      </div>
-
-      <div className="w-full max-w-md animate-fade-in relative z-10">
-        <div className="p-8 rounded-2xl animate-slide-up backdrop-blur-xl bg-black/60 border border-white/10 shadow-2xl">
+    <div className="min-h-screen flex items-center justify-center p-4 relative z-10">
+      <div className="w-full max-w-md animate-fade-in">
+        <div className="p-8 rounded-2xl animate-slide-up ct-card ct-card-glow">
           {/* Header */}
           <div className="text-center pb-6">
             <div className="flex justify-center mb-4">
               <Logo size="lg" />
             </div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">
+            <h1 className="text-2xl font-bold text-white font-heading tracking-tight">
               Completez votre profil
             </h1>
-            <p className="text-white/70 mt-2">
+            <p className="text-white/45 mt-2">
               Dites-nous comment vous appeler
             </p>
           </div>
@@ -133,7 +120,7 @@ export default function CompleteProfilePage() {
               <div className="relative">
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-24 h-24 rounded-full bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center cursor-pointer hover:from-primary/40 hover:to-accent/40 transition-all border-2 border-primary/30 overflow-hidden"
+                  className="w-24 h-24 rounded-full bg-white/[0.06] flex items-center justify-center cursor-pointer hover:bg-white/[0.1] transition-all ring-2 ring-white/10 overflow-hidden"
                 >
                   {imagePreview ? (
                     <img
@@ -142,7 +129,7 @@ export default function CompleteProfilePage() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <User className="w-10 h-10 text-white/50" />
+                    <User className="w-10 h-10 text-white/30" />
                   )}
                 </div>
                 <button
@@ -161,24 +148,24 @@ export default function CompleteProfilePage() {
                 />
               </div>
             </div>
-            <p className="text-center text-xs text-white/50">
+            <p className="text-center text-xs text-white/40">
               Cliquez pour ajouter une photo (optionnel)
             </p>
 
             {/* Name Input */}
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-white/80 font-medium">
+              <Label htmlFor="name" className="text-white/60 font-medium">
                 Votre nom
               </Label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/35" />
                 <Input
                   id="name"
                   type="text"
                   placeholder="Jean Dupont"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="pl-10 text-white placeholder:text-white/40 bg-white/5 border border-white/10 focus:border-primary/50 focus:outline-none transition-colors"
+                  className="pl-10 rounded-xl ct-input"
                   required
                   disabled={isLoading}
                   autoFocus
@@ -211,7 +198,7 @@ export default function CompleteProfilePage() {
           </form>
         </div>
 
-        <p className="mt-6 text-center text-xs text-white/80">
+        <p className="mt-6 text-center text-xs text-white/50">
           OptiRecipe par OptiMenu &copy; {new Date().getFullYear()}
         </p>
       </div>

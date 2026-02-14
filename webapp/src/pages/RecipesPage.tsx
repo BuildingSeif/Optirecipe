@@ -110,13 +110,23 @@ export default function RecipesPage() {
   };
 
   return (
-    <DashboardLayout title="Recettes">
+    <DashboardLayout
+      title="Recettes"
+      subtitle="Gerez et organisez toutes vos recettes"
+      breadcrumbs={[
+        { label: "Accueil", href: "/dashboard" },
+        { label: "Recettes" },
+      ]}
+    >
       <div className="space-y-6">
+        {/* Section heading */}
+        <h2 className="text-white font-heading text-lg font-semibold">Filtres</h2>
+
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="ct-card p-4 flex flex-wrap items-center gap-3">
           {/* Search */}
-          <div className="glass-card-static flex items-center gap-3 rounded-xl px-4 flex-1 min-w-[200px]">
-            <Search className="h-4 w-4 text-primary" />
+          <div className="ct-input flex items-center gap-3 rounded-lg px-4 flex-1 min-w-[200px]">
+            <Search className="h-4 w-4 text-white/40" />
             <input
               placeholder="Rechercher..."
               value={search}
@@ -127,7 +137,7 @@ export default function RecipesPage() {
 
           {/* Status */}
           <Select value={status} onValueChange={(v) => updateFilter("status", v)}>
-            <SelectTrigger className="w-[160px] glass-card-static border-none text-sm font-semibold text-white">
+            <SelectTrigger className="w-[160px] ct-input border-none text-sm font-semibold text-white">
               <SelectValue placeholder="Statut" />
             </SelectTrigger>
             <SelectContent>
@@ -139,7 +149,7 @@ export default function RecipesPage() {
 
           {/* Category */}
           <Select value={category} onValueChange={(v) => updateFilter("category", v)}>
-            <SelectTrigger className="w-[160px] glass-card-static border-none text-sm font-semibold text-white">
+            <SelectTrigger className="w-[160px] ct-input border-none text-sm font-semibold text-white">
               <SelectValue placeholder="Categorie" />
             </SelectTrigger>
             <SelectContent>
@@ -152,7 +162,7 @@ export default function RecipesPage() {
 
           {/* Type */}
           <Select value={type} onValueChange={(v) => updateFilter("type", v)}>
-            <SelectTrigger className="w-[160px] glass-card-static border-none text-sm font-semibold text-white">
+            <SelectTrigger className="w-[160px] ct-input border-none text-sm font-semibold text-white">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
@@ -166,7 +176,7 @@ export default function RecipesPage() {
           {/* Cookbook filter */}
           {cookbooks && cookbooks.length > 0 ? (
             <Select value={cookbookId} onValueChange={(v) => updateFilter("cookbookId", v)}>
-              <SelectTrigger className="w-[180px] glass-card-static border-none text-sm font-semibold text-white">
+              <SelectTrigger className="w-[180px] ct-input border-none text-sm font-semibold text-white">
                 <SelectValue placeholder="Livre" />
               </SelectTrigger>
               <SelectContent>
@@ -178,6 +188,9 @@ export default function RecipesPage() {
             </Select>
           ) : null}
         </div>
+
+        {/* Results heading */}
+        <h2 className="text-white font-heading text-lg font-semibold">Resultats</h2>
 
         {/* Results */}
         {isLoading ? (
@@ -200,9 +213,9 @@ export default function RecipesPage() {
               <span>{data?.pagination.total ?? 0} recettes</span>
             </div>
 
-            <div className="glass-card-static rounded-xl divide-y divide-white/10">
+            <div className="ct-card rounded-xl divide-y divide-white/[0.06]">
               {recipes.map((recipe) => (
-                <div key={recipe.id} className="flex items-center gap-4 p-4 hover:bg-white/10 transition-colors">
+                <div key={recipe.id} className="flex items-center gap-4 p-4 hover:bg-white/[0.04] transition-colors">
                   <Checkbox
                     checked={selectedIds.has(recipe.id)}
                     onCheckedChange={(checked) => {
@@ -219,8 +232,8 @@ export default function RecipesPage() {
                     {recipe.imageUrl ? (
                       <img src={recipe.imageUrl} alt="" className="h-10 w-10 rounded-lg object-cover flex-shrink-0" />
                     ) : (
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <ChefHat className="h-5 w-5 text-primary" />
+                      <div className="h-10 w-10 rounded-lg bg-white/[0.06] flex items-center justify-center flex-shrink-0">
+                        <ChefHat className="h-5 w-5 text-white/40" />
                       </div>
                     )}
 
@@ -243,12 +256,15 @@ export default function RecipesPage() {
                       </div>
                     </div>
 
-                    {/* Dietary icons */}
-                    <div className="flex items-center gap-1">
-                      {recipe.is_vegetarian ? <span className="h-2 w-2 rounded-full bg-green-500" title="Vegetarien" /> : null}
-                      {recipe.is_vegan ? <span className="h-2 w-2 rounded-full bg-emerald-400" title="Vegan" /> : null}
-                      {recipe.is_gluten_free ? <span className="h-2 w-2 rounded-full bg-amber-400" title="Sans gluten" /> : null}
-                      {recipe.is_halal ? <span className="h-2 w-2 rounded-full bg-teal-400" title="Halal" /> : null}
+                    {/* Status dot + dietary indicators */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        {recipe.is_vegetarian ? <span className="status-dot status-dot-approved" title="Vegetarien" /> : null}
+                        {recipe.is_vegan ? <span className="status-dot status-dot-approved" title="Vegan" /> : null}
+                        {recipe.is_gluten_free ? <span className="status-dot status-dot-pending" title="Sans gluten" /> : null}
+                        {recipe.is_halal ? <span className="status-dot status-dot-approved" title="Halal" /> : null}
+                      </div>
+                      <span className={`status-dot status-dot-${recipe.status}`} />
                     </div>
 
                     <StatusBadge status={recipe.status} />
@@ -282,8 +298,8 @@ export default function RecipesPage() {
             ) : null}
           </>
         ) : (
-          <div className="glass-card-static rounded-xl text-center py-12">
-            <ChefHat className="h-10 w-10 mx-auto text-primary mb-4" />
+          <div className="ct-card rounded-xl text-center py-12">
+            <ChefHat className="h-10 w-10 mx-auto text-white/30 mb-4" />
             <p className="text-white/60 font-medium">Aucune recette</p>
           </div>
         )}
@@ -291,7 +307,7 @@ export default function RecipesPage() {
 
       {/* Floating bulk action bar */}
       {selectedIds.size > 0 ? (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 glass-card-static px-6 py-3 rounded-full border border-primary/30 shadow-2xl">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 ct-card px-6 py-3 rounded-full shadow-2xl">
           <span className="text-sm font-medium text-white/80">
             {selectedIds.size} recette{selectedIds.size > 1 ? "s" : ""} selectionnee{selectedIds.size > 1 ? "s" : ""}
           </span>

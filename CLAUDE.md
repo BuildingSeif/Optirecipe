@@ -61,6 +61,20 @@ This workspace contains a mobile app and backend server.
   - DO NOT use Better Auth's useSession() hook — it doesn't work in Vibecode iframe
   - DO NOT switch back to cookie-only auth — cookies don't work cross-origin here
 
+  ## Background
+  - webapp/src/components/layout/PersistentBackground.tsx: Unicorn Studio aura background
+  - Uses data-us-project="yWZ2Tbe094Fsjgy9NRnD" with UnicornStudio.js v1.4.29
+  - DO NOT replace with Spline or other 3D backgrounds
+
+  ## UI Design System
+  - New ct-card system: bg-black/40, border-white/12, backdrop-blur-12px, inset top glow
+  - ct-card-glow: radial gradient glow at top
+  - ct-light-bar: thin white gradient line at top of cards
+  - ct-input: glass input styling
+  - sidebar-nav-item: CryptoTrade-style sidebar navigation
+  - Plus Jakarta Sans for headings (font-heading class)
+  - DO NOT revert to glass-card-static or gradient text on section headings
+
   ## PDF Upload Pipeline
   - webapp/src/pages/UploadPage.tsx: Uses api.raw() for upload (NOT XHR)
   - backend/src/routes/upload.ts: Vibecode SDK storage upload

@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Button } from "@/components/ui/button";
 import { GlassButton } from "@/components/ui/glass-button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth-context";
@@ -45,8 +44,6 @@ export default function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["session"] });
       setHasChanges(false);
       setImageFile(null);
-      // Force refresh session
-      window.location.reload();
     },
   });
 
@@ -114,26 +111,33 @@ export default function SettingsPage() {
   const isLoading = updateProfileMutation.isPending || uploadImageMutation.isPending;
 
   return (
-    <DashboardLayout title="Parametres">
+    <DashboardLayout
+      title="Parametres"
+      subtitle="Gerez votre profil et votre compte"
+      breadcrumbs={[
+        { label: "Accueil", href: "/dashboard" },
+        { label: "Parametres" },
+      ]}
+    >
       <div className="max-w-2xl space-y-6">
-        {/* Profile */}
-        <div className="glass-card-static p-8 rounded-2xl">
-          <div className="mb-6">
-            <h2 className="text-white text-xl font-bold">Profil</h2>
-            <p className="text-white/60">Modifiez vos informations personnelles</p>
+        {/* Profile Section */}
+        <div className="ct-card p-6 rounded-xl">
+          <div className="mb-5">
+            <h2 className="text-white text-lg font-semibold font-heading">Profil</h2>
+            <p className="text-white/45 text-sm mt-0.5">Modifiez vos informations personnelles</p>
           </div>
 
           {/* Profile Picture */}
-          <div className="flex items-center gap-6 mb-6">
+          <div className="flex items-center gap-5 mb-6">
             <div className="relative">
               {imagePreview ? (
                 <img
                   src={imagePreview}
                   alt={user?.name || "Profile"}
-                  className="w-20 h-20 rounded-full object-cover border-2 border-primary/30"
+                  className="w-20 h-20 rounded-full object-cover ring-2 ring-white/10"
                 />
               ) : (
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center ring-2 ring-white/10">
                   <span className="text-white font-bold text-xl">{initials}</span>
                 </div>
               )}
@@ -153,16 +157,16 @@ export default function SettingsPage() {
               />
             </div>
             <div>
-              <p className="text-white font-medium">Photo de profil</p>
-              <p className="text-sm text-white/50">Cliquez sur l'icone pour changer</p>
+              <p className="text-white font-medium text-sm">Photo de profil</p>
+              <p className="text-xs text-white/40 mt-0.5">Cliquez sur l'icone pour changer</p>
             </div>
           </div>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="name" className="text-white/80 text-sm font-medium">Nom</label>
-              <div className="glass-card-static flex items-center gap-3 rounded-xl px-4">
-                <User className="h-4 w-4 text-primary" />
+              <label htmlFor="name" className="text-white/60 text-xs font-medium uppercase tracking-wider">Nom</label>
+              <div className="ct-input flex items-center gap-3 rounded-xl px-4">
+                <User className="h-4 w-4 text-white/40 shrink-0" />
                 <Input
                   id="name"
                   value={name}
@@ -173,9 +177,9 @@ export default function SettingsPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <label htmlFor="email" className="text-white/80 text-sm font-medium">Email</label>
-              <div className="glass-card-static flex items-center gap-3 rounded-xl px-4">
-                <Mail className="h-4 w-4 text-primary" />
+              <label htmlFor="email" className="text-white/60 text-xs font-medium uppercase tracking-wider">Email</label>
+              <div className="ct-input flex items-center gap-3 rounded-xl px-4 opacity-60">
+                <Mail className="h-4 w-4 text-white/40 shrink-0" />
                 <input
                   id="email"
                   value={user?.email || ""}
@@ -183,36 +187,45 @@ export default function SettingsPage() {
                   className="flex-1 bg-transparent border-none outline-none text-white/50 py-3 cursor-not-allowed"
                 />
               </div>
-              <p className="text-xs text-white/40">L'email ne peut pas etre modifie</p>
+              <p className="text-xs text-white/30">L'email ne peut pas etre modifie</p>
             </div>
 
             {hasChanges && (
-              <GlassButton
-                onClick={handleSave}
-                disabled={isLoading || !name.trim()}
-                variant="primary"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Enregistrement...
-                  </>
-                ) : (
-                  <>
-                    <Check className="mr-2 h-4 w-4" />
-                    Enregistrer les modifications
-                  </>
-                )}
-              </GlassButton>
+              <div className="pt-2">
+                <GlassButton
+                  onClick={handleSave}
+                  disabled={isLoading || !name.trim()}
+                  variant="primary"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Enregistrement...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Enregistrer les modifications
+                    </>
+                  )}
+                </GlassButton>
+              </div>
             )}
+
+            {updateProfileMutation.isSuccess && !hasChanges ? (
+              <p className="text-emerald-400 text-sm flex items-center gap-1.5">
+                <Check className="h-3.5 w-3.5" />
+                Modifications enregistrees
+              </p>
+            ) : null}
           </div>
         </div>
 
-        {/* Account */}
-        <div className="glass-card-static p-8 rounded-2xl">
-          <div className="mb-6">
-            <h2 className="text-white text-xl font-bold">Compte</h2>
-            <p className="text-white/60">Gerez votre session</p>
+        {/* Account Section */}
+        <div className="ct-card p-6 rounded-xl">
+          <div className="mb-5">
+            <h2 className="text-white text-lg font-semibold font-heading">Compte</h2>
+            <p className="text-white/45 text-sm mt-0.5">Gerez votre session</p>
           </div>
           <GlassButton
             variant="destructive"
@@ -223,20 +236,20 @@ export default function SettingsPage() {
           </GlassButton>
         </div>
 
-        {/* About */}
-        <div className="glass-card-static p-8 rounded-2xl">
-          <div className="mb-6">
-            <h2 className="text-white text-xl font-bold">A propos</h2>
+        {/* About Section */}
+        <div className="ct-card p-6 rounded-xl">
+          <div className="mb-5">
+            <h2 className="text-white text-lg font-semibold font-heading">A propos</h2>
           </div>
-          <div className="text-sm text-white/60 space-y-2">
+          <div className="text-sm text-white/50 space-y-2">
             <p>
-              <strong className="text-white">OptiRecipe</strong> est un outil professionnel d'extraction de recettes
+              <strong className="text-white/80">OptiRecipe</strong> est un outil professionnel d'extraction de recettes
               pour la restauration collective.
             </p>
             <p>
-              Developpe par <strong className="text-white">OptiMenu</strong> pour le systeme 1000CHEFS.
+              Developpe par <strong className="text-white/80">OptiMenu</strong> pour le systeme 1000CHEFS.
             </p>
-            <p className="text-xs text-white/40">Version 1.0.0</p>
+            <p className="text-xs text-white/30 pt-1">Version 1.0.0</p>
           </div>
         </div>
       </div>

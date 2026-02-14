@@ -60,14 +60,14 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative z-10">
       <div className="w-full max-w-md animate-fade-in">
-        <div className="p-8 rounded-2xl animate-slide-up backdrop-blur-xl bg-black/60 border border-white/10 shadow-2xl">
+        <div className="p-8 rounded-2xl animate-slide-up ct-card ct-card-glow">
           {/* Header */}
           <div className="text-center pb-6">
             <div className="flex justify-center mb-4">
               <Logo size="lg" />
             </div>
-            <h1 className="text-2xl font-semibold text-white animate-blur-in">OptiRecipe</h1>
-            <p className="text-gray-400 mt-2">
+            <h1 className="text-2xl font-heading tracking-tight text-white">OptiRecipe</h1>
+            <p className="text-white/45 mt-2">
               Connectez-vous à votre espace
             </p>
           </div>
@@ -84,7 +84,7 @@ export default function LoginPage() {
                   placeholder="vous@exemple.fr"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-lg text-white placeholder:text-gray-500 bg-white/5 border border-white/10 focus:border-primary/50 focus:outline-none transition-colors"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl ct-input"
                   required
                   disabled={isLoading}
                 />
@@ -101,7 +101,7 @@ export default function LoginPage() {
                   placeholder="Votre mot de passe"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-lg text-white placeholder:text-gray-500 bg-white/5 border border-white/10 focus:border-primary/50 focus:outline-none transition-colors"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl ct-input"
                   required
                   disabled={isLoading}
                   minLength={8}
@@ -133,7 +133,7 @@ export default function LoginPage() {
             </GlassButton>
           </form>
 
-          <p className="mt-6 text-center text-sm text-gray-400">
+          <p className="mt-6 text-center text-sm text-white/45">
             Pas encore de compte ?{" "}
             <Link to="/signup" className="text-primary hover:underline">
               Créer un compte

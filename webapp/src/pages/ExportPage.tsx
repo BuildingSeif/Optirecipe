@@ -395,16 +395,23 @@ export default function ExportPage() {
   };
 
   return (
-    <DashboardLayout title="Exporter">
+    <DashboardLayout
+      title="Exporter"
+      subtitle="Exportez vos recettes dans le format de votre choix"
+      breadcrumbs={[
+        { label: "Accueil", href: "/dashboard" },
+        { label: "Exporter" },
+      ]}
+    >
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Step 1: Select Recipes */}
-        <div className="glass-card-static p-8 rounded-2xl">
+        <div className="ct-card p-8 rounded-xl">
           <div className="mb-6">
             <h3 className="flex items-center gap-3 text-lg font-semibold">
               <span className="flex h-8 w-8 items-center justify-center rounded-full gradient-primary text-white text-sm font-bold">
                 1
               </span>
-              <span className="bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">
+              <span className="text-white font-heading">
                 Selectionner les recettes
               </span>
             </h3>
@@ -416,7 +423,7 @@ export default function ExportPage() {
           {/* Filter controls */}
           <div className="flex flex-wrap gap-3 mb-6 ml-11">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[150px] glass-card-static border-none text-sm font-semibold text-white">
+              <SelectTrigger className="w-[150px] bg-white/[0.06] border-white/[0.08] text-sm font-semibold text-white hover:border-white/[0.15] transition-colors">
                 <SelectValue placeholder="Statut" />
               </SelectTrigger>
               <SelectContent>
@@ -427,7 +434,7 @@ export default function ExportPage() {
             </Select>
 
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[150px] glass-card-static border-none text-sm font-semibold text-white">
+              <SelectTrigger className="w-[150px] bg-white/[0.06] border-white/[0.08] text-sm font-semibold text-white hover:border-white/[0.15] transition-colors">
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
               <SelectContent>
@@ -438,7 +445,7 @@ export default function ExportPage() {
             </Select>
 
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[160px] glass-card-static border-none text-sm font-semibold text-white">
+              <SelectTrigger className="w-[160px] bg-white/[0.06] border-white/[0.08] text-sm font-semibold text-white hover:border-white/[0.15] transition-colors">
                 <SelectValue placeholder="Categorie" />
               </SelectTrigger>
               <SelectContent>
@@ -451,7 +458,7 @@ export default function ExportPage() {
 
             {cookbooks && cookbooks.length > 0 ? (
               <Select value={cookbookFilter} onValueChange={setCookbookFilter}>
-                <SelectTrigger className="w-[180px] glass-card-static border-none text-sm font-semibold text-white">
+                <SelectTrigger className="w-[180px] bg-white/[0.06] border-white/[0.08] text-sm font-semibold text-white hover:border-white/[0.15] transition-colors">
                   <SelectValue placeholder="Livre" />
                 </SelectTrigger>
                 <SelectContent>
@@ -478,8 +485,8 @@ export default function ExportPage() {
                 htmlFor="all"
                 className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
                   exportMode === "all"
-                    ? "border-primary bg-primary/10"
-                    : "border-white/10 hover:border-white/20 bg-white/5"
+                    ? "border-primary/60 bg-primary/[0.08]"
+                    : "border-white/[0.08] hover:border-white/[0.12] bg-white/[0.03]"
                 }`}
               >
                 <RadioGroupItem value="all" id="all" className="sr-only" />
@@ -499,8 +506,8 @@ export default function ExportPage() {
                 htmlFor="select"
                 className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
                   exportMode === "select"
-                    ? "border-primary bg-primary/10"
-                    : "border-white/10 hover:border-white/20 bg-white/5"
+                    ? "border-primary/60 bg-primary/[0.08]"
+                    : "border-white/[0.08] hover:border-white/[0.12] bg-white/[0.03]"
                 }`}
               >
                 <RadioGroupItem value="select" id="select" className="sr-only" />
@@ -540,7 +547,7 @@ export default function ExportPage() {
                         {selectedRecipes.length} / {filteredRecipes.length}
                       </span>
                     </div>
-                    <ScrollArea className="h-[280px] bg-gradient-to-br from-[#0a1628] to-[#0d1f3c] rounded-xl p-4 border border-white/10">
+                    <ScrollArea className="h-[280px] bg-white/[0.04] rounded-xl p-4 border border-white/[0.08]">
                       <div className="space-y-1">
                         {filteredRecipes.map((recipe) => (
                           <div
@@ -576,7 +583,7 @@ export default function ExportPage() {
                     </ScrollArea>
                   </>
                 ) : (
-                  <div className="text-center py-12 bg-white/5 rounded-xl">
+                  <div className="text-center py-12 bg-white/[0.04] rounded-xl border border-white/[0.08]">
                     <ChefHat className="h-12 w-12 mx-auto text-primary/50 mb-3" />
                     <p className="text-white/60 font-medium">Aucune recette trouvee</p>
                     <p className="text-sm text-white/40 mt-1">Modifiez les filtres pour voir des recettes</p>
@@ -588,13 +595,13 @@ export default function ExportPage() {
         </div>
 
         {/* Step 2: Choose Format */}
-        <div className="glass-card-static p-8 rounded-2xl">
+        <div className="ct-card p-8 rounded-xl">
           <div className="mb-6">
             <h3 className="flex items-center gap-3 text-lg font-semibold">
               <span className="flex h-8 w-8 items-center justify-center rounded-full gradient-primary text-white text-sm font-bold">
                 2
               </span>
-              <span className="bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">
+              <span className="text-white font-heading">
                 Choisir le format
               </span>
             </h3>
@@ -603,15 +610,15 @@ export default function ExportPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 ml-11">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 ml-11">
             {formatOptions.map((option) => (
               <Label
                 key={option.value}
                 htmlFor={option.value}
                 className={`relative flex flex-col p-5 rounded-xl border-2 cursor-pointer transition-all ${
                   format === option.value
-                    ? "border-primary bg-primary/10"
-                    : "border-white/10 hover:border-white/20 bg-white/5"
+                    ? "border-primary/60 bg-primary/[0.08]"
+                    : "border-white/[0.08] hover:border-white/[0.12] bg-white/[0.03]"
                 }`}
               >
                 <RadioGroup
@@ -643,13 +650,13 @@ export default function ExportPage() {
 
         {/* Preview for JSON/PDF */}
         {exportData && (format === "json" || format === "pdf") ? (
-          <div className="glass-card-static p-8 rounded-2xl">
+          <div className="ct-card p-8 rounded-xl">
             <div className="mb-6">
               <h3 className="flex items-center gap-3 text-lg font-semibold">
                 <span className="flex h-8 w-8 items-center justify-center rounded-full gradient-primary text-white text-sm font-bold">
                   3
                 </span>
-                <span className="bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">
+                <span className="text-white font-heading">
                   {format === "pdf" ? "Telecharger" : "Apercu"}
                 </span>
               </h3>
@@ -661,7 +668,7 @@ export default function ExportPage() {
             <div className="ml-11">
               {format === "json" ? (
                 <>
-                  <ScrollArea className="h-[250px] bg-gradient-to-br from-[#0a1628] to-[#0d1f3c] rounded-xl border border-white/10">
+                  <ScrollArea className="h-[250px] bg-white/[0.04] rounded-xl border border-white/[0.08]">
                     <pre className="p-4 text-xs text-white/70 font-mono">
                       {JSON.stringify(exportData.recipes.slice(0, 2), null, 2)}
                       {exportData.recipes.length > 2 ? (
@@ -680,7 +687,7 @@ export default function ExportPage() {
 
               {format === "pdf" ? (
                 <div className="space-y-4">
-                  <div className="bg-gradient-to-br from-[#0a1628] to-[#0d1f3c] rounded-xl p-6 border border-white/10 text-center">
+                  <div className="bg-white/[0.04] rounded-xl p-6 border border-white/[0.08] text-center">
                     <Printer className="h-12 w-12 mx-auto text-rose-400 mb-4" />
                     <p className="text-white font-semibold mb-2">Fiches recettes professionnelles</p>
                     <p className="text-sm text-white/60">
@@ -698,7 +705,7 @@ export default function ExportPage() {
         ) : null}
 
         {/* Info Box */}
-        <div className="glass-card-static p-6 rounded-2xl border border-primary/20 bg-primary/5">
+        <div className="ct-card p-6 rounded-xl border-primary/20">
           <div className="flex gap-4">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 flex-shrink-0">
               <Info className="h-5 w-5 text-primary" />

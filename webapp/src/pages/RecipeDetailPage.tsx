@@ -178,9 +178,15 @@ export default function RecipeDetailPage() {
     updateMutation.mutate(formData);
   };
 
+  const breadcrumbs = [
+    { label: "Accueil", href: "/dashboard" },
+    { label: "Recettes", href: "/recipes" },
+    { label: recipe?.title || "Recette" },
+  ];
+
   if (isLoading) {
     return (
-      <DashboardLayout>
+      <DashboardLayout breadcrumbs={breadcrumbs}>
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
         </div>
@@ -190,7 +196,7 @@ export default function RecipeDetailPage() {
 
   if (!recipe) {
     return (
-      <DashboardLayout>
+      <DashboardLayout breadcrumbs={breadcrumbs}>
         <div className="text-center py-12">
           <AlertCircle className="h-12 w-12 mx-auto text-gray-500 mb-4" />
           <h2 className="text-lg font-medium text-white">Recette non trouvee</h2>
@@ -205,13 +211,13 @@ export default function RecipeDetailPage() {
   const totalTime = (recipe.prepTimeMinutes || 0) + (recipe.cookTimeMinutes || 0);
 
   return (
-    <DashboardLayout>
+    <DashboardLayout breadcrumbs={breadcrumbs}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="text-white/60 hover:text-white">
+              <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="text-white/40 hover:text-white/70 h-8 w-8 p-0">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </div>
@@ -223,13 +229,13 @@ export default function RecipeDetailPage() {
                   className="glass-input text-2xl font-semibold h-auto py-1 px-2 text-white"
                 />
               ) : (
-                <h1 className="text-2xl font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">{recipe.title}</h1>
+                <h1 className="text-2xl font-bold text-white font-heading tracking-tight">{recipe.title}</h1>
               )}
               <div className="flex items-center gap-2 mt-2">
                 <StatusBadge status={recipe.status} />
-                {recipe.category && (
+                {recipe.category ? (
                   <Badge variant="secondary">{recipe.category}</Badge>
-                )}
+                ) : null}
               </div>
               {recipe.status === "pending" ? (
                 <p className="text-xs text-white/50 mt-1">
@@ -258,13 +264,13 @@ export default function RecipeDetailPage() {
                 <Button variant="outline" onClick={() => setIsEditing(true)}>
                   Modifier
                 </Button>
-                {recipe.status !== "approved" && (
+                {recipe.status !== "approved" ? (
                   <GlassButton onClick={handleApprove} disabled={updateMutation.isPending} variant="success">
                     <CheckCircle2 className="mr-2 h-4 w-4" />
                     Approuver
                   </GlassButton>
-                )}
-                {recipe.status !== "rejected" && (
+                ) : null}
+                {recipe.status !== "rejected" ? (
                   <GlassButton
                     onClick={handleReject}
                     disabled={updateMutation.isPending}
@@ -273,14 +279,14 @@ export default function RecipeDetailPage() {
                     <XCircle className="mr-2 h-4 w-4" />
                     Rejeter
                   </GlassButton>
-                )}
+                ) : null}
               </>
             )}
           </div>
         </div>
 
         {/* Recipe Image */}
-        <div className="glass-card-static rounded-2xl overflow-hidden">
+        <div className="ct-card rounded-xl overflow-hidden">
           {recipe.imageUrl ? (
             <div className="relative aspect-video">
               <img
@@ -332,8 +338,8 @@ export default function RecipeDetailPage() {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Description */}
-            <div className="glass-card-static p-8 rounded-2xl">
-              <h3 className="text-base font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent mb-4">Description</h3>
+            <div className="ct-card p-6 rounded-xl">
+              <h3 className="text-[15px] font-semibold text-white font-heading mb-4">Description</h3>
               {isEditing ? (
                 <Textarea
                   value={formData.description || ""}
@@ -350,9 +356,9 @@ export default function RecipeDetailPage() {
             </div>
 
             {/* Ingredients */}
-            <div className="glass-card-static p-8 rounded-2xl">
+            <div className="ct-card p-6 rounded-xl">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">
+                <h3 className="text-[15px] font-semibold text-white font-heading">
                   Ingredients ({recipe.ingredients?.length || 0})
                 </h3>
               </div>
@@ -442,8 +448,8 @@ export default function RecipeDetailPage() {
             </div>
 
             {/* Instructions */}
-            <div className="glass-card-static p-8 rounded-2xl">
-              <h3 className="text-base font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent mb-4">
+            <div className="ct-card p-6 rounded-xl">
+              <h3 className="text-[15px] font-semibold text-white font-heading mb-4">
                 Instructions ({recipe.instructions?.length || 0})
               </h3>
               {isEditing ? (
@@ -522,18 +528,18 @@ export default function RecipeDetailPage() {
             </div>
 
             {/* Tips */}
-            {recipe.tips && (
-              <div className="glass-card-static p-8 rounded-2xl">
-                <h3 className="text-base font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent mb-4">Conseils du chef</h3>
+            {recipe.tips ? (
+              <div className="ct-card p-6 rounded-xl">
+                <h3 className="text-[15px] font-semibold text-white font-heading mb-4">Conseils du chef</h3>
                 <p className="text-gray-400">{recipe.tips}</p>
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Quick Stats */}
-            <div className="glass-card-static p-6 rounded-2xl">
+            <div className="ct-card p-5 rounded-xl">
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center">
                   <div className="icon-container p-2 rounded-xl mx-auto w-fit mb-2">
@@ -564,8 +570,8 @@ export default function RecipeDetailPage() {
             </div>
 
             {/* Metadata */}
-            <div className="glass-card-static p-8 rounded-2xl">
-              <h3 className="text-base font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent mb-4">Metadonnees</h3>
+            <div className="ct-card p-6 rounded-xl">
+              <h3 className="text-[15px] font-semibold text-white font-heading mb-4">Metadonnees</h3>
               <div className="space-y-4">
                 <div>
                   <Label className="text-gray-500">Categorie</Label>
@@ -776,7 +782,7 @@ export default function RecipeDetailPage() {
                   </div>
                 </div>
 
-                {recipe.dietTags && recipe.dietTags.length > 0 && (
+                {recipe.dietTags && recipe.dietTags.length > 0 ? (
                   <div>
                     <Label className="text-gray-500">Tags regimes</Label>
                     <div className="flex flex-wrap gap-1 mt-1">
@@ -787,15 +793,15 @@ export default function RecipeDetailPage() {
                       ))}
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
 
             {/* Source */}
-            <div className="glass-card-static p-8 rounded-2xl">
-              <h3 className="text-base font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent mb-4">Source</h3>
+            <div className="ct-card p-6 rounded-xl">
+              <h3 className="text-[15px] font-semibold text-white font-heading mb-4">Source</h3>
               <div className="space-y-2">
-                {recipe.cookbook && (
+                {recipe.cookbook ? (
                   <Link
                     to={`/cookbooks/${recipe.cookbookId}`}
                     className="flex items-center gap-2 text-primary hover:underline"
@@ -803,21 +809,21 @@ export default function RecipeDetailPage() {
                     <BookOpen className="h-4 w-4" />
                     {recipe.cookbook.name}
                   </Link>
-                )}
-                {recipe.sourcePage && (
+                ) : null}
+                {recipe.sourcePage ? (
                   <p className="text-sm text-gray-400">Page {recipe.sourcePage}</p>
-                )}
-                {recipe.originalTitle && recipe.originalTitle !== recipe.title && (
+                ) : null}
+                {recipe.originalTitle && recipe.originalTitle !== recipe.title ? (
                   <p className="text-sm text-gray-400">
                     Titre original: {recipe.originalTitle}
                   </p>
-                )}
+                ) : null}
               </div>
             </div>
 
             {/* Danger Zone */}
-            <div className="glass-card-static p-8 rounded-2xl border border-destructive/20">
-              <h3 className="text-base font-semibold text-destructive mb-4">Zone de danger</h3>
+            <div className="ct-card p-6 rounded-xl border-destructive/20">
+              <h3 className="text-[15px] font-semibold text-red-400 font-heading mb-4">Zone de danger</h3>
               <GlassButton
                 variant="destructive"
                 className="w-full"

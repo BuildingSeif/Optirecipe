@@ -1,7 +1,6 @@
 import { memo, useCallback } from "react";
 import { NavLink, useLocation, Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Logo } from "@/components/Logo";
 import {
   LayoutDashboard,
   Upload,
@@ -35,14 +34,12 @@ const NavItem = memo(function NavItem({
     <NavLink
       to={item.href}
       className={cn(
-        "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-150",
-        isActive
-          ? "bg-primary text-white font-semibold shadow-lg shadow-primary/30"
-          : "text-white/80 hover:text-white hover:bg-white/10"
+        "sidebar-nav-item",
+        isActive && "sidebar-nav-item-active"
       )}
     >
-      <Icon className="w-5 h-5" />
-      <span className="text-sm font-medium">{item.name}</span>
+      <Icon className="w-[18px] h-[18px]" />
+      <span>{item.name}</span>
     </NavLink>
   );
 });
@@ -65,33 +62,33 @@ const UserSection = memo(function UserSection({
     : "U";
 
   return (
-    <div className="p-4 border-t border-primary/20">
-      <div className="flex items-center gap-3 px-2">
+    <div className="p-4 border-t border-white/[0.06]">
+      <div className="flex items-center gap-3 px-1">
         <Link to="/settings" className="flex-shrink-0">
           {user?.image ? (
             <img
               src={user.image}
               alt={user.name || "Profile"}
-              className="w-10 h-10 rounded-full object-cover border-2 border-primary/30 hover:border-primary/60 transition-colors"
+              className="w-9 h-9 rounded-full object-cover ring-2 ring-white/10 hover:ring-white/25 transition-all"
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center hover:from-primary/80 hover:to-accent/80 transition-colors">
-              <span className="text-white font-semibold text-sm">{initials}</span>
+            <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center ring-2 ring-white/10 hover:ring-white/25 transition-all">
+              <span className="text-white/80 font-semibold text-xs">{initials}</span>
             </div>
           )}
         </Link>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white truncate">
+          <p className="text-sm font-medium text-white/90 truncate">
             {user?.name || "Utilisateur"}
           </p>
-          <p className="text-xs text-white/60 truncate">{user?.email}</p>
+          <p className="text-[11px] text-white/40 truncate">{user?.email}</p>
         </div>
         <button
           onClick={onSignOut}
-          className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+          className="p-1.5 rounded-lg hover:bg-white/[0.06] transition-colors"
           title="Deconnexion"
         >
-          <LogOut className="w-4 h-4 text-white/70 hover:text-white" />
+          <LogOut className="w-4 h-4 text-white/40 hover:text-white/70" />
         </button>
       </div>
     </div>
@@ -109,15 +106,23 @@ export const Sidebar = memo(function Sidebar() {
   }, [signOut]);
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-gradient-to-b from-[#0a1628] via-[#0d1f3c] to-[#091525] border-r border-primary/20 shadow-xl shadow-primary/5">
+    <aside className="fixed left-0 top-0 z-40 h-screen w-[240px] bg-black/50 backdrop-blur-xl border-r border-white/[0.06]">
       <div className="flex h-full flex-col">
         {/* Logo */}
-        <div className="p-6">
-          <Logo size="md" showText />
+        <div className="px-5 py-6">
+          <Link to="/dashboard" className="flex items-center gap-2.5">
+            <img src="/logo.png" alt="OptiRecipe" className="w-8 h-8 object-contain" />
+            <div>
+              <span className="text-[15px] font-bold tracking-tight font-heading">
+                <span className="text-white">Opti</span>
+                <span className="text-primary">Recipe</span>
+              </span>
+            </div>
+          </Link>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-4 space-y-1">
+        <nav className="flex-1 px-3 space-y-0.5">
           {navigation.map((item) => {
             const isActive =
               location.pathname === item.href ||

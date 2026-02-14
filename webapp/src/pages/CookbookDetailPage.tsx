@@ -7,11 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { api } from "@/lib/api";
 import {
-  ArrowLeft,
-  ChefHat,
   CheckCircle2,
-  Clock,
-  XCircle,
   Loader2,
   RefreshCw,
   AlertCircle,
@@ -132,9 +128,18 @@ export default function CookbookDetailPage() {
     if (latestJob) resumeMutation.mutate();
   };
 
+  const breadcrumbs = [
+    { label: "Accueil", href: "/dashboard" },
+    { label: "Livres", href: "/cookbooks" },
+    { label: cookbook?.name || "Livre" },
+  ];
+
   if (isLoading) {
     return (
-      <DashboardLayout>
+      <DashboardLayout
+        title="Chargement..."
+        breadcrumbs={breadcrumbs}
+      >
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
@@ -144,10 +149,13 @@ export default function CookbookDetailPage() {
 
   if (isError || !cookbook) {
     return (
-      <DashboardLayout>
+      <DashboardLayout
+        title="Livre non trouve"
+        breadcrumbs={breadcrumbs}
+      >
         <div className="text-center py-20">
-          <AlertCircle className="h-10 w-10 mx-auto text-gray-500 mb-4" />
-          <p className="text-gray-400 mb-4">Livre non trouve</p>
+          <AlertCircle className="h-10 w-10 mx-auto text-white/30 mb-4" />
+          <p className="text-white/50 mb-4">Livre non trouve</p>
           <div className="flex justify-center gap-3">
             <Button variant="outline" size="sm" onClick={() => refetch()}>
               Reessayer
@@ -174,35 +182,33 @@ export default function CookbookDetailPage() {
     rejected: recipes.filter((r) => r.status === "rejected").length,
   };
 
-  return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
-            <Link to="/cookbooks">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-xl font-semibold bg-gradient-to-r from-[#00D4FF] via-[#0080FF] to-[#0066FF] bg-clip-text text-transparent">{cookbook.name}</h1>
-            <StatusBadge status={cookbook.status} />
-          </div>
-          {cookbook.status !== "processing" && cookbook.status !== "paused" && (
-            <GlassButton
-              size="sm"
-              onClick={() => reprocessMutation.mutate()}
-              disabled={reprocessMutation.isPending}
-            >
-              <RefreshCw className={`mr-2 h-4 w-4 ${reprocessMutation.isPending ? "animate-spin" : ""}`} />
-              Retraiter
-            </GlassButton>
-          )}
-        </div>
+  const headerRightContent = (
+    <div className="flex items-center gap-2">
+      <StatusBadge status={cookbook.status} />
+      {cookbook.status !== "processing" && cookbook.status !== "paused" ? (
+        <GlassButton
+          size="sm"
+          onClick={() => reprocessMutation.mutate()}
+          disabled={reprocessMutation.isPending}
+        >
+          <RefreshCw className={`mr-2 h-4 w-4 ${reprocessMutation.isPending ? "animate-spin" : ""}`} />
+          Retraiter
+        </GlassButton>
+      ) : null}
+    </div>
+  );
 
+  return (
+    <DashboardLayout
+      title={cookbook.name}
+      subtitle={`${cookbook.totalPages || 0} pages`}
+      breadcrumbs={breadcrumbs}
+      rightContent={headerRightContent}
+    >
+      <div className="space-y-6">
         {/* Processing Progress */}
-        {cookbook.status === "processing" && (
-          <div className="glass-card-static p-5 rounded-xl space-y-4">
+        {cookbook.status === "processing" ? (
+          <div className="ct-card p-5 space-y-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
@@ -238,11 +244,11 @@ export default function CookbookDetailPage() {
               </Button>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Paused State */}
-        {cookbook.status === "paused" && cookbook.processingJobs?.[0] && (
-          <div className="glass-card-static p-5 rounded-xl space-y-4">
+        {cookbook.status === "paused" && cookbook.processingJobs?.[0] ? (
+          <div className="ct-card p-5 space-y-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Pause className="h-4 w-4 text-amber-400" />
@@ -266,25 +272,25 @@ export default function CookbookDetailPage() {
               Reprendre l'extraction
             </GlassButton>
           </div>
-        )}
+        ) : null}
 
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-3">
-          <div className="glass-card-static p-4 rounded-xl text-center">
-            <p className="text-2xl font-bold text-white">{recipeStats.total}</p>
-            <p className="text-xs text-white/50">Total recettes</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="ct-card ct-light-bar p-4 text-center">
+            <p className="text-2xl font-bold text-white font-heading">{recipeStats.total}</p>
+            <p className="text-xs text-white/45 mt-1">Total recettes</p>
           </div>
-          <div className="glass-card-static p-4 rounded-xl text-center">
-            <p className="text-2xl font-bold text-amber-400">{recipeStats.pending}</p>
-            <p className="text-xs text-white/50">En attente</p>
+          <div className="ct-card ct-light-bar p-4 text-center">
+            <p className="text-2xl font-bold text-amber-400 font-heading">{recipeStats.pending}</p>
+            <p className="text-xs text-white/45 mt-1">En attente</p>
           </div>
-          <div className="glass-card-static p-4 rounded-xl text-center">
-            <p className="text-2xl font-bold text-emerald-400">{recipeStats.approved}</p>
-            <p className="text-xs text-white/50">Approuvees</p>
+          <div className="ct-card ct-light-bar p-4 text-center">
+            <p className="text-2xl font-bold text-emerald-400 font-heading">{recipeStats.approved}</p>
+            <p className="text-xs text-white/45 mt-1">Approuvees</p>
           </div>
-          <div className="glass-card-static p-4 rounded-xl text-center">
-            <p className="text-2xl font-bold text-red-400">{recipeStats.rejected}</p>
-            <p className="text-xs text-white/50">Rejetees</p>
+          <div className="ct-card ct-light-bar p-4 text-center">
+            <p className="text-2xl font-bold text-red-400 font-heading">{recipeStats.rejected}</p>
+            <p className="text-xs text-white/45 mt-1">Rejetees</p>
           </div>
         </div>
 
@@ -328,25 +334,22 @@ export default function CookbookDetailPage() {
 
         {/* Recipes List */}
         {recipes.length > 0 ? (
-          <div className="glass-card-static p-6 rounded-xl space-y-3">
-            <h3 className="text-sm font-semibold text-white/80">Recettes ({recipeStats.total})</h3>
-            <div className="space-y-2">
-              {recipes.map((recipe) => {
-                const statusColor = recipe.status === "approved" ? "text-emerald-400" : recipe.status === "rejected" ? "text-red-400" : "text-amber-400";
-                return (
-                  <Link
-                    key={recipe.id}
-                    to={`/recipes/${recipe.id}`}
-                    className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-white/5 transition-colors"
-                  >
-                    <ChefHat className={`w-4 h-4 ${statusColor} flex-shrink-0`} />
-                    <span className="text-sm text-white font-medium truncate flex-1">{recipe.title}</span>
-                    {recipe.category ? (
-                      <span className="text-[10px] text-white/40 bg-white/5 px-2 py-0.5 rounded">{recipe.category}</span>
-                    ) : null}
-                  </Link>
-                );
-              })}
+          <div className="ct-card p-5 space-y-3">
+            <h3 className="text-sm font-semibold text-white font-heading">Recettes ({recipeStats.total})</h3>
+            <div className="space-y-1">
+              {recipes.map((recipe) => (
+                <Link
+                  key={recipe.id}
+                  to={`/recipes/${recipe.id}`}
+                  className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-white/[0.04] transition-colors"
+                >
+                  <span className={`status-dot status-dot-${recipe.status}`} />
+                  <span className="text-sm text-white font-medium truncate flex-1">{recipe.title}</span>
+                  {recipe.category ? (
+                    <span className="text-[10px] text-white/40 bg-white/5 px-2 py-0.5 rounded">{recipe.category}</span>
+                  ) : null}
+                </Link>
+              ))}
             </div>
           </div>
         ) : null}
