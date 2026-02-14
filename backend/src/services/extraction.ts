@@ -10,7 +10,7 @@ import { createCanvas } from "canvas";
 // Initialize Vibecode SDK for file access
 const vibecode = createVibecodeSDK();
 
-// Image generation helper using FAL AI Nano Banana Pro
+// Image generation helper using FAL AI Flux Pro v1.1
 async function generateRecipeImage(title: string, description?: string): Promise<string | null> {
   const apiKey = process.env.FAL_KEY;
   if (!apiKey) {
@@ -24,9 +24,8 @@ async function generateRecipeImage(title: string, description?: string): Promise
   try {
     console.log(`Generating image for recipe: ${title}`);
 
-    // Submit request to FAL AI Nano Banana Pro
-    const submitResponse = await fetch(
-      "https://queue.fal.run/fal-ai/nano-banana/image",
+    const response = await fetch(
+      "https://fal.run/fal-ai/flux-pro/v1.1",
       {
         method: "POST",
         headers: {
@@ -41,73 +40,20 @@ async function generateRecipeImage(title: string, description?: string): Promise
       }
     );
 
-    if (!submitResponse.ok) {
-      const errorText = await submitResponse.text();
-      console.error(`FAL AI submit error for recipe "${title}":`, errorText);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`FAL AI error for recipe "${title}":`, errorText);
       return null;
     }
 
-    const submitResult = await submitResponse.json() as {
-      request_id?: string;
-      images?: Array<{ url: string }>;
+    const result = await response.json() as {
+      images: Array<{ url: string }>;
     };
 
-    // If we got images directly (sync response), return the URL
-    if (submitResult.images && submitResult.images.length > 0) {
-      const imageUrl = submitResult.images[0].url;
+    if (result.images && result.images.length > 0) {
+      const imageUrl = result.images[0].url;
       console.log(`Successfully generated image for recipe: ${title}`);
       return imageUrl;
-    }
-
-    // Otherwise, poll for the result
-    if (submitResult.request_id) {
-      const requestId = submitResult.request_id;
-      let attempts = 0;
-      const maxAttempts = 30; // Max 30 seconds wait
-
-      while (attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        attempts++;
-
-        const statusResponse = await fetch(
-          `https://queue.fal.run/fal-ai/nano-banana/requests/${requestId}/status`,
-          {
-            headers: {
-              "Authorization": `Key ${apiKey}`,
-            },
-          }
-        );
-
-        if (!statusResponse.ok) continue;
-
-        const statusResult = await statusResponse.json() as {
-          status: string;
-          response_url?: string;
-        };
-
-        if (statusResult.status === "COMPLETED" && statusResult.response_url) {
-          const resultResponse = await fetch(statusResult.response_url, {
-            headers: { "Authorization": `Key ${apiKey}` },
-          });
-
-          if (resultResponse.ok) {
-            const result = await resultResponse.json() as {
-              images?: Array<{ url: string }>;
-            };
-
-            if (result.images && result.images.length > 0) {
-              console.log(`Successfully generated image for recipe: ${title}`);
-              return result.images[0].url;
-            }
-          }
-          break;
-        }
-
-        if (statusResult.status === "FAILED") {
-          console.error(`FAL AI failed for recipe "${title}"`);
-          break;
-        }
-      }
     }
 
     console.error(`No image generated for recipe "${title}"`);
