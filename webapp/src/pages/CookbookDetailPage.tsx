@@ -66,8 +66,11 @@ export default function CookbookDetailPage() {
     queryFn: () => api.get<CookbookDetail>(`/api/cookbooks/${id}`),
     refetchInterval: (query) => {
       const data = query.state.data;
-      return data?.status === "processing" || data?.status === "paused" ? 2000 : false;
+      if (data?.status === "processing") return 3000;
+      if (data?.status === "paused") return 10000;
+      return false;
     },
+    staleTime: 5000,
     retry: 2,
   });
 

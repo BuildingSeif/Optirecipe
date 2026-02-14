@@ -409,20 +409,25 @@ async function fetchPDFFromStorage(filePath: string, fileUrl?: string | null): P
 // Render a single PDF page to a JPEG base64 string using MuPDF
 function renderPageToJpegBase64(pdfBuffer: ArrayBuffer, pageNum: number): string {
   const doc = mupdf.Document.openDocument(Buffer.from(pdfBuffer), "application/pdf");
-  const page = doc.loadPage(pageNum - 1); // 0-indexed
-
-  // Scale 2x for good quality (matches Python's resolution=2.0)
-  const scale = 2.0;
-  const pixmap = page.toPixmap(mupdf.Matrix.scale(scale, scale), mupdf.ColorSpace.DeviceRGB);
-  const jpegBuffer = pixmap.asJPEG(90);
-
-  return Buffer.from(jpegBuffer).toString("base64");
+  try {
+    const page = doc.loadPage(pageNum - 1); // 0-indexed
+    const scale = 2.0;
+    const pixmap = page.toPixmap(mupdf.Matrix.scale(scale, scale), mupdf.ColorSpace.DeviceRGB);
+    const jpegBuffer = pixmap.asJPEG(90);
+    return Buffer.from(jpegBuffer).toString("base64");
+  } finally {
+    doc.destroy();
+  }
 }
 
 // Get total page count from PDF using MuPDF
 function getPdfPageCount(pdfBuffer: ArrayBuffer): number {
   const doc = mupdf.Document.openDocument(Buffer.from(pdfBuffer), "application/pdf");
-  return doc.countPages();
+  try {
+    return doc.countPages();
+  } finally {
+    doc.destroy();
+  }
 }
 
 // Call OpenAI Vision API to extract recipes from a single page image
@@ -471,6 +476,17 @@ async function callOpenAIVision(imageBase64: string, pageNum: number): Promise<E
           console.log(`Rate limited on page ${pageNum}, waiting before retry...`);
           await delay(5000 * attempt);
           continue;
+        }
+
+        // Credit exhaustion — no point retrying, fail fast with clear message
+        if (response.status === 402) {
+          const msg = `OpenAI API credit exhaustion (402) on page ${pageNum}. Top up your API credits and re-extract.`;
+          console.error(msg);
+          return {
+            found_recipe: false,
+            page_type: 'error',
+            notes: msg,
+          };
         }
 
         throw new Error(`OpenAI API error (${response.status}): ${errorText}`);
@@ -523,6 +539,44 @@ async function callOpenAIVision(imageBase64: string, pageNum: number): Promise<E
     page_type: 'error',
     notes: `Failed to process page ${pageNum} after retries`,
   };
+}
+
+// Throttled image generation queue
+interface ImageGenTask {
+  recipeId: string;
+  title: string;
+  description?: string;
+}
+
+const imageGenerationQueue: ImageGenTask[] = [];
+let imageGenRunning = false;
+
+async function processImageQueue(): Promise<void> {
+  if (imageGenRunning) return;
+  imageGenRunning = true;
+
+  while (imageGenerationQueue.length > 0) {
+    const batch = imageGenerationQueue.splice(0, 2); // 2 at a time
+    await Promise.allSettled(
+      batch.map(async (task) => {
+        try {
+          const imageUrl = await generateRecipeImage(task.title, task.description);
+          if (imageUrl) {
+            await prisma.recipe.update({
+              where: { id: task.recipeId },
+              data: { imageUrl },
+            });
+            console.log(`[ImageGen] Image saved for: ${task.title}`);
+          }
+        } catch (err) {
+          console.error(`[ImageGen] Failed for ${task.title}:`, err);
+        }
+      })
+    );
+    await delay(1000); // 1s between batches
+  }
+
+  imageGenRunning = false;
 }
 
 export async function extractRecipesFromPDF(jobId: string): Promise<void> {
@@ -716,23 +770,20 @@ export async function extractRecipesFromPDF(jobId: string): Promise<void> {
 
               recipesExtracted++;
 
-              // Generate image for the recipe (async, don't wait)
-              generateRecipeImage(recipe.title, recipe.description)
-                .then(async (imageUrl) => {
-                  if (imageUrl) {
-                    await prisma.recipe.update({
-                      where: { id: createdRecipe.id },
-                      data: { imageUrl },
-                    });
-                    console.log(`Image generated for recipe: ${recipe.title}`);
-                  }
-                })
-                .catch((err) => {
-                  console.error(`Failed to generate image for ${recipe.title}:`, err);
-                });
+              // Queue image generation (throttled, non-blocking)
+              imageGenerationQueue.push({
+                recipeId: createdRecipe.id,
+                title: recipe.title,
+                description: recipe.description,
+              });
             }
           } else {
             const pageType = result.page_type || "inconnu";
+            // Don't store API/rendering errors as content
+            if (pageType === "error") {
+              errorLog.push(`Page ${pageNum}: ${result.notes || "Erreur de traitement"}`);
+              continue;
+            }
             const notes = result.notes ? ` - ${result.notes}` : "";
             processingLog.push(`Page ${pageNum}: Pas de recette (${pageType}${notes})`);
 
@@ -769,6 +820,11 @@ export async function extractRecipesFromPDF(jobId: string): Promise<void> {
         // Small delay between batches to respect rate limits
         await delay(RATE_LIMIT_DELAY_MS);
       }
+
+      // Process queued image generations (non-blocking)
+      processImageQueue().catch((err) => {
+        console.error("[ImageGen] Queue processing error:", err);
+      });
 
       // Mark job as completed
       const finalStatus = cancelledJobs.has(job.id) ? "cancelled" : "completed";

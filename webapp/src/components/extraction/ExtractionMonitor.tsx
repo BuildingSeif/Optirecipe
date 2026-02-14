@@ -188,9 +188,11 @@ function CookbookMonitor({ cookbookId }: { cookbookId: string }) {
       api.get<CookbookDetail>(`/api/cookbooks/${cookbookId}`),
     refetchInterval: (query) => {
       const data = query.state.data;
-      const status = data?.status;
-      return status === "processing" || status === "paused" ? 2000 : false;
+      if (data?.status === "processing") return 3000;
+      if (data?.status === "paused") return 10000;
+      return false;
     },
+    staleTime: 5000,
   });
 
   const latestJob = cookbook?.processingJobs?.[0];
@@ -502,11 +504,11 @@ export default function ExtractionMonitor({
         api.get<CookbookDetail>(`/api/cookbooks/${cbId}`),
       refetchInterval: (query: { state: { data: CookbookDetail | undefined } }) => {
         const data = query.state.data;
-        const status = data?.status;
-        return status === "processing" || status === "paused"
-          ? 2000
-          : false;
+        if (data?.status === "processing") return 3000;
+        if (data?.status === "paused") return 10000;
+        return false;
       },
+      staleTime: 5000,
     })),
   });
 

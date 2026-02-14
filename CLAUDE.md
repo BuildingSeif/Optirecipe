@@ -91,16 +91,28 @@ This workspace contains a mobile app and backend server.
   - CORS config in index.ts: allowHeaders includes "Authorization"
   - DO NOT use XMLHttpRequest for uploads — causes CORS preflight failures
 
-  ## PDF Extraction Pipeline
+  ## PDF Extraction Pipeline (HARDENED — DO NOT MODIFY)
   - backend/src/services/extraction.ts: MuPDF renders pages to JPEG, sends to GPT-5.2 Vision
   - Uses "mupdf" package (NOT pdfjs-dist, NOT canvas) for PDF page rendering
-  - renderPageToJpegBase64(): MuPDF renders at 2x scale, outputs JPEG quality 90
+  - renderPageToJpegBase64(): MuPDF renders at 2x scale, outputs JPEG quality 90, doc.destroy() in finally
+  - getPdfPageCount(): MuPDF page count with doc.destroy() in finally
   - callOpenAIVision(): Sends JPEG base64 as image_url to GPT-5.2, temperature 0.1
-  - Batch processing: 5 pages concurrently via Promise.allSettled
-  - Image generation: FAL AI Flux Pro v1.1 (NOT DALL-E, NOT Gemini)
-  - Email notification: Resend API after extraction completes
+    - 402 (credit exhaustion) fails fast — no retries, clear error message
+    - 429 (rate limit) retries with 5s * attempt backoff
+    - Other errors retry up to MAX_RETRIES=3 with 2s * attempt backoff
+  - Batch processing: BATCH_SIZE=5 pages concurrently via Promise.allSettled
+  - Error pages: page_type="error" goes to errorLog, NOT stored as NonRecipeContent
+  - Image generation: FAL AI Flux Pro v1.1 via throttled queue (2 at a time, 1s between batches)
+  - Email notification: Resend API after extraction completes (non-blocking)
+  - Re-extract endpoint: POST /api/processing/re-extract cleans old data and re-runs
+  - Pause/Resume: pausedJobs Set controls loop, resume re-launches from currentPage
+  - Constants: MAX_RETRIES=3, BATCH_SIZE=5, MAX_RECIPES_PER_PDF=500, RATE_LIMIT_DELAY_MS=500
   - DO NOT replace MuPDF with pdfjs-dist or canvas — they crash in Bun
   - DO NOT send raw PDF to OpenAI — send rendered JPEG images per page
+  - DO NOT remove doc.destroy() calls — causes memory leaks on large PDFs
+  - DO NOT fire image generation synchronously — must use the throttled queue
+  - DO NOT retry 402 errors — they indicate credit exhaustion, not transient failure
+  - DO NOT store error pages as NonRecipeContent — they pollute real content
 
   ## Ingredient Image System
   - backend/src/routes/ingredient-images.ts: POST /batch generates + caches ingredient photos

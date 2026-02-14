@@ -74,3 +74,25 @@
 
   DO NOT switch to password login, DO NOT remove OTP routes, DO NOT change email whitelist.
 </locked_auth_system>
+
+<locked_extraction_pipeline>
+  CRITICAL: The PDF extraction pipeline is LOCKED and HARDENED. DO NOT modify core logic in:
+  - src/services/extraction.ts: The main extraction engine
+
+  Key architecture decisions (DO NOT change):
+  - MuPDF for PDF rendering (NOT pdfjs-dist, NOT canvas — they crash in Bun)
+  - JPEG base64 images sent to OpenAI Vision (NOT raw PDF)
+  - doc.destroy() in finally blocks prevents memory leaks
+  - 402 errors fail fast (no retries — credit exhaustion)
+  - 429 errors retry with exponential backoff
+  - Error pages go to errorLog, NOT stored as NonRecipeContent
+  - Image generation uses throttled queue (2 concurrent, 1s between batches)
+  - Batch size: 5 pages concurrently via Promise.allSettled
+  - Re-extract endpoint at POST /api/processing/re-extract
+
+  DO NOT remove doc.destroy() calls.
+  DO NOT make image generation fire-and-forget (must use queue).
+  DO NOT retry 402 errors.
+  DO NOT store error pages as NonRecipeContent.
+  DO NOT change the extraction prompt without explicit user request.
+</locked_extraction_pipeline>
