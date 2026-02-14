@@ -11,6 +11,21 @@ import {
   type Instruction,
 } from "../types";
 
+// Valid dietary boolean field names on the Recipe model
+const VALID_DIETARY_FIELDS = new Set([
+  "is_vegetarian",
+  "is_vegan",
+  "is_gluten_free",
+  "is_lactose_free",
+  "is_halal",
+  "is_low_carb",
+  "is_low_fat",
+  "is_high_protein",
+  "is_mediterranean",
+  "is_whole30",
+  "is_low_sodium",
+]);
+
 const recipesRouter = new Hono<{
   Variables: {
     user: typeof auth.$Infer.Session.user | null;
@@ -34,7 +49,7 @@ recipesRouter.get("/", zValidator("query", RecipeFiltersSchema), async (c) => {
   if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
 
   const filters = c.req.valid("query");
-  const { page, limit, sortBy, sortOrder, search, status, category, cookbookId, season, type } = filters;
+  const { page, limit, sortBy, sortOrder, search, status, category, cookbookId, season, type, mealType, cookTimeMax, dietaryFilters } = filters;
 
   const where: any = { userId: user.id };
 
@@ -53,6 +68,29 @@ recipesRouter.get("/", zValidator("query", RecipeFiltersSchema), async (c) => {
   if (cookbookId) where.cookbookId = cookbookId;
   if (season) where.season = season;
   if (type) where.type = type;
+
+  // mealType filter: comma-separated list, OR filtering (recipe.mealType IN list)
+  if (mealType) {
+    const mealTypes = mealType.split(",").map((mt) => mt.trim()).filter(Boolean);
+    if (mealTypes.length > 0) {
+      where.mealType = { in: mealTypes };
+    }
+  }
+
+  // cookTimeMax filter: return recipes where cookTimeMinutes <= value
+  if (cookTimeMax !== undefined) {
+    where.cookTimeMinutes = { lte: cookTimeMax };
+  }
+
+  // dietaryFilters: comma-separated dietary boolean field names, ALL must be true (AND)
+  if (dietaryFilters) {
+    const fields = dietaryFilters.split(",").map((f) => f.trim()).filter(Boolean);
+    for (const field of fields) {
+      if (VALID_DIETARY_FIELDS.has(field)) {
+        where[field] = true;
+      }
+    }
+  }
 
   const [recipes, total] = await Promise.all([
     prisma.recipe.findMany({

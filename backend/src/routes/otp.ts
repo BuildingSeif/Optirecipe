@@ -121,7 +121,7 @@ otpRouter.post("/verify-otp", async (c) => {
 
     if (!dbUser) {
       const userId = randomUUID();
-      const name = email.split("@")[0];
+      const name = email.split("@")[0] || email;
       console.log("[OTP] Creating new user with id:", userId, "name:", name);
 
       dbUser = await prisma.user.create({

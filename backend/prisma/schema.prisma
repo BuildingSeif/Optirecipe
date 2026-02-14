@@ -189,6 +189,12 @@ model Recipe {
   is_gluten_free  Boolean  @default(false)
   is_lactose_free Boolean  @default(false)
   is_halal        Boolean  @default(false)
+  is_low_carb     Boolean  @default(false)
+  is_low_fat      Boolean  @default(false)
+  is_high_protein Boolean  @default(false)
+  is_mediterranean Boolean @default(false)
+  is_whole30      Boolean  @default(false)
+  is_low_sodium   Boolean  @default(false)
 
   // Nutrition
   calories        Int?

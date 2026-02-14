@@ -100,6 +100,12 @@ exportRouter.post("/", zValidator("json", ExportOptionsSchema), async (c) => {
         gluten_free: recipe.is_gluten_free,
         lactose_free: recipe.is_lactose_free,
         halal: recipe.is_halal,
+        low_carb: recipe.is_low_carb,
+        low_fat: recipe.is_low_fat,
+        high_protein: recipe.is_high_protein,
+        mediterranean: recipe.is_mediterranean,
+        whole30: recipe.is_whole30,
+        low_sodium: recipe.is_low_sodium,
       },
       nutrition: {
         calories: recipe.calories,
@@ -127,7 +133,10 @@ exportRouter.post("/", zValidator("json", ExportOptionsSchema), async (c) => {
   const byCategory: Record<string, number> = {};
   const byType: Record<string, number> = {};
   const byDifficulty: Record<string, number> = {};
-  const dietaryStats = { vegetarian: 0, vegan: 0, gluten_free: 0, lactose_free: 0, halal: 0 };
+  const dietaryStats = {
+    vegetarian: 0, vegan: 0, gluten_free: 0, lactose_free: 0, halal: 0,
+    low_carb: 0, low_fat: 0, high_protein: 0, mediterranean: 0, whole30: 0, low_sodium: 0,
+  };
 
   for (const r of recipes) {
     // By category
@@ -145,6 +154,12 @@ exportRouter.post("/", zValidator("json", ExportOptionsSchema), async (c) => {
     if (r.is_gluten_free) dietaryStats.gluten_free++;
     if (r.is_lactose_free) dietaryStats.lactose_free++;
     if (r.is_halal) dietaryStats.halal++;
+    if (r.is_low_carb) dietaryStats.low_carb++;
+    if (r.is_low_fat) dietaryStats.low_fat++;
+    if (r.is_high_protein) dietaryStats.high_protein++;
+    if (r.is_mediterranean) dietaryStats.mediterranean++;
+    if (r.is_whole30) dietaryStats.whole30++;
+    if (r.is_low_sodium) dietaryStats.low_sodium++;
   }
 
   const exportData: OptiRecipeExport = {
@@ -200,6 +215,12 @@ exportRouter.post("/", zValidator("json", ExportOptionsSchema), async (c) => {
       "gluten_free",
       "lactose_free",
       "halal",
+      "low_carb",
+      "low_fat",
+      "high_protein",
+      "mediterranean",
+      "whole30",
+      "low_sodium",
       "calories",
       "proteins",
       "carbs",
@@ -229,6 +250,12 @@ exportRouter.post("/", zValidator("json", ExportOptionsSchema), async (c) => {
         recipe.dietary.gluten_free,
         recipe.dietary.lactose_free,
         recipe.dietary.halal,
+        recipe.dietary.low_carb,
+        recipe.dietary.low_fat,
+        recipe.dietary.high_protein,
+        recipe.dietary.mediterranean,
+        recipe.dietary.whole30,
+        recipe.dietary.low_sodium,
         recipe.nutrition.calories || "",
         recipe.nutrition.proteins || "",
         recipe.nutrition.carbs || "",

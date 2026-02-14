@@ -57,11 +57,10 @@ const seasons = [
 ];
 
 const mealTypes = [
+  { value: "petit_dejeuner", label: "Petit-dejeuner" },
   { value: "dejeuner", label: "Dejeuner" },
   { value: "diner", label: "Diner" },
-  { value: "petit-dejeuner", label: "Petit-dejeuner" },
-  { value: "gouter", label: "Gouter" },
-  { value: "brunch", label: "Brunch" },
+  { value: "collation", label: "Collation" },
 ];
 
 function StatusBadge({ status }: { status: string }) {
@@ -794,8 +793,14 @@ export default function RecipeDetailPage() {
                       { key: "is_vegetarian", label: "Vegetarien" },
                       { key: "is_vegan", label: "Vegan" },
                       { key: "is_gluten_free", label: "Sans gluten" },
-                      { key: "is_lactose_free", label: "Sans lactose" },
+                      { key: "is_lactose_free", label: "Sans produits laitiers" },
                       { key: "is_halal", label: "Halal" },
+                      { key: "is_low_carb", label: "Faible en glucides" },
+                      { key: "is_low_fat", label: "Faible en matieres grasses" },
+                      { key: "is_high_protein", label: "Riche en proteines" },
+                      { key: "is_mediterranean", label: "Mediterraneen" },
+                      { key: "is_whole30", label: "Whole30" },
+                      { key: "is_low_sodium", label: "Faible en sodium" },
                     ].map(({ key, label }) => (
                       <label key={key} className="flex items-center gap-2">
                         {isEditing ? (

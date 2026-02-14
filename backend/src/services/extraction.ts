@@ -205,14 +205,20 @@ Si une recette est trouvee:
       "country": "France",
       "season": "hiver",
       "diet_tags": [],
-      "meal_type": "diner",
+      "meal_type": "diner",  // "petit_dejeuner", "dejeuner", "diner", ou "collation"
       "tips": "Conseils du chef si presents dans le texte.",
       "dietary_flags": {
         "is_vegetarian": false,
         "is_vegan": false,
         "is_gluten_free": false,
         "is_lactose_free": false,
-        "is_halal": false
+        "is_halal": false,
+        "is_low_carb": false,
+        "is_low_fat": false,
+        "is_high_protein": true,
+        "is_mediterranean": false,
+        "is_whole30": false,
+        "is_low_sodium": false
       }
     }
   ]
@@ -235,7 +241,23 @@ IMPORTANT:
 - Extrais CHAQUE recette separement, meme si elles sont petites ou partielles
 - Pour les temperatures de cuisson, inclus le champ temperature_celsius et temperature_fahrenheit dans chaque instruction (null si pas de temperature)
 - Pour difficulty, evalue la difficulte globale: "facile", "moyen", ou "difficile"
-- Pour dietary_flags, analyse les ingredients pour determiner les flags alimentaires (vegetarien, vegan, sans-gluten, sans-lactose, halal)`;
+- Pour dietary_flags, analyse les ingredients pour determiner les flags alimentaires:
+  * is_vegetarian: pas de viande ni poisson
+  * is_vegan: aucun produit animal (viande, poisson, lait, oeufs, miel)
+  * is_gluten_free: pas de ble, orge, seigle, avoine
+  * is_lactose_free: pas de lait, fromage, creme, beurre
+  * is_halal: pas de porc ni alcool
+  * is_low_carb: true si PAUVRE en glucides (pas de pates, riz, pain, pommes de terre, sucre comme ingredients principaux)
+  * is_low_fat: true si PAUVRE en graisses (pas de creme epaisse, beurre, huile comme ingredients principaux)
+  * is_high_protein: true si RICHE en proteines (viande, poisson, oeufs, legumineuses comme ingredient principal)
+  * is_mediterranean: true si style mediterraneen (huile d'olive, poisson, legumes, herbes)
+  * is_whole30: true si conforme Whole30 (pas de sucre, alcool, cereales, legumineuses, produits laitiers)
+  * is_low_sodium: true si pas de sel ajoute ni ingredients riches en sodium
+- Pour meal_type, utilise EXACTEMENT ces valeurs:
+  * "petit_dejeuner": petit-dejeuner (oeufs, viennoiseries, cereales, pancakes)
+  * "dejeuner": dejeuner (salades, sandwiches, plats principaux legers)
+  * "diner": diner (plats principaux, repas plus consistants)
+  * "collation": gouters, snacks, bouchees legeres, appetizers`;
 
 interface ExtractionResult {
   found_recipe: boolean;
@@ -268,6 +290,12 @@ interface ExtractedRecipe {
     is_gluten_free: boolean;
     is_lactose_free: boolean;
     is_halal: boolean;
+    is_low_carb: boolean;
+    is_low_fat: boolean;
+    is_high_protein: boolean;
+    is_mediterranean: boolean;
+    is_whole30: boolean;
+    is_low_sodium: boolean;
   };
 }
 
@@ -676,6 +704,12 @@ export async function extractRecipesFromPDF(jobId: string): Promise<void> {
                   is_gluten_free: recipe.dietary_flags?.is_gluten_free ?? false,
                   is_lactose_free: recipe.dietary_flags?.is_lactose_free ?? false,
                   is_halal: recipe.dietary_flags?.is_halal ?? false,
+                  is_low_carb: recipe.dietary_flags?.is_low_carb ?? false,
+                  is_low_fat: recipe.dietary_flags?.is_low_fat ?? false,
+                  is_high_protein: recipe.dietary_flags?.is_high_protein ?? false,
+                  is_mediterranean: recipe.dietary_flags?.is_mediterranean ?? false,
+                  is_whole30: recipe.dietary_flags?.is_whole30 ?? false,
+                  is_low_sodium: recipe.dietary_flags?.is_low_sodium ?? false,
                   status: "approved",
                 },
               });

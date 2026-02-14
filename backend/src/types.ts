@@ -115,6 +115,12 @@ export const CreateRecipeSchema = z.object({
   is_gluten_free: z.boolean().default(false),
   is_lactose_free: z.boolean().default(false),
   is_halal: z.boolean().default(false),
+  is_low_carb: z.boolean().default(false),
+  is_low_fat: z.boolean().default(false),
+  is_high_protein: z.boolean().default(false),
+  is_mediterranean: z.boolean().default(false),
+  is_whole30: z.boolean().default(false),
+  is_low_sodium: z.boolean().default(false),
   calories: z.number().optional(),
   proteins: z.number().optional(),
   carbs: z.number().optional(),
@@ -138,6 +144,9 @@ export const RecipeFiltersSchema = z.object({
   season: z.string().optional(),
   type: z.string().optional(),
   dietTags: z.array(z.string()).optional(),
+  mealType: z.string().optional(), // comma-separated list of meal types for OR filtering
+  cookTimeMax: z.coerce.number().optional(), // filter recipes with cookTimeMinutes <= this value
+  dietaryFilters: z.string().optional(), // comma-separated dietary boolean keys like "is_low_carb,is_vegan"
   page: z.coerce.number().default(1),
   limit: z.coerce.number().default(20),
   sortBy: z.enum(["createdAt", "title", "category"]).default("createdAt"),
@@ -238,6 +247,12 @@ export interface Recipe {
   is_gluten_free: boolean;
   is_lactose_free: boolean;
   is_halal: boolean;
+  is_low_carb: boolean;
+  is_low_fat: boolean;
+  is_high_protein: boolean;
+  is_mediterranean: boolean;
+  is_whole30: boolean;
+  is_low_sodium: boolean;
   calories: number | null;
   proteins: number | null;
   carbs: number | null;
@@ -358,6 +373,12 @@ export interface OptiRecipeExportInfo {
       gluten_free: number;
       lactose_free: number;
       halal: number;
+      low_carb: number;
+      low_fat: number;
+      high_protein: number;
+      mediterranean: number;
+      whole30: number;
+      low_sodium: number;
     };
   };
 }
@@ -382,6 +403,12 @@ export interface OptiRecipeExportRecipe {
     gluten_free: boolean;
     lactose_free: boolean;
     halal: boolean;
+    low_carb: boolean;
+    low_fat: boolean;
+    high_protein: boolean;
+    mediterranean: boolean;
+    whole30: boolean;
+    low_sodium: boolean;
   };
   nutrition: {
     calories: number | null;

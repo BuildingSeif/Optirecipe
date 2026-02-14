@@ -14,7 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { api } from "@/lib/api";
-import { ChefHat, Search, Loader2, CheckCircle2, XCircle, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ChefHat, Search, Loader2, CheckCircle2, XCircle, Trash2, SlidersHorizontal, X } from "lucide-react";
 import type { Recipe, Cookbook } from "../../../backend/src/types";
 
 interface RecipesResponse {
@@ -29,6 +30,33 @@ const statuses = [
   { value: "rejected", label: "Rejetees" },
 ];
 
+const mealTypes = [
+  { value: "petit_dejeuner", label: "Petit-dejeuner" },
+  { value: "dejeuner", label: "Dejeuner" },
+  { value: "diner", label: "Diner" },
+  { value: "collation", label: "Collation" },
+] as const;
+
+const cookTimeOptions = [
+  { value: "15", label: "< 15 min" },
+  { value: "30", label: "< 30 min" },
+  { value: "60", label: "< 1 heure" },
+] as const;
+
+const dietaryFilters = [
+  { value: "is_vegan", label: "Vegan" },
+  { value: "is_vegetarian", label: "Vegetarien" },
+  { value: "is_gluten_free", label: "Sans gluten" },
+  { value: "is_lactose_free", label: "Sans produits laitiers" },
+  { value: "is_halal", label: "Halal" },
+  { value: "is_low_carb", label: "Faible en glucides" },
+  { value: "is_low_fat", label: "Faible en matieres grasses" },
+  { value: "is_high_protein", label: "Riche en proteines" },
+  { value: "is_mediterranean", label: "Mediterraneen" },
+  { value: "is_whole30", label: "Whole30" },
+  { value: "is_low_sodium", label: "Faible en sodium" },
+] as const;
+
 function StatusBadge({ status }: { status: string }) {
   const variants: Record<string, { label: string; className: string }> = {
     pending: { label: "En attente", className: "badge-pending" },
@@ -39,10 +67,36 @@ function StatusBadge({ status }: { status: string }) {
   return <Badge variant="outline" className={`${variant.className} font-semibold`}>{variant.label}</Badge>;
 }
 
+function TogglePill({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-full px-3 py-1.5 text-xs font-medium border transition-colors",
+        active
+          ? "bg-primary/20 border-primary/40 text-primary"
+          : "bg-white/[0.04] border-white/[0.08] text-white/60 hover:bg-white/[0.08] hover:text-white/80"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function RecipesPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(false);
 
   const search = searchParams.get("search") || "";
   const status = searchParams.get("status") || "all";
@@ -50,6 +104,53 @@ export default function RecipesPage() {
   const cookbookId = searchParams.get("cookbookId") || "all";
   const category = searchParams.get("category") || "all";
   const type = searchParams.get("type") || "all";
+  const mealType = searchParams.get("mealType") || "";
+  const cookTimeMax = searchParams.get("cookTimeMax") || "";
+  const dietaryParam = searchParams.get("dietaryFilters") || "";
+
+  const selectedMealTypes = mealType ? mealType.split(",") : [];
+  const selectedDietary = dietaryParam ? dietaryParam.split(",") : [];
+
+  const toggleMultiFilter = (key: string, value: string, currentValues: string[]) => {
+    const newParams = new URLSearchParams(searchParams);
+    const updated = currentValues.includes(value)
+      ? currentValues.filter((v) => v !== value)
+      : [...currentValues, value];
+    if (updated.length > 0) {
+      newParams.set(key, updated.join(","));
+    } else {
+      newParams.delete(key);
+    }
+    newParams.set("page", "1");
+    setSearchParams(newParams);
+  };
+
+  const toggleCookTime = (value: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (cookTimeMax === value) {
+      newParams.delete("cookTimeMax");
+    } else {
+      newParams.set("cookTimeMax", value);
+    }
+    newParams.set("page", "1");
+    setSearchParams(newParams);
+  };
+
+  const clearAllFilters = () => {
+    setSearchParams(new URLSearchParams());
+  };
+
+  const hasAnyFilter =
+    search !== "" ||
+    status !== "all" ||
+    category !== "all" ||
+    type !== "all" ||
+    cookbookId !== "all" ||
+    mealType !== "" ||
+    cookTimeMax !== "" ||
+    dietaryParam !== "";
+
+  const hasAdvancedFilter = mealType !== "" || cookTimeMax !== "" || dietaryParam !== "";
 
   const { data: cookbooks } = useQuery({
     queryKey: ["cookbooks"],
@@ -62,7 +163,7 @@ export default function RecipesPage() {
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["recipes", { search, status, page, cookbookId, category, type }],
+    queryKey: ["recipes", { search, status, page, cookbookId, category, type, mealType, cookTimeMax, dietaryFilters: dietaryParam }],
     queryFn: () => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
@@ -70,6 +171,9 @@ export default function RecipesPage() {
       if (cookbookId && cookbookId !== "all") params.set("cookbookId", cookbookId);
       if (category && category !== "all") params.set("category", category);
       if (type && type !== "all") params.set("type", type);
+      if (mealType) params.set("mealType", mealType);
+      if (cookTimeMax) params.set("cookTimeMax", cookTimeMax);
+      if (dietaryParam) params.set("dietaryFilters", dietaryParam);
       params.set("page", page.toString());
       params.set("limit", "20");
       return api.get<RecipesResponse>(`/api/recipes?${params.toString()}`);
@@ -187,7 +291,98 @@ export default function RecipesPage() {
               </SelectContent>
             </Select>
           ) : null}
+
+          {/* Advanced filters toggle */}
+          <button
+            type="button"
+            onClick={() => setShowAdvancedFilters((prev) => !prev)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors",
+              showAdvancedFilters || hasAdvancedFilter
+                ? "bg-primary/20 text-primary"
+                : "bg-white/[0.06] text-white/60 hover:text-white/80"
+            )}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            Filtres avances
+            {hasAdvancedFilter ? (
+              <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary/30 text-[10px] text-primary font-bold">
+                {(selectedMealTypes.length > 0 ? 1 : 0) + (cookTimeMax ? 1 : 0) + (selectedDietary.length > 0 ? 1 : 0)}
+              </span>
+            ) : null}
+          </button>
+
+          {/* Tout effacer */}
+          {hasAnyFilter ? (
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-white/50 hover:text-white/80 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+              Tout effacer
+            </button>
+          ) : null}
         </div>
+
+        {/* Advanced filters panel */}
+        {showAdvancedFilters ? (
+          <div className="ct-card p-4 space-y-5">
+            {/* Section 1: Type de repas */}
+            <div>
+              <p className="text-white/50 text-xs font-semibold uppercase tracking-wider mb-2">
+                Type de repas
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {mealTypes.map((mt) => (
+                  <TogglePill
+                    key={mt.value}
+                    active={selectedMealTypes.includes(mt.value)}
+                    onClick={() => toggleMultiFilter("mealType", mt.value, selectedMealTypes)}
+                  >
+                    {mt.label}
+                  </TogglePill>
+                ))}
+              </div>
+            </div>
+
+            {/* Section 2: Temps de cuisson */}
+            <div>
+              <p className="text-white/50 text-xs font-semibold uppercase tracking-wider mb-2">
+                Temps de cuisson
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {cookTimeOptions.map((ct) => (
+                  <TogglePill
+                    key={ct.value}
+                    active={cookTimeMax === ct.value}
+                    onClick={() => toggleCookTime(ct.value)}
+                  >
+                    {ct.label}
+                  </TogglePill>
+                ))}
+              </div>
+            </div>
+
+            {/* Section 3: Regime alimentaire */}
+            <div>
+              <p className="text-white/50 text-xs font-semibold uppercase tracking-wider mb-2">
+                Regime alimentaire
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {dietaryFilters.map((df) => (
+                  <TogglePill
+                    key={df.value}
+                    active={selectedDietary.includes(df.value)}
+                    onClick={() => toggleMultiFilter("dietaryFilters", df.value, selectedDietary)}
+                  >
+                    {df.label}
+                  </TogglePill>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {/* Results heading */}
         <h2 className="text-white font-heading text-lg font-semibold">Resultats</h2>
