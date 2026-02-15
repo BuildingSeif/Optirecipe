@@ -4,12 +4,19 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 // IMPORTANT: SQLite optimizations for better performance
-async function initSqlitePragmas(prisma: PrismaClient) {
-  await prisma.$queryRawUnsafe("PRAGMA journal_mode = WAL;");
-  await prisma.$queryRawUnsafe("PRAGMA foreign_keys = ON;");
-  await prisma.$queryRawUnsafe("PRAGMA busy_timeout = 10000;");
-  await prisma.$queryRawUnsafe("PRAGMA synchronous = NORMAL;");
+async function initSqlitePragmas(client: PrismaClient) {
+  try {
+    await client.$queryRawUnsafe("PRAGMA journal_mode = WAL;");
+    await client.$queryRawUnsafe("PRAGMA foreign_keys = ON;");
+    await client.$queryRawUnsafe("PRAGMA busy_timeout = 10000;");
+    await client.$queryRawUnsafe("PRAGMA synchronous = NORMAL;");
+    console.log("[Prisma] SQLite pragmas initialized successfully");
+  } catch (error) {
+    console.error("[Prisma] Failed to initialize SQLite pragmas:", error);
+  }
 }
-initSqlitePragmas(prisma);
+
+// Await the initialization before exporting
+await initSqlitePragmas(prisma);
 
 export { prisma };

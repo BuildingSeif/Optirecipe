@@ -6,10 +6,14 @@ set -o pipefail
 # Load shared environment setup
 source "$(dirname "$0")/env.sh"
 
-# Backup the database before proceeding.
-if [[ "${ENVIRONMENT}" == "production" ]] && [[ -f "${DATABASE_FILE}" ]]; then
-  DATABASE_BACKUP_FILE="${DATABASE_FILE}-$(date +%s)"
-  echo "VACUUM INTO '${DATABASE_BACKUP_FILE}'" | sqlite3 "${DATABASE_FILE}"
+# Skip VACUUM backup — it duplicates the entire DB and fills disk on crash loops.
+# The WAL journal mode already provides crash recovery.
+if [[ "${ENVIRONMENT}" == "production" ]] && [[ -d "${DATA_DIR:-/data}" ]]; then
+  backup_count=$(find "${DATA_DIR:-/data}" -name "production.db-*" -type f 2>/dev/null | wc -l)
+  if [[ "$backup_count" -gt 0 ]]; then
+    echo "[Boot] Cleaning up ${backup_count} old database backup(s) to free disk space..."
+    find "${DATA_DIR:-/data}" -name "production.db-*" -type f -delete 2>/dev/null || true
+  fi
 fi
  
 
