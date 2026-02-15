@@ -6,27 +6,12 @@ set -o pipefail
 # Load shared environment setup
 source "$(dirname "$0")/env.sh"
 
-# CRITICAL: Do NOT use "VACUUM INTO" here.
-# It copies the entire database, fills the disk, and causes infinite crash loops.
-# Instead, clean up old backups to FREE disk space.
-if [[ "${ENVIRONMENT}" == "production" ]]; then
-  DATA_DIR="${DATA_DIR:-/data}"
-  DATABASE_FILE="${DATABASE_FILE:-${DATA_DIR}/production.db}"
-
-  # Delete old VACUUM backup copies that filled the disk
-  find "${DATA_DIR}" -name "production.db-*" -type f -exec rm -f {} + 2>/dev/null || true
-  find "${DATA_DIR}" -name "*.db-*" -not -name "*.db-wal" -not -name "*.db-shm" -type f -exec rm -f {} + 2>/dev/null || true
-
-  # Remove WAL/SHM (SQLite recreates them)
-  rm -f "${DATABASE_FILE}-wal" "${DATABASE_FILE}-shm" 2>/dev/null || true
-
-  # Clear Prisma engine cache to free space for prisma generate
-  rm -rf node_modules/.prisma 2>/dev/null || true
-  rm -rf /tmp/prisma* /tmp/bun-* 2>/dev/null || true
-
-  echo "[start] Disk cleanup done. Space available:"
-  df -h "${DATA_DIR}" 2>/dev/null || df -h /
+# Backup the database before proceeding.
+if [[ "${ENVIRONMENT}" == "production" ]] && [[ -f "${DATABASE_FILE}" ]]; then
+  DATABASE_BACKUP_FILE="${DATABASE_FILE}-$(date +%s)"
+  echo "VACUUM INTO '${DATABASE_BACKUP_FILE}'" | sqlite3 "${DATABASE_FILE}"
 fi
+ 
 
 # Install dependencies
 echo "Installing dependencies..."
