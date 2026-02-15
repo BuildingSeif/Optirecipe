@@ -1,10 +1,11 @@
 FROM oven/bun:1.2 AS base
 WORKDIR /app
 
-# Install system dependencies for mupdf
+# Install system dependencies for mupdf and Prisma (OpenSSL)
 RUN apt-get update && apt-get install -y \
     libgl1-mesa-glx \
     libglib2.0-0 \
+    openssl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy package files (paths relative to repo root since Dockerfile is referenced from root)

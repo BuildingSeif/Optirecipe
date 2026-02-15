@@ -4,8 +4,11 @@ import { prisma } from "./prisma";
 import { env } from "./env";
 
 const isPostgres = (process.env.DATABASE_URL || "").startsWith("postgres");
+const isRailway = !!process.env.RAILWAY_ENVIRONMENT;
+const baseURL = process.env.BACKEND_URL || (isRailway ? "https://optirecipe.up.railway.app" : "http://localhost:3000");
 
 export const auth = betterAuth({
+  baseURL,
   database: prismaAdapter(prisma, { provider: isPostgres ? "postgresql" : "sqlite" }),
   secret: env.BETTER_AUTH_SECRET,
   emailAndPassword: {
@@ -21,7 +24,8 @@ export const auth = betterAuth({
     "https://*.up.railway.app",
   ],
   advanced: {
-    crossSubDomainCookies: {
+    // Only enable crossSubDomainCookies in Vibecode (not needed on Railway — uses Bearer tokens)
+    crossSubDomainCookies: isRailway ? undefined : {
       enabled: true,
     },
     disableCSRFCheck: true,
