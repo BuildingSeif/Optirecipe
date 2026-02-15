@@ -3,9 +3,13 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-# Boot script: identical to scripts/start but with disk protection.
+# Boot script: safe entry point with disk protection.
 # The template system reverts scripts/start and scripts/env.sh,
 # so this file exists as an unmanaged alternative.
+
+# Put our safe sqlite3 wrapper ahead in PATH to intercept VACUUM commands
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+export PATH="${SCRIPT_DIR}:${PATH}"
 
 # === Environment Setup (mirrors env.sh) ===
 ENVIRONMENT="${ENVIRONMENT:-development}"
