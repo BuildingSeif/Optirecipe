@@ -4,8 +4,9 @@ import { GlassButton } from "@/components/ui/glass-button";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
 import { Loader2, Mail } from "lucide-react";
+import { resolveBackendUrl } from "@/lib/api";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+const BACKEND_URL = resolveBackendUrl();
 
 export default function LoginPage() {
   const navigate = useNavigate();

@@ -4,8 +4,9 @@ import { useAuth } from "@/lib/auth-context";
 import { Logo } from "@/components/Logo";
 import { GlassButton } from "@/components/ui/glass-button";
 import { Loader2, Mail, ArrowLeft } from "lucide-react";
+import { resolveBackendUrl } from "@/lib/api";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+const BACKEND_URL = resolveBackendUrl();
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60;
 

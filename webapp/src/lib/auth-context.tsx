@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { resolveBackendUrl } from "@/lib/api";
 
 interface User {
   id: string;
@@ -30,7 +31,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+const BACKEND_URL = resolveBackendUrl();
 const SESSION_KEY = "optirecipe_session";
 
 function saveSessionToStorage(session: Session | null) {

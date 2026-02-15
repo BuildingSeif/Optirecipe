@@ -1,4 +1,14 @@
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+// Resolve backend URL: prefer env var (set at build time), fall back to current origin
+// (in Vibecode Cloud deployment, backend is proxied on the same domain)
+export function resolveBackendUrl(): string {
+  const envUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_VIBECODE_BACKEND_URL;
+  if (envUrl) return envUrl;
+  if (typeof window !== "undefined" && window.location.origin !== "null") {
+    return window.location.origin;
+  }
+  return "http://localhost:3000";
+}
+const API_BASE_URL = resolveBackendUrl();
 
 class ApiError extends Error {
   constructor(message: string, public status: number, public data?: unknown) {
