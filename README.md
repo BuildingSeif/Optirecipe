@@ -112,7 +112,7 @@ Recipe extraction platform for institutional food service in France (schools, ho
 - **Region**: 21 French regions linked to France
 - **Cookbook**: PDF files with type classification (prive/collectivite/both)
 - **Recipe**: Extracted recipes with ingredients (JSON), instructions (JSON), dietary booleans, nutrition fields, country/region
-- **ProcessingJob**: Tracks extraction progress with pause/resume/cancel
+- **ProcessingJob**: Tracks extraction progress with pause/resume/cancel, failedPages counter
 - **ExportHistory**: Records export activity
 
 ## API Endpoints
@@ -127,6 +127,8 @@ Recipe extraction platform for institutional food service in France (schools, ho
 - `POST /api/processing/:id/pause` - Pause extraction
 - `POST /api/processing/:id/resume` - Resume extraction
 - `POST /api/processing/:id/cancel` - Cancel extraction
+- `GET /api/processing/:id/queue-position` - Get queue position and failed pages
+- `POST /api/processing/recover-images` - Trigger image generation for recipes missing images
 - `POST /api/export` - Export recipes (JSON/CSV) with stats summary
 
 ## All UI in French

@@ -3,7 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { prisma } from "../prisma";
 import { auth } from "../auth";
 import { StartProcessingSchema } from "../types";
-import { extractRecipesFromPDF, pauseProcessingJob, resumeProcessingJob } from "../services/extraction";
+import { extractRecipesFromPDF, pauseProcessingJob, resumeProcessingJob, recoverMissingImages } from "../services/extraction";
 
 const processingRouter = new Hono<{
   Variables: {
@@ -319,6 +319,15 @@ processingRouter.get("/:id/queue-position", async (c) => {
       failedPages: job.failedPages,
     },
   });
+});
+
+// Trigger image recovery for recipes missing images
+processingRouter.post("/recover-images", async (c) => {
+  const user = c.get("user");
+  if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
+
+  const count = await recoverMissingImages();
+  return c.json({ data: { queued: count, message: count > 0 ? `${count} recette(s) en attente de generation d'image` : "Toutes les recettes ont deja une image" } });
 });
 
 export { processingRouter };

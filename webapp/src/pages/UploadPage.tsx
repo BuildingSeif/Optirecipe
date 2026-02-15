@@ -37,6 +37,7 @@ interface FileUploadState {
   name: string;
   progress: number;
   uploadedPath: string | null;
+  uploadedUrl: string | null;
   status: "pending" | "uploading" | "uploaded" | "processing" | "completed" | "error";
   error?: string;
 }
@@ -206,6 +207,7 @@ export default function UploadPage() {
         name: file.name.replace(/\.pdf$/i, ""),
         progress: 0,
         uploadedPath: null,
+        uploadedUrl: null,
         status: "error",
         error: errorMessages,
       };
@@ -227,6 +229,7 @@ export default function UploadPage() {
       name: file.name.replace(/\.pdf$/i, ""),
       progress: 0,
       uploadedPath: null,
+      uploadedUrl: null,
       status: "pending",
     }));
     setFiles((prev) => [...prev, ...newFiles]);
@@ -337,6 +340,7 @@ export default function UploadPage() {
         status: "uploaded",
         progress: 100,
         uploadedPath: completeData.filePath,
+        uploadedUrl: completeData.url || null,
       });
 
       return completeData.filePath;
@@ -381,6 +385,7 @@ export default function UploadPage() {
           status: "uploaded",
           progress: 100,
           uploadedPath: result.data.filePath,
+          uploadedUrl: result.data.url || null,
         });
         return result.data.filePath;
       }
@@ -427,6 +432,7 @@ export default function UploadPage() {
     const cookbook = await api.post<Cookbook>("/api/cookbooks", {
       name: fileState.name,
       filePath: fileState.uploadedPath,
+      fileUrl: fileState.uploadedUrl,
       fileSize: fileState.file.size,
       totalPages: 0, // Detected automatically during extraction
       type,

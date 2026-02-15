@@ -1023,6 +1023,14 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
         console.error("[ImageGen] Queue processing error:", err);
       });
 
+      // Delayed recovery: catch any recipes that might have been missed by the queue
+      // (e.g., if queue processing completed before all recipes were pushed)
+      setTimeout(() => {
+        recoverMissingImages().catch((err) => {
+          console.error("[ImageRecovery] Post-extraction recovery error:", err);
+        });
+      }, 30000); // 30s delay to let the immediate queue finish first
+
       // Mark job as completed
       const finalStatus = cancelledJobs.has(job.id) ? "cancelled" : "completed";
       await prisma.processingJob.update({
