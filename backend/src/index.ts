@@ -29,6 +29,15 @@ const app = new Hono<{
   };
 }>();
 
+// Global error handler - catches unhandled errors and returns proper JSON instead of raw 500
+app.onError((err, c) => {
+  console.error("[Server] Unhandled error:", err);
+  return c.json(
+    { error: { message: "Internal server error", code: "INTERNAL_ERROR" } },
+    500
+  );
+});
+
 // CORS middleware - validates origin against allowlist
 const allowed = [
   /^http:\/\/localhost(:\d+)?$/,
@@ -65,7 +74,14 @@ app.use("/api/upload/*", bodyLimit({
 // Auth middleware - populates user/session for all routes
 app.use("*", async (c, next) => {
   // Try cookie-based auth first (Better Auth default)
-  let session = await auth.api.getSession({ headers: c.req.raw.headers });
+  let session: Awaited<ReturnType<typeof auth.api.getSession>> | null = null;
+  try {
+    session = await auth.api.getSession({ headers: c.req.raw.headers });
+  } catch (e) {
+    // If getSession throws (e.g. database issue), continue as unauthenticated
+    // rather than crashing every request with 500
+    console.error("[Auth] getSession failed, continuing as unauthenticated:", e);
+  }
 
   // Fallback: Bearer token from Authorization header (for cross-origin iframe)
   if (!session) {
