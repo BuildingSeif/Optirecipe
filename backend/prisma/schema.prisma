@@ -130,6 +130,7 @@ model ProcessingJob {
   currentPage       Int      @default(0)
   totalPages        Int?
   recipesExtracted  Int      @default(0)
+  failedPages       Int      @default(0)
 
   startedAt         DateTime?
   completedAt       DateTime?

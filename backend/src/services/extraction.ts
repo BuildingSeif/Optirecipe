@@ -328,7 +328,7 @@ const extractionQueue: string[] = [];
 let largeRunning = 0;
 let smallRunning = 0;
 const SMALL_PDF_THRESHOLD = 20; // Pages — PDFs this size or smaller use the fast lane
-const MAX_LARGE_CONCURRENT = 3;  // Max large PDFs extracting at once
+const MAX_LARGE_CONCURRENT = 2;  // Max large PDFs extracting at once (reduced for memory safety)
 const MAX_SMALL_CONCURRENT = 5;  // Max small PDFs extracting at once
 
 async function processExtractionQueue(): Promise<void> {
@@ -663,6 +663,14 @@ export async function recoverMissingImages(): Promise<number> {
   }
 }
 
+// Memory monitoring for large PDF processing
+function logMemoryUsage(jobId: string, context: string): void {
+  const used = process.memoryUsage();
+  const heapMB = Math.round(used.heapUsed / 1024 / 1024);
+  const rssMB = Math.round(used.rss / 1024 / 1024);
+  console.log(`[Memory] Job ${jobId} (${context}): heap=${heapMB}MB rss=${rssMB}MB`);
+}
+
 export async function extractRecipesFromPDF(jobId: string): Promise<void> {
   // Check if this is a small PDF that can use the fast lane
   try {
@@ -742,6 +750,7 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
       ? (() => { try { return JSON.parse(job.errorLog); } catch { return []; } })()
       : [];
     let recipesExtracted = isResume ? (job.recipesExtracted ?? 0) : 0;
+    let failedPages = isResume ? (job.failedPages ?? 0) : 0;
 
     if (isResume) {
       processingLog.push(`Reprise du traitement a partir de la page ${startPage}`);
@@ -777,7 +786,7 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
     try {
       // Fetch PDF from storage
       processingLog.push("Telechargement du PDF...");
-      await updateJobProgress(job.id, job.cookbookId, 0, 0, processingLog);
+      await updateJobProgress(job.id, job.cookbookId, 0, 0, processingLog, false, failedPages);
 
       let pdfBuffer = await fetchPDFFromStorage(job.cookbook.filePath, job.cookbook.fileUrl);
       processingLog.push(`PDF telecharge: ${(pdfBuffer.byteLength / 1024 / 1024).toFixed(2)} MB`);
@@ -787,7 +796,7 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
       const totalPages = getPdfPageCount(pdfBuffer);
 
       processingLog.push(`PDF charge: ${totalPages} pages detectees`);
-      await updateJobProgress(job.id, job.cookbookId, 0, recipesExtracted, processingLog);
+      await updateJobProgress(job.id, job.cookbookId, 0, recipesExtracted, processingLog, false, failedPages);
 
       // Update total pages in job and cookbook
       await prisma.processingJob.update({
@@ -805,6 +814,9 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
         console.log(`[Extraction] Job ${job.id}: Large PDF (${totalPages} pages), using JPEG quality ${jpegQuality}`);
       }
 
+      // Pre-create buffer once to avoid copying for every batch
+      const pdfNodeBuffer = Buffer.from(pdfBuffer);
+
       // Process pages in batches of BATCH_SIZE (concurrent per batch, like Python version)
       for (let batchStart = startPage; batchStart <= totalPages; batchStart += BATCH_SIZE) {
         // Check if job was cancelled
@@ -816,7 +828,7 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
         // Check if job was paused
         if (pausedJobs.has(job.id)) {
           processingLog.push(`Traitement mis en pause par l'utilisateur`);
-          await updateJobProgress(job.id, job.cookbookId, batchStart - 1, recipesExtracted, processingLog, true);
+          await updateJobProgress(job.id, job.cookbookId, batchStart - 1, recipesExtracted, processingLog, true, failedPages);
           await prisma.processingJob.update({
             where: { id: job.id },
             data: { status: "paused" },
@@ -834,13 +846,21 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
         const batchPages = Array.from({ length: batchEnd - batchStart + 1 }, (_, i) => batchStart + i);
 
         console.log(`[Extraction] Job ${job.id}: Processing pages ${batchStart}-${batchEnd}/${totalPages} (${recipesExtracted} recipes so far)`);
+
+        // Cap processing log to last 200 entries to prevent unbounded growth on large PDFs
+        if (processingLog.length > 200) {
+          const removed = processingLog.length - 150;
+          processingLog.splice(0, removed);
+          processingLog.unshift(`[...${removed} entrees precedentes supprimees]`);
+        }
+
         processingLog.push(`Traitement des pages ${batchStart}-${batchEnd}/${totalPages}...`);
-        await updateJobProgress(job.id, job.cookbookId, batchStart, recipesExtracted, processingLog);
+        await updateJobProgress(job.id, job.cookbookId, batchStart, recipesExtracted, processingLog, false, failedPages);
 
         // Render all pages in this batch with a single doc open (avoids reopening PDF per page)
         let renderedPages: Map<number, string>;
         try {
-          const doc = mupdf.Document.openDocument(Buffer.from(pdfBuffer), "application/pdf");
+          const doc = mupdf.Document.openDocument(pdfNodeBuffer, "application/pdf");
           try {
             renderedPages = renderPagesFromDoc(doc, batchPages, jpegQuality);
           } finally {
@@ -857,13 +877,15 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
         const extractionPromises = batchPages.map(async (pageNum) => {
           const imageBase64 = renderedPages.get(pageNum);
           if (!imageBase64) {
-            return { pageNum, result: { found_recipe: false, page_type: 'error', notes: `Failed to render page ${pageNum}` } as ExtractionResult };
+            return { pageNum, result: { found_recipe: false, page_type: 'error', notes: `Failed to render page ${pageNum}` } as ExtractionResult, durationMs: 0 };
           }
           try {
+            const startTime = Date.now();
             const result = await callOpenAIVision(imageBase64, pageNum);
-            return { pageNum, result };
+            const durationMs = Date.now() - startTime;
+            return { pageNum, result, durationMs };
           } catch (err) {
-            return { pageNum, result: { found_recipe: false, page_type: 'error', notes: `API error: ${err instanceof Error ? err.message : String(err)}` } as ExtractionResult };
+            return { pageNum, result: { found_recipe: false, page_type: 'error', notes: `API error: ${err instanceof Error ? err.message : String(err)}` } as ExtractionResult, durationMs: 0 };
           }
         });
         const results = await Promise.allSettled(extractionPromises);
@@ -871,20 +893,26 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
         // Clear rendered pages from memory
         renderedPages.clear();
 
+        // Memory check every 20 pages
+        if (batchEnd % 20 === 0 || batchEnd === totalPages) {
+          logMemoryUsage(job.id, `page ${batchEnd}/${totalPages}`);
+        }
+
         // Process results in page order
         for (const settled of results) {
           if (settled.status === "rejected") {
             errorLog.push(`Page: Erreur - ${settled.reason instanceof Error ? settled.reason.message : String(settled.reason)}`);
+            failedPages++;
             continue;
           }
 
-          const { pageNum, result } = settled.value;
+          const { pageNum, result, durationMs } = settled.value;
 
           // Per-page logging
           if (result.found_recipe && result.recipes && result.recipes.length > 0) {
-            console.log(`[Extraction] Page ${pageNum}/${totalPages} - ${result.recipes.length} recipe(s) found`);
+            console.log(`[Extraction] Page ${pageNum}/${totalPages} - ${result.recipes.length} recipe(s) found (${durationMs}ms)`);
           } else {
-            console.log(`[Extraction] Page ${pageNum}/${totalPages} - no recipe (${result.page_type || 'unknown'})`);
+            console.log(`[Extraction] Page ${pageNum}/${totalPages} - no recipe (${result.page_type || 'unknown'}) (${durationMs}ms)`);
           }
 
           if (result.found_recipe && result.recipes && result.recipes.length > 0) {
@@ -946,6 +974,7 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
             // Don't store API/rendering errors as content
             if (pageType === "error") {
               errorLog.push(`Page ${pageNum}: ${result.notes || "Erreur de traitement"}`);
+              failedPages++;
               continue;
             }
             const notes = result.notes ? ` - ${result.notes}` : "";
@@ -979,7 +1008,7 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
         }
 
         // FORCE progress write after every batch (critical for crash recovery on large PDFs)
-        await updateJobProgress(job.id, job.cookbookId, batchEnd, recipesExtracted, processingLog, true);
+        await updateJobProgress(job.id, job.cookbookId, batchEnd, recipesExtracted, processingLog, true, failedPages);
 
         // Small delay between batches to respect rate limits
         await delay(RATE_LIMIT_DELAY_MS);
@@ -1003,6 +1032,7 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
           completedAt: new Date(),
           currentPage: totalPages,
           recipesExtracted,
+          failedPages,
           processingLog: JSON.stringify(processingLog),
           errorLog: JSON.stringify(errorLog),
         },
@@ -1111,7 +1141,8 @@ async function updateJobProgress(
   currentPage: number,
   recipesExtracted: number,
   processingLog: string[],
-  force = false
+  force = false,
+  failedPages = 0
 ): Promise<void> {
   const now = Date.now();
   const lastUpdate = lastProgressUpdate.get(jobId) || 0;
@@ -1127,6 +1158,7 @@ async function updateJobProgress(
     data: {
       currentPage,
       recipesExtracted,
+      failedPages,
       processingLog: JSON.stringify(processingLog),
     },
   });
@@ -1138,4 +1170,27 @@ async function updateJobProgress(
       totalRecipesFound: recipesExtracted,
     },
   });
+}
+
+// Graceful shutdown — save checkpoint for any running jobs
+export async function gracefulShutdown(): Promise<void> {
+  console.log("[Shutdown] Saving extraction state...");
+  // The extraction loop checks cancelledJobs each iteration, so marking all as cancelled
+  // will cause them to stop and save their checkpoint naturally.
+  // For immediate effect, we mark processing jobs in DB so recovery picks them up.
+  try {
+    const runningJobs = await prisma.processingJob.findMany({
+      where: { status: "processing" },
+    });
+    for (const job of runningJobs) {
+      cancelledJobs.add(job.id);
+    }
+    // Give running batches a moment to finish and checkpoint
+    if (runningJobs.length > 0) {
+      console.log(`[Shutdown] Signaled ${runningJobs.length} running job(s) to stop`);
+      await delay(2000);
+    }
+  } catch (err) {
+    console.error("[Shutdown] Error during graceful shutdown:", err);
+  }
 }

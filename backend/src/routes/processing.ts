@@ -289,4 +289,36 @@ processingRouter.post("/re-extract", zValidator("json", StartProcessingSchema), 
   return c.json({ data: { job, message: `Re-extraction started. Cleaned ${deletedRecipes.count} old recipes.` } }, 201);
 });
 
+// Get queue position for a job
+processingRouter.get("/:id/queue-position", async (c) => {
+  const user = c.get("user");
+  if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
+
+  const { id } = c.req.param();
+
+  const job = await prisma.processingJob.findFirst({
+    where: { id, userId: user.id },
+  });
+
+  if (!job) {
+    return c.json({ error: { message: "Processing job not found" } }, 404);
+  }
+
+  // Count jobs ahead of this one in the queue
+  const queuedAhead = await prisma.processingJob.count({
+    where: {
+      status: { in: ["pending", "processing"] },
+      createdAt: { lt: job.createdAt },
+    },
+  });
+
+  return c.json({
+    data: {
+      position: job.status === "processing" ? 0 : queuedAhead + 1,
+      status: job.status,
+      failedPages: job.failedPages,
+    },
+  });
+});
+
 export { processingRouter };

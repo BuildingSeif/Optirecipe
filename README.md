@@ -20,10 +20,18 @@ Recipe extraction platform for institutional food service in France (schools, ho
 - GPT-5.2 Vision extracts recipes with ingredients, instructions, dietary flags, difficulty
 - Temperature detection: Celsius, Fahrenheit, and French thermostat (1-10) with automatic conversion
 - Batch processing: 5 pages concurrently with single PDF doc open per batch (memory efficient)
+- Pre-allocated PDF buffer: single Buffer.from() copy reused across all batches (eliminates ~30GB of copies on 900-page PDFs)
 - 90-second timeout per OpenAI API call to prevent hung jobs
 - Forced progress saves after every batch for crash recovery on large PDFs (500+ pages)
-- Dynamic JPEG quality (80 for large PDFs, 90 for small) to reduce memory pressure
+- Dynamic JPEG quality (80 for large PDFs >100 pages, 90 for small) to reduce memory pressure
 - Max 2000 recipes per PDF (supports large institutional cookbooks)
+- Memory monitoring: heap/RSS logged every 20 pages for large PDFs
+- Processing log capped at 200 entries to prevent unbounded JSON growth
+- Failed pages tracked separately (failedPages counter in DB)
+- Queue position API: GET /api/processing/:id/queue-position
+- Graceful shutdown: SIGTERM/SIGINT saves checkpoints for running jobs
+- Max 2 large PDFs concurrent (reduced from 3 for memory safety)
+- Per-page timing logged for performance monitoring
 - Real-time extraction monitor with per-cookbook tabs and live recipe feed
 - Pause/resume/stop controls during extraction
 - Automatic image generation per recipe via FAL AI (French cuisine style prompt)

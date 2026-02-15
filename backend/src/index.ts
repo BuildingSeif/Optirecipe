@@ -19,7 +19,7 @@ import { nonRecipeContentRouter } from "./routes/nonRecipeContent";
 import { categoriesRouter } from "./routes/categories";
 import { countriesRouter } from "./routes/countries";
 import { otpRouter } from "./routes/otp";
-import { extractRecipesFromPDF, recoverMissingImages } from "./services/extraction";
+import { extractRecipesFromPDF, recoverMissingImages, gracefulShutdown } from "./services/extraction";
 
 // Type the Hono app with user/session variables
 const app = new Hono<{
@@ -216,6 +216,15 @@ setTimeout(recoverOrphanedJobs, 3000);
 setTimeout(recoverMissingImages, 10000);
 
 const port = Number(process.env.PORT) || 3000;
+
+// Graceful shutdown handler
+const shutdownHandler = async () => {
+  console.log("[Server] Shutdown signal received");
+  await gracefulShutdown();
+  process.exit(0);
+};
+process.on("SIGTERM", shutdownHandler);
+process.on("SIGINT", shutdownHandler);
 
 export default {
   port,
