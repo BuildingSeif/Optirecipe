@@ -3,8 +3,10 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma";
 import { env } from "./env";
 
+const isPostgres = (process.env.DATABASE_URL || "").startsWith("postgres");
+
 export const auth = betterAuth({
-  database: prismaAdapter(prisma, { provider: "sqlite" }),
+  database: prismaAdapter(prisma, { provider: isPostgres ? "postgresql" : "sqlite" }),
   secret: env.BETTER_AUTH_SECRET,
   emailAndPassword: {
     enabled: true,
@@ -15,6 +17,8 @@ export const auth = betterAuth({
     "https://*.dev.vibecode.run",
     "https://*.vibecode.run",
     "https://*.vibecodeapp.com",
+    "https://*.railway.app",
+    "https://*.up.railway.app",
   ],
   advanced: {
     crossSubDomainCookies: {

@@ -1,8 +1,12 @@
-import "@vibecodeapp/proxy"; // DO NOT REMOVE OTHERWISE VIBECODE PROXY WILL NOT WORK
+// Vibecode proxy - only available in Vibecode sandbox environment
+try { require("@vibecodeapp/proxy"); } catch { /* Not in Vibecode - running on Railway or local */ }
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { bodyLimit } from "hono/body-limit";
+import { readFile } from "fs/promises";
+import { join } from "path";
+import { existsSync } from "fs";
 import "./env";
 import { auth } from "./auth";
 import { prisma } from "./prisma";
@@ -48,6 +52,8 @@ const allowed = [
   /^https:\/\/[a-z0-9-]+\.share\.sandbox\.dev$/,
   /^https:\/\/[a-z0-9-]+\.vibecodecloud\.com$/,
   /^https:\/\/[a-z0-9.-]+\.vibecode[a-z]*\.[a-z]+$/,
+  /^https:\/\/[a-z0-9-]+\.railway\.app$/,
+  /^https:\/\/[a-z0-9-]+\.up\.railway\.app$/,
 ];
 
 app.use(
@@ -114,6 +120,27 @@ app.use("*", async (c, next) => {
   c.set("user", session.user);
   c.set("session", session.session);
   await next();
+});
+
+// Serve uploaded files (for Railway local storage fallback)
+const UPLOADS_DIR = process.env.UPLOADS_DIR || "/app/uploads";
+app.get("/uploads/:filename", async (c) => {
+  const filename = c.req.param("filename");
+  // Sanitize filename to prevent directory traversal
+  const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "");
+  const filePath = join(UPLOADS_DIR, safeName);
+
+  if (!existsSync(filePath)) {
+    return c.json({ error: { message: "File not found" } }, 404);
+  }
+
+  const buffer = await readFile(filePath);
+  const ext = safeName.split(".").pop()?.toLowerCase();
+  const contentType = ext === "pdf" ? "application/pdf" : ext === "jpg" || ext === "jpeg" ? "image/jpeg" : ext === "png" ? "image/png" : "application/octet-stream";
+
+  return new Response(buffer, {
+    headers: { "Content-Type": contentType },
+  });
 });
 
 // Health check endpoint

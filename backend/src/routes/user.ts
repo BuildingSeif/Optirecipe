@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { prisma } from "../prisma";
-import { createVibecodeSDK } from "@vibecodeapp/backend-sdk";
+import { storage } from "../services/storage";
 import { auth } from "../auth";
 
 const userRouter = new Hono<{
@@ -11,8 +11,6 @@ const userRouter = new Hono<{
     session: typeof auth.$Infer.Session.session | null;
   };
 }>();
-
-const vibecode = createVibecodeSDK();
 
 const UpdateProfileSchema = z.object({
   name: z.string().min(1).max(100),
@@ -72,8 +70,8 @@ userRouter.post("/avatar", async (c) => {
       return c.json({ error: { message: "File size must be less than 5MB" } }, 400);
     }
 
-    // Upload to Vibecode storage
-    const uploadResult = await vibecode.storage.upload(file);
+    // Upload to storage
+    const uploadResult = await storage.upload(file);
 
     // Update user with new image URL
     await prisma.user.update({

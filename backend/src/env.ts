@@ -24,6 +24,10 @@ const envSchema = z.object({
 
   // Resend for email notifications
   RESEND_API_KEY: z.string().optional(),
+
+  // Railway deployment
+  RAILWAY_STATIC_URL: z.string().optional(),
+  RAILWAY_ENVIRONMENT: z.string().optional(),
 });
 
 /**

@@ -1,6 +1,6 @@
 import { prisma } from "../prisma";
 import { env } from "../env";
-import { createVibecodeSDK } from "@vibecodeapp/backend-sdk";
+import { storage } from "./storage";
 import type { Ingredient, Instruction } from "../types";
 import { sendExtractionCompleteEmail } from "./email";
 import { progressEmitter } from "./progress-emitter";
@@ -9,9 +9,6 @@ import * as path from "node:path";
 
 // PDF rendering - MuPDF (same engine as PyMuPDF used in working Python version)
 import * as mupdf from "mupdf";
-
-// Initialize Vibecode SDK for file access
-const vibecode = createVibecodeSDK();
 
 // ==================== UPGRADE #3: Intelligent Page Pre-filter Toggle ====================
 const ENABLE_PAGE_PREFILTER = true;
@@ -413,8 +410,8 @@ async function fetchPDFFromStorage(filePath: string, fileUrl?: string | null, jo
   }
 
   // Otherwise, list files to find the one matching our path
-  const { files } = await vibecode.storage.list({ limit: 100 });
-  console.log(`Available files in storage: ${files.map(f => f.originalFilename).join(', ')}`);
+  const { files } = await storage.list({ limit: 100 });
+  console.log(`Available files in storage: ${files.map((f: any) => f.originalFilename || f.id).join(', ')}`);
 
   // Extract filename from path and normalize it
   const pathFileName = filePath.split('/').pop() || '';
@@ -422,15 +419,20 @@ async function fetchPDFFromStorage(filePath: string, fileUrl?: string | null, jo
   console.log(`Looking for file matching: ${pathFileName} (normalized: ${normalizedPathName})`);
 
   // Find file by multiple matching strategies
-  const targetFile = files.find(f => {
-    // Exact match on storage path
+  // Storage files may have originalFilename (Vibecode SDK) or just id (local storage)
+  const targetFile = files.find((f: any) => {
+    // Exact match on storage path (Vibecode SDK)
     if (f.storagePath === filePath) return true;
 
-    // Exact match on original filename
+    // Exact match on original filename (Vibecode SDK)
     if (f.originalFilename === pathFileName) return true;
 
+    // Exact match on id (local storage)
+    if (f.id === pathFileName) return true;
+
     // Normalized filename match (handles special chars and accents)
-    const normalizedOriginal = normalizeFilename(f.originalFilename);
+    const originalName = f.originalFilename || f.id || '';
+    const normalizedOriginal = normalizeFilename(originalName);
     if (normalizedOriginal === normalizedPathName) return true;
 
     // Partial normalized match (for cases where names are slightly different)
@@ -441,11 +443,14 @@ async function fetchPDFFromStorage(filePath: string, fileUrl?: string | null, jo
 
   if (!targetFile) {
     // Last resort: find most recent PDF file
-    const pdfFiles = files.filter(f => f.originalFilename.toLowerCase().endsWith('.pdf'));
+    const pdfFiles = files.filter((f: any) => {
+      const name = (f.originalFilename || f.id || '').toLowerCase();
+      return name.endsWith('.pdf');
+    });
     if (pdfFiles.length > 0) {
       // Sort by most recent (assuming files are returned in some order)
       const mostRecent = pdfFiles[pdfFiles.length - 1]!;
-      console.log(`Using most recent PDF as fallback: ${mostRecent.originalFilename}`);
+      console.log(`Using most recent PDF as fallback: ${(mostRecent as any).originalFilename || mostRecent.id}`);
       const response = await fetch(mostRecent.url);
       if (!response.ok) {
         throw new Error(`Failed to fetch PDF: ${response.statusText}`);
@@ -453,10 +458,10 @@ async function fetchPDFFromStorage(filePath: string, fileUrl?: string | null, jo
       return await downloadToFile(response);
     }
 
-    throw new Error(`PDF file not found in storage: ${filePath}. Available files: ${files.map(f => f.originalFilename).join(', ')}`);
+    throw new Error(`PDF file not found in storage: ${filePath}. Available files: ${files.map((f: any) => f.originalFilename || f.id).join(', ')}`);
   }
 
-  console.log(`Found file: ${targetFile.originalFilename} at ${targetFile.url}`);
+  console.log(`Found file: ${(targetFile as any).originalFilename || targetFile.id} at ${targetFile.url}`);
 
   // Fetch the actual PDF file
   const response = await fetch(targetFile.url);

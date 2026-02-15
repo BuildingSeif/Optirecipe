@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { createVibecodeSDK } from "@vibecodeapp/backend-sdk";
+import { storage } from "../services/storage";
 import { auth } from "../auth";
 import { writeFile, readFile, unlink, mkdir, readdir, rm } from "fs/promises";
 import { join } from "path";
@@ -11,8 +11,6 @@ const uploadRouter = new Hono<{
     session: typeof auth.$Infer.Session.session | null;
   };
 }>();
-
-const vibecode = createVibecodeSDK();
 
 // Constants for file limits
 const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB max
@@ -218,13 +216,13 @@ uploadRouter.post("/complete/:uploadId", async (c) => {
     const completeBuffer = Buffer.concat(chunks);
     console.log(`[Upload] Assembled file: ${formatFileSize(completeBuffer.length)}`);
 
-    // Create File object for Vibecode storage
+    // Create File object for storage
     const file = new File([completeBuffer], metadata.fileName, { type: "application/pdf" });
 
-    // Upload to Vibecode storage
+    // Upload to storage
     console.log(`[Upload] Uploading to storage...`);
     const uploadResult = await withTimeout(
-      vibecode.storage.upload(file),
+      storage.upload(file),
       UPLOAD_TIMEOUT,
       "Storage upload timeout"
     );
@@ -319,11 +317,11 @@ uploadRouter.post("/pdf", async (c) => {
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
     const filePath = `cookbooks/${user.id}/${timestamp}-${sanitizedName}`;
 
-    // Upload to Vibecode storage with extended timeout for large files
+    // Upload to storage with extended timeout for large files
     console.log(`[Upload] Uploading to storage: ${filePath}`);
 
     const uploadResult = await withTimeout(
-      vibecode.storage.upload(file),
+      storage.upload(file),
       UPLOAD_TIMEOUT,
       "Upload timeout - please check your connection and try again"
     );
@@ -366,7 +364,7 @@ uploadRouter.get("/files", async (c) => {
   if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
 
   try {
-    const result = await vibecode.storage.list({ limit: 50 });
+    const result = await storage.list({ limit: 50 });
     return c.json({ data: result });
   } catch (error) {
     console.error("List files error:", error);
@@ -381,7 +379,7 @@ uploadRouter.delete("/:id", async (c) => {
 
   try {
     const id = c.req.param("id");
-    await vibecode.storage.delete(id);
+    await storage.delete(id);
     return c.body(null, 204);
   } catch (error) {
     console.error("Delete file error:", error);

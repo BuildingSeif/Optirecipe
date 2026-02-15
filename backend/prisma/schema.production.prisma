@@ -1,0 +1,334 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== Auth Tables (Better Auth) ====================
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  role          String    @default("user") // 'user' or 'admin'
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions      Session[]
+  accounts      Account[]
+  cookbooks     Cookbook[]
+  recipes       Recipe[]
+  processingJobs ProcessingJob[]
+  exportHistory ExportHistory[]
+  reviewedRecipes Recipe[] @relation("ReviewedBy")
+  nonRecipeContent NonRecipeContent[]
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// ==================== OTP Table ====================
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([email, code])
+}
+
+// ==================== OptiRecipe Tables ====================
+
+model Cookbook {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name                String
+  filePath            String   // Storage path for PDF
+  fileUrl             String?  // Direct download URL for PDF
+  fileSize            Int?
+  totalPages          Int?
+
+  status              String   @default("uploaded") // 'uploaded', 'processing', 'completed', 'failed'
+  processedPages      Int      @default(0)
+  totalRecipesFound   Int      @default(0)
+  errorMessage        String?
+  pinned              Boolean @default(false)
+
+  // Processing options
+  generateDescriptions Boolean @default(true)
+  reformulateForCopyright Boolean @default(true)
+  convertToGrams      Boolean @default(true)
+
+  // Type: 'prive', 'collectivite', 'both'
+  type                String   @default("both")
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  recipes             Recipe[]
+  processingJobs      ProcessingJob[]
+  nonRecipeContent    NonRecipeContent[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model ProcessingJob {
+  id                String   @id @default(cuid())
+  cookbookId        String
+  cookbook          Cookbook @relation(fields: [cookbookId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status            String   @default("pending") // 'pending', 'processing', 'completed', 'failed', 'cancelled', 'paused'
+  currentPage       Int      @default(0)
+  totalPages        Int?
+  recipesExtracted  Int      @default(0)
+  failedPages       Int      @default(0)
+
+  startedAt         DateTime?
+  completedAt       DateTime?
+  errorLog          String   @default("[]") // JSON array of errors
+  processingLog     String   @default("[]") // JSON array of log entries
+
+  createdAt         DateTime @default(now())
+
+  @@index([status])
+  @@index([cookbookId])
+}
+
+model Recipe {
+  id              String   @id @default(cuid())
+  cookbookId      String?
+  cookbook        Cookbook? @relation(fields: [cookbookId], references: [id], onDelete: SetNull)
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Basic info
+  title           String
+  originalTitle   String?  // Before reformulation
+  description     String?  // 2-3 sentence appetizing description
+
+  // Source tracking
+  sourcePage      Int?
+  sourceType      String   @default("pdf") // 'pdf', 'ckbk', 'website'
+
+  // Categorization
+  category        String?  // 'entrée', 'plat', 'dessert', 'petit-déjeuner', 'accompagnement', 'sauce', 'boisson'
+  subCategory     String?  // 'soupes', 'salades', 'tartes', 'viandes', 'poissons', 'pâtes', 'gâteaux', etc.
+
+  // Ingredients (JSON array)
+  // Format: [{"name": "farine", "quantity": 500, "unit": "g", "original_text": "500g de farine"}]
+  ingredients     String   @default("[]")
+
+  // Instructions (JSON array)
+  // Format: [{"step": 1, "text": "Préchauffer le four à 180°C", "time_minutes": null}]
+  instructions    String   @default("[]")
+
+  // Timing
+  prepTimeMinutes Int?
+  cookTimeMinutes Int?
+
+  // Servings
+  servings        Int      @default(4)
+
+  // Difficulty: 'facile', 'moyen', 'difficile'
+  difficulty      String?
+
+  // Type: 'prive', 'collectivite', 'both'
+  type            String   @default("both")
+
+  // Dietary flags
+  is_vegetarian   Boolean  @default(false)
+  is_vegan        Boolean  @default(false)
+  is_gluten_free  Boolean  @default(false)
+  is_lactose_free Boolean  @default(false)
+  is_halal        Boolean  @default(false)
+  is_low_carb     Boolean  @default(false)
+  is_low_fat      Boolean  @default(false)
+  is_high_protein Boolean  @default(false)
+  is_mediterranean Boolean @default(false)
+  is_whole30      Boolean  @default(false)
+  is_low_sodium   Boolean  @default(false)
+
+  // Nutrition
+  calories        Int?
+  proteins        Float?
+  carbs           Float?
+  fats            Float?
+
+  // Metadata for filtering
+  region          String?  // 'Alsace', 'Bretagne', 'Provence', 'Normandie', etc.
+  country         String   @default("France")
+  season          String?  // 'printemps', 'été', 'automne', 'hiver', 'toutes'
+
+  // Diet tags (JSON array)
+  // Format: ["végétarien", "sans-gluten", "vegan", "sans-lactose"]
+  dietTags        String   @default("[]")
+
+  // Meal type
+  mealType        String?  // 'déjeuner', 'dîner', 'petit-déjeuner', 'goûter', 'brunch'
+
+  // Additional content
+  tips            String?  // Chef tips, variations, serving suggestions
+  imageUrl        String?  // Generated or matched image
+
+  // Cost calculation (for OptiMarché integration later)
+  estimatedCostPerServing Float?
+
+  // Workflow status
+  status          String   @default("pending") // 'pending', 'approved', 'rejected', 'needs_review'
+  reviewNotes     String?
+  reviewedById    String?
+  reviewedBy      User?    @relation("ReviewedBy", fields: [reviewedById], references: [id])
+  reviewedAt      DateTime?
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([cookbookId])
+  @@index([userId])
+  @@index([status])
+  @@index([category])
+}
+
+model IngredientConversion {
+  id                      String  @id @default(cuid())
+  ingredientName          String
+  standardUnitWeightGrams Float
+  unitName                String  // 'pièce', 'gousse', 'cuillère à soupe', etc.
+  notes                   String?
+  createdAt               DateTime @default(now())
+}
+
+model ExportHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipeCount Int
+  format      String   // 'json', 'csv'
+  filePath    String?
+  createdAt   DateTime @default(now())
+}
+
+model NonRecipeContent {
+  id          String   @id @default(cuid())
+  cookbookId  String
+  cookbook     Cookbook  @relation(fields: [cookbookId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type        String   // 'technique', 'intro', 'tip', 'glossary', 'other'
+  title       String?
+  content     String   // The actual text content
+  summary     String?
+  page        Int?
+  bookName    String?
+
+  createdAt   DateTime @default(now())
+
+  @@index([cookbookId])
+  @@index([userId])
+  @@index([type])
+}
+
+// ==================== Category Tables ====================
+
+model Category {
+  id            String        @id @default(cuid())
+  name          String        @unique
+  order         Int           @default(0)
+  createdAt     DateTime      @default(now())
+  subCategories SubCategory[]
+}
+
+model SubCategory {
+  id         String   @id @default(cuid())
+  name       String
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@unique([name, categoryId])
+  @@index([categoryId])
+}
+
+// ==================== Geography Tables ====================
+
+model Country {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String   @unique
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  regions   Region[]
+}
+
+model Region {
+  id        String   @id @default(cuid())
+  name      String
+  countryId String
+  country   Country  @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([name, countryId])
+  @@index([countryId])
+}
+
+// ==================== Ingredient Image Cache ====================
+
+model IngredientImage {
+  id        String   @id @default(cuid())
+  name      String   @unique  // Normalized lowercase ingredient name
+  imageUrl  String
+  createdAt DateTime @default(now())
+}

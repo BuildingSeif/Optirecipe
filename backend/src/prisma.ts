@@ -1,22 +1,27 @@
 import { PrismaClient } from "@prisma/client";
 
-// Prisma client with Country and Region models
 const prisma = new PrismaClient();
 
-// IMPORTANT: SQLite optimizations for better performance
-async function initSqlitePragmas(client: PrismaClient) {
+const isPostgres = (process.env.DATABASE_URL || "").startsWith("postgres");
+
+async function initDatabase(client: PrismaClient) {
   try {
-    await client.$queryRawUnsafe("PRAGMA journal_mode = WAL;");
-    await client.$queryRawUnsafe("PRAGMA foreign_keys = ON;");
-    await client.$queryRawUnsafe("PRAGMA busy_timeout = 10000;");
-    await client.$queryRawUnsafe("PRAGMA synchronous = NORMAL;");
-    console.log("[Prisma] SQLite pragmas initialized successfully");
+    if (isPostgres) {
+      // PostgreSQL doesn't need SQLite pragmas
+      console.log("[Prisma] PostgreSQL database connected");
+    } else {
+      // SQLite optimizations
+      await client.$queryRawUnsafe("PRAGMA journal_mode = WAL;");
+      await client.$queryRawUnsafe("PRAGMA foreign_keys = ON;");
+      await client.$queryRawUnsafe("PRAGMA busy_timeout = 10000;");
+      await client.$queryRawUnsafe("PRAGMA synchronous = NORMAL;");
+      console.log("[Prisma] SQLite pragmas initialized successfully");
+    }
   } catch (error) {
-    console.error("[Prisma] Failed to initialize SQLite pragmas:", error);
+    console.error("[Prisma] Database initialization error:", error);
   }
 }
 
-// Await the initialization before exporting
-await initSqlitePragmas(prisma);
+await initDatabase(prisma);
 
 export { prisma };
