@@ -6,14 +6,10 @@ set -o pipefail
 # Load shared environment setup
 source "$(dirname "$0")/env.sh"
 
-# Backup the database before proceeding (production only, non-fatal).
-if [[ "${ENVIRONMENT}" == "production" ]] && [[ -f "${DATABASE_FILE:-}" ]]; then
-  if command -v sqlite3 &>/dev/null; then
-    DATABASE_BACKUP_FILE="${DATABASE_FILE}-$(date +%s)"
-    echo "VACUUM INTO '${DATABASE_BACKUP_FILE}'" | sqlite3 "${DATABASE_FILE}" || echo "Warning: DB backup failed, continuing..."
-  else
-    echo "Warning: sqlite3 CLI not found, skipping database backup"
-  fi
+# Backup the database before proceeding.
+if [[ "${ENVIRONMENT}" == "production" ]] && [[ -f "${DATABASE_FILE}" ]]; then
+  DATABASE_BACKUP_FILE="${DATABASE_FILE}-$(date +%s)"
+  echo "VACUUM INTO '${DATABASE_BACKUP_FILE}'" | sqlite3 "${DATABASE_FILE}"
 fi
  
 
