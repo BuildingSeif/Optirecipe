@@ -8,7 +8,7 @@ const envSchema = z.object({
   // Server Configuration
   PORT: z.string().optional().default("3000"),
   NODE_ENV: z.string().optional(),
-  BACKEND_URL: z.string().url({ message: "BACKEND_URL must be a valid URL" }).optional().default("http://localhost:3000"), // Set via the Vibecode enviroment at run-time
+  BACKEND_URL: z.string().optional().default("http://localhost:3000"), // Set via the Vibecode enviroment at run-time
 
   // Database
   DATABASE_URL: z.string().default("file:./dev.db"),

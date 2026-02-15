@@ -42,5 +42,5 @@ ENV RAILWAY_ENVIRONMENT=production
 # Expose port
 EXPOSE 3000
 
-# Start command - migrate and run
-CMD ["sh", "-c", "bunx prisma migrate deploy --schema=prisma/schema.production.prisma && bun run src/index.ts"]
+# Start command - migrate then run with full error output
+CMD ["sh", "-c", "echo '[Startup] Running migrations...' && bunx prisma migrate deploy --schema=prisma/schema.production.prisma 2>&1 && echo '[Startup] Migrations complete, starting server...' && bun run src/index.ts 2>&1"]
