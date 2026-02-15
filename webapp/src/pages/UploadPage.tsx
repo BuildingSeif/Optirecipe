@@ -18,6 +18,11 @@ import {
   BookOpen,
   Globe,
   Check,
+  Info,
+  Clock,
+  HardDrive,
+  Lightbulb,
+  ChevronDown,
 } from "lucide-react";
 import ExtractionMonitor from "@/components/extraction/ExtractionMonitor";
 import type { Cookbook } from "../../../backend/src/types";
@@ -55,6 +60,63 @@ function FeatureItem({ text }: { text: string }) {
     <div className="flex items-center gap-2 text-sm text-white/80">
       <Check className="h-4 w-4 text-primary flex-shrink-0" />
       <span>{text}</span>
+    </div>
+  );
+}
+
+function UploadGuidance() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const tips = [
+    {
+      icon: <FileText className="h-4 w-4 text-primary flex-shrink-0" />,
+      text: "Uploadez 1 PDF a la fois pour les meilleurs resultats",
+    },
+    {
+      icon: <HardDrive className="h-4 w-4 text-primary flex-shrink-0" />,
+      text: "Taille maximale: 500 Mo par fichier",
+    },
+    {
+      icon: <FileText className="h-4 w-4 text-primary flex-shrink-0" />,
+      text: "Jusqu'a 500 pages par PDF",
+    },
+    {
+      icon: <Lightbulb className="h-4 w-4 text-primary flex-shrink-0" />,
+      text: "PDFs scannes ou natifs acceptes",
+    },
+    {
+      icon: <Clock className="h-4 w-4 text-primary flex-shrink-0" />,
+      text: "Les gros fichiers (>100 pages) prennent plus de temps",
+    },
+  ];
+
+  return (
+    <div className="bg-white/[0.04] border border-white/10 rounded-xl overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.03] transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Info className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium text-white/80">Conseils pour de meilleurs resultats</span>
+        </div>
+        <ChevronDown
+          className={`h-4 w-4 text-white/50 transition-transform duration-200 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+      {isOpen && (
+        <div className="px-4 pb-4 space-y-2.5">
+          {tips.map((tip, index) => (
+            <div key={index} className="flex items-center gap-3">
+              {tip.icon}
+              <span className="text-sm text-white/70">{tip.text}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -405,10 +467,8 @@ export default function UploadPage() {
   const uploadSingleFile = async (fileState: FileUploadState): Promise<string> => {
     // Use chunked upload for files larger than 10MB
     if (fileState.file.size > CHUNKED_UPLOAD_THRESHOLD) {
-      console.log(`Using chunked upload for ${fileState.file.name} (${(fileState.file.size / 1024 / 1024).toFixed(1)} MB)`);
       return uploadChunked(fileState);
     } else {
-      console.log(`Using direct upload for ${fileState.file.name} (${(fileState.file.size / 1024 / 1024).toFixed(1)} MB)`);
       return uploadDirect(fileState);
     }
   };
@@ -596,8 +656,11 @@ export default function UploadPage() {
             <p className="text-white font-semibold text-lg font-heading">
               {isDragActive ? "Deposez ici" : "Glissez vos PDFs"}
             </p>
-            <p className="text-sm text-white/60 mt-1">ou cliquez pour selectionner (jusqu'a {MAX_FILES} fichiers)</p>
+            <p className="text-sm text-white/60 mt-1">ou cliquez pour selectionner (max {MAX_FILES} PDFs, 500 Mo chacun)</p>
           </div>
+
+          {/* Upload Guidance Tips */}
+          <UploadGuidance />
 
           {/* File List */}
           {files.length > 0 && (

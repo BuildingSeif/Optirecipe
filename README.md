@@ -133,5 +133,28 @@ Recipe extraction platform for institutional food service in France (schools, ho
 - `POST /api/processing/recover-images` - Trigger image generation for recipes missing images
 - `POST /api/export` - Export recipes (JSON/CSV) with stats summary
 
+## Deployment Readiness
+
+### Fixes Applied (Feb 2025)
+- Fixed backend URL mismatch in webapp/.env (was pointing to stale URL)
+- Added global ErrorBoundary to catch unhandled React errors (shows French error page instead of white screen)
+- Removed sensitive data from backend logs (OTP codes, session tokens no longer logged)
+- Removed debug console.log from frontend upload code
+- Added upload guidance tips on the PDF upload page (collapsible best-practices card)
+
+### PDF Upload Limits (Safe Maximums)
+- Max file size: 500 MB per PDF
+- Max pages: 500 pages per PDF (recommended)
+- Max 5 PDFs per batch upload
+- Max 2000 recipes per PDF
+- Files >10MB use chunked upload automatically
+- Large PDFs (>100 pages) use lower JPEG quality (80 vs 90) to save memory
+
+### Scalability Notes
+- Extraction queue: max 2 large + 5 small PDFs concurrently
+- SQLite with WAL mode (single writer, concurrent readers)
+- Progress writes throttled to 1 per 3 seconds per job
+- Memory monitoring every 20 pages on large PDFs
+
 ## All UI in French
 The entire interface is in French for the target users in French institutional food service.

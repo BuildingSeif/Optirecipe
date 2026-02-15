@@ -33,7 +33,7 @@ otpRouter.post("/request-otp", async (c) => {
 
     // Generate a random 6-digit OTP code
     const code = String(randomInt(100000, 999999));
-    console.log("[OTP] Generated code for", email, ":", code);
+    console.log("[OTP] Generated OTP code for", email);
 
     // Delete any existing unused OTP codes for this email
     const deleteResult = await prisma.otpCode.deleteMany({
@@ -83,7 +83,7 @@ otpRouter.post("/verify-otp", async (c) => {
     const email = (body.email || "").trim().toLowerCase();
     const code = (body.code || "").trim();
 
-    console.log("[OTP] verify-otp called with email:", email, "code:", code);
+    console.log("[OTP] verify-otp called for:", email);
 
     // Look up OTP in the database (match email + code, not used, not expired)
     const now = new Date();
@@ -162,7 +162,7 @@ otpRouter.post("/verify-otp", async (c) => {
         userId: dbUser.id,
       },
     });
-    console.log("[OTP] Created session:", session.id, "token:", session.token, "expires:", sessionExpiresAt.toISOString());
+    console.log("[OTP] Created session:", session.id, "expires:", sessionExpiresAt.toISOString());
 
     console.log("[OTP] verify-otp completed successfully for:", email);
 
