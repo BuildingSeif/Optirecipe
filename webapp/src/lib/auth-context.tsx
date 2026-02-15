@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
-import { resolveBackendUrl } from "@/lib/api";
+import { getBackendUrl } from "@/lib/api";
 
 interface User {
   id: string;
@@ -31,7 +31,6 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const BACKEND_URL = resolveBackendUrl();
 const SESSION_KEY = "optirecipe_session";
 
 function saveSessionToStorage(session: Session | null) {
@@ -69,7 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchSession = useCallback(async () => {
     try {
       // Try fetching session via cookies first
-      const res = await fetch(`${BACKEND_URL}/api/auth/get-session`, {
+      const backendUrl = await getBackendUrl();
+      const res = await fetch(`${backendUrl}/api/auth/get-session`, {
         credentials: "include",
         headers: { "Accept": "application/json" },
       });
@@ -100,7 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const handleSignOut = useCallback(async () => {
     try {
-      await fetch(`${BACKEND_URL}/api/auth/sign-out`, {
+      const backendUrl = await getBackendUrl();
+      await fetch(`${backendUrl}/api/auth/sign-out`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

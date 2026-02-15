@@ -4,9 +4,8 @@ import { useAuth } from "@/lib/auth-context";
 import { Logo } from "@/components/Logo";
 import { GlassButton } from "@/components/ui/glass-button";
 import { Loader2, Mail, ArrowLeft } from "lucide-react";
-import { resolveBackendUrl } from "@/lib/api";
+import { getBackendUrl } from "@/lib/api";
 
-const BACKEND_URL = resolveBackendUrl();
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60;
 
@@ -54,7 +53,8 @@ export default function VerifyOtpPage() {
     setIsVerifying(true);
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/otp/verify-otp`, {
+      const backendUrl = await getBackendUrl();
+      const res = await fetch(`${backendUrl}/api/otp/verify-otp`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -172,7 +172,8 @@ export default function VerifyOtpPage() {
     setResendMessage("");
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/otp/request-otp`, {
+      const backendUrl = await getBackendUrl();
+      const res = await fetch(`${backendUrl}/api/otp/request-otp`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

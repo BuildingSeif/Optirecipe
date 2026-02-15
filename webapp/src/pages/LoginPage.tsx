@@ -4,9 +4,7 @@ import { GlassButton } from "@/components/ui/glass-button";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
 import { Loader2, Mail } from "lucide-react";
-import { resolveBackendUrl } from "@/lib/api";
-
-const BACKEND_URL = resolveBackendUrl();
+import { getBackendUrl } from "@/lib/api";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -22,7 +20,8 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/otp/request-otp`, {
+      const backendUrl = await getBackendUrl();
+      const res = await fetch(`${backendUrl}/api/otp/request-otp`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

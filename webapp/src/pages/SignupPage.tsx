@@ -5,9 +5,7 @@ import { GlassButton } from "@/components/ui/glass-button";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
 import { Loader2, Mail, Lock, User } from "lucide-react";
-import { resolveBackendUrl } from "@/lib/api";
-
-const BACKEND_URL = resolveBackendUrl();
+import { getBackendUrl } from "@/lib/api";
 
 export default function SignupPage() {
   const navigate = useNavigate();
@@ -24,7 +22,8 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/auth/sign-up/email`, {
+      const backendUrl = await getBackendUrl();
+      const res = await fetch(`${backendUrl}/api/auth/sign-up/email`, {
         method: "POST",
         credentials: "include",
         headers: {

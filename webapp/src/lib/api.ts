@@ -1,25 +1,66 @@
-// Resolve backend URL at runtime.
-// In Vibecode Cloud production, the backend is proxied on the same domain,
-// so same-origin requests work without CORS. Only use the dev preview URL
-// when actually running in the dev sandbox.
-export function resolveBackendUrl(): string {
-  const envUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_VIBECODE_BACKEND_URL;
+// Backend URL resolution with automatic fallback.
+// Tries same-origin first (production proxy), then the build-time env var (dev preview).
+// Caches the working URL after first successful request.
 
-  if (typeof window !== "undefined" && window.location.origin !== "null") {
-    const origin = window.location.origin;
-    // In dev sandbox (*.dev.vibecode.run), use the env var pointing to backend preview
-    if (origin.includes(".dev.vibecode.run") && envUrl) {
-      return envUrl;
-    }
-    // In production or any other deployment, use same-origin (proxy handles routing)
-    return origin;
+let _cachedBaseUrl: string | null = null;
+
+function getCandidateUrls(): string[] {
+  const envUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_VIBECODE_BACKEND_URL;
+  const origin =
+    typeof window !== "undefined" && window.location.origin !== "null"
+      ? window.location.origin
+      : null;
+
+  // In dev sandbox, the env var is the correct backend preview URL
+  if (origin?.includes(".dev.vibecode.run") && envUrl) {
+    return [envUrl];
   }
 
-  // SSR / non-browser fallback
-  if (envUrl) return envUrl;
-  return "http://localhost:3000";
+  // In production: try same-origin first, then fall back to env var
+  const urls: string[] = [];
+  if (origin) urls.push(origin);
+  if (envUrl && envUrl !== origin) urls.push(envUrl);
+  if (urls.length === 0) urls.push("http://localhost:3000");
+  return urls;
 }
-const API_BASE_URL = resolveBackendUrl();
+
+export function resolveBackendUrl(): string {
+  if (_cachedBaseUrl) return _cachedBaseUrl;
+  return getCandidateUrls()[0]!;
+}
+
+// Probe the backend and cache whichever URL responds
+async function probeAndCacheUrl(): Promise<string> {
+  if (_cachedBaseUrl) return _cachedBaseUrl;
+  const candidates = getCandidateUrls();
+  for (const url of candidates) {
+    try {
+      const resp = await fetch(`${url}/health`, {
+        method: "GET",
+        signal: AbortSignal.timeout(4000),
+      });
+      if (resp.ok) {
+        _cachedBaseUrl = url;
+        console.log(`[API] Using backend: ${url}`);
+        return url;
+      }
+    } catch {
+      // This candidate didn't work, try next
+    }
+  }
+  // Nothing worked — default to first candidate and let errors surface naturally
+  _cachedBaseUrl = candidates[0]!;
+  console.warn(`[API] No backend responded, defaulting to: ${_cachedBaseUrl}`);
+  return _cachedBaseUrl;
+}
+
+// Start probing immediately on module load
+const _probePromise = probeAndCacheUrl();
+
+// Get the resolved backend URL (async — waits for probe)
+export async function getBackendUrl(): Promise<string> {
+  return _probePromise;
+}
 
 class ApiError extends Error {
   constructor(message: string, public status: number, public data?: unknown) {
@@ -50,7 +91,9 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
+  // Wait for probe to finish (instant if already resolved)
+  const baseUrl = await _probePromise;
+  const url = `${baseUrl}${endpoint}`;
 
   const config: RequestInit = {
     ...options,
@@ -67,7 +110,6 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   if (!response.ok) {
     const json = await response.json().catch(() => null);
     throw new ApiError(
-      // Try app-route format first, fallback to generic message (Better Auth uses this)
       json?.error?.message || json?.message || `Request failed with status ${response.status}`,
       response.status,
       json?.error || json
@@ -92,7 +134,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 // Raw request for non-JSON endpoints (uploads, downloads, streams)
 async function rawRequest(endpoint: string, options: RequestInit = {}): Promise<Response> {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const baseUrl = await _probePromise;
+  const url = `${baseUrl}${endpoint}`;
   const config: RequestInit = {
     ...options,
     headers: {
