@@ -1,18 +1,12 @@
-// Resolve backend URL: in production deployment, backend is proxied on same domain.
-// Only use the build-time env var when running in dev/preview sandbox.
+// Resolve backend URL at runtime.
+// Priority: build-time env var (injected by Vibecode) > window.location.origin > localhost fallback.
+// IMPORTANT: Do NOT hardcode URLs in webapp/.env — the Vibecode system injects
+// VITE_BACKEND_URL as a process env var at both dev and production build time.
 export function resolveBackendUrl(): string {
-  if (typeof window !== "undefined" && window.location.origin !== "null") {
-    const origin = window.location.origin;
-    // In Vibecode Cloud production, backend is on the same domain — use origin directly
-    const isDevSandbox = origin.includes(".dev.vibecode.run");
-    if (!isDevSandbox) {
-      // Production deployment: same-origin proxy
-      return origin;
-    }
-  }
-  // Dev/preview sandbox: use build-time env var
+  // 1. Use the env var injected by Vibecode at build time (works in both dev and prod)
   const envUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_VIBECODE_BACKEND_URL;
   if (envUrl) return envUrl;
+  // 2. Fallback: same-origin (works when backend is proxied on same domain)
   if (typeof window !== "undefined" && window.location.origin !== "null") {
     return window.location.origin;
   }
