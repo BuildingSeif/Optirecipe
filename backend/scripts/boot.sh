@@ -25,7 +25,24 @@ if [[ "${ENVIRONMENT}" == "production" ]]; then
       echo "[Boot] Cleaning up ${backup_count} old database backup(s) to free disk space..."
       find "${DATA_DIR}" -name "production.db-*" -type f -delete 2>/dev/null || true
     fi
+    # Clean oversized WAL/SHM files (>50MB) that can accumulate after crashes
+    for f in "${DATABASE_FILE}-wal" "${DATABASE_FILE}-shm"; do
+      if [[ -f "$f" ]] && [[ $(stat -c%s "$f" 2>/dev/null || echo 0) -gt 52428800 ]]; then
+        echo "[Boot] Removing oversized file: $f ($(du -h "$f" 2>/dev/null | cut -f1))"
+        rm -f "$f"
+      fi
+    done
   fi
+
+  # Clean Prisma engine cache to free disk space (will be re-generated)
+  if [[ -d "node_modules/.prisma" ]]; then
+    echo "[Boot] Clearing Prisma engine cache to free disk space..."
+    rm -rf node_modules/.prisma
+  fi
+
+  # Report disk space
+  echo "[Boot] Disk space after cleanup:"
+  df -h "${DATA_DIR}" 2>/dev/null || df -h /
 
   # Skip the VACUUM backup entirely — it fills disk on crash loops
   echo "[Boot] Skipping database VACUUM backup (disk protection)"

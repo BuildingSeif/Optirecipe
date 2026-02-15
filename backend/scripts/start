@@ -6,10 +6,21 @@ set -o pipefail
 # Load shared environment setup
 source "$(dirname "$0")/env.sh"
 
-# Backup the database before proceeding.
-if [[ "${ENVIRONMENT}" == "production" ]] && [[ -f "${DATABASE_FILE}" ]]; then
-  DATABASE_BACKUP_FILE="${DATABASE_FILE}-$(date +%s)"
-  echo "VACUUM INTO '${DATABASE_BACKUP_FILE}'" | sqlite3 "${DATABASE_FILE}"
+# CRITICAL: Do NOT use VACUUM INTO here — it copies the entire DB and fills the disk.
+# Instead, clean up any old backup copies that accumulated from previous crash loops.
+if [[ "${ENVIRONMENT}" == "production" ]] && [[ -d "${DATA_DIR:-/data}" ]]; then
+  backup_count=$(find "${DATA_DIR:-/data}" -name "production.db-*" -type f 2>/dev/null | wc -l)
+  if [[ "$backup_count" -gt 0 ]]; then
+    echo "[Boot] Cleaning up ${backup_count} old database backup(s) to free disk space..."
+    find "${DATA_DIR:-/data}" -name "production.db-*" -type f -delete 2>/dev/null || true
+  fi
+  # Also clean WAL/SHM files if they're oversized (>50MB)
+  for f in "${DATABASE_FILE:-/data/production.db}-wal" "${DATABASE_FILE:-/data/production.db}-shm"; do
+    if [[ -f "$f" ]] && [[ $(stat -c%s "$f" 2>/dev/null || echo 0) -gt 52428800 ]]; then
+      echo "[Boot] Removing oversized WAL/SHM file: $f"
+      rm -f "$f"
+    fi
+  done
 fi
  
 
