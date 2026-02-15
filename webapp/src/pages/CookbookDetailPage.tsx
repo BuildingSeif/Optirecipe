@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { api } from "@/lib/api";
 import {
   CheckCircle2,
+  ChefHat,
   Loader2,
   RefreshCw,
   AlertCircle,
@@ -461,6 +462,13 @@ export default function CookbookDetailPage() {
                   to={`/recipes/${recipe.id}`}
                   className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-white/[0.04] transition-colors"
                 >
+                  {recipe.imageUrl ? (
+                    <img src={recipe.imageUrl} alt="" className="h-9 w-9 rounded-lg object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="h-9 w-9 rounded-lg bg-white/[0.06] flex items-center justify-center flex-shrink-0">
+                      <ChefHat className="h-4 w-4 text-white/40" />
+                    </div>
+                  )}
                   <span className={`status-dot status-dot-${recipe.status}`} />
                   <span className="text-sm text-white font-medium truncate flex-1">{recipe.title}</span>
                   {recipe.category ? (

@@ -91,6 +91,11 @@ export default function RecipeDetailPage() {
   const { data: recipe, isLoading } = useQuery({
     queryKey: ["recipe", id],
     queryFn: () => api.get<Recipe>(`/api/recipes/${id}`),
+    refetchInterval: (query) => {
+      // Auto-refresh every 10s if image hasn't been generated yet
+      const data = query.state.data;
+      return data && !data.imageUrl ? 10000 : false;
+    },
   });
 
   const { data: categories } = useQuery({

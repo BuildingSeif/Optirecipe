@@ -1,15 +1,22 @@
 // Resolve backend URL at runtime.
-// Priority: build-time env var (injected by Vibecode) > window.location.origin > localhost fallback.
-// IMPORTANT: Do NOT hardcode URLs in webapp/.env — the Vibecode system injects
-// VITE_BACKEND_URL as a process env var at both dev and production build time.
+// In Vibecode Cloud production, the backend is proxied on the same domain,
+// so same-origin requests work without CORS. Only use the dev preview URL
+// when actually running in the dev sandbox.
 export function resolveBackendUrl(): string {
-  // 1. Use the env var injected by Vibecode at build time (works in both dev and prod)
   const envUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_VIBECODE_BACKEND_URL;
-  if (envUrl) return envUrl;
-  // 2. Fallback: same-origin (works when backend is proxied on same domain)
+
   if (typeof window !== "undefined" && window.location.origin !== "null") {
-    return window.location.origin;
+    const origin = window.location.origin;
+    // In dev sandbox (*.dev.vibecode.run), use the env var pointing to backend preview
+    if (origin.includes(".dev.vibecode.run") && envUrl) {
+      return envUrl;
+    }
+    // In production or any other deployment, use same-origin (proxy handles routing)
+    return origin;
   }
+
+  // SSR / non-browser fallback
+  if (envUrl) return envUrl;
   return "http://localhost:3000";
 }
 const API_BASE_URL = resolveBackendUrl();
