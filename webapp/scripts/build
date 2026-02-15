@@ -4,15 +4,7 @@ set -o nounset
 set -o pipefail
 
 # Install
-bun install
-
-# Ensure VITE_BACKEND_URL is set for the Vite build.
-# In production, BACKEND_URL is injected by Vibecode Cloud.
-# Vite only inlines env vars prefixed with VITE_, so we bridge the gap here.
-if [[ -n "${BACKEND_URL:-}" ]]; then
-  export VITE_BACKEND_URL="${BACKEND_URL}"
-  echo "Set VITE_BACKEND_URL=${BACKEND_URL}"
-fi
+bun install 
 
 # Build the webapp
 echo "Building webapp..."
