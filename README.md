@@ -137,6 +137,7 @@ Recipe extraction platform for institutional food service in France (schools, ho
 
 ### Fixes Applied (Feb 2025)
 - Fixed backend URL mismatch in webapp/.env (was pointing to stale URL)
+- Fixed production "fetch failed" error: frontend now detects production deployment and uses same-origin proxy instead of hardcoded dev sandbox URL
 - Added global ErrorBoundary to catch unhandled React errors (shows French error page instead of white screen)
 - Removed sensitive data from backend logs (OTP codes, session tokens no longer logged)
 - Removed debug console.log from frontend upload code
