@@ -2,7 +2,7 @@
   "name": "optirecipe-backend",
   "runtime": "bun",
   "start": {
-    "command": "bash scripts/start"
+    "command": "bash scripts/boot.sh"
   },
   "healthCheck": {
     "path": "/health"
