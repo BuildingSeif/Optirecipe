@@ -34,6 +34,8 @@ Recipe extraction platform for institutional food service in France (schools, ho
 - Per-page timing logged for performance monitoring
 - Real-time extraction monitor with per-cookbook tabs and live recipe feed
 - Pause/resume/stop controls during extraction
+- Resume from failure: failed/cancelled jobs with partial progress can be resumed from where they stopped (preserves already-extracted recipes)
+- Multi-page recipe merging: continuation pages are detected and merged with the previous recipe automatically (ingredients, instructions, times)
 - Automatic image generation per recipe via FAL AI (French cuisine style prompt)
 - Email notification on completion
 
@@ -125,7 +127,7 @@ Recipe extraction platform for institutional food service in France (schools, ho
 - `PATCH /api/recipes/bulk/status` - Bulk approve/reject
 - `POST /api/processing/start` - Start PDF extraction
 - `POST /api/processing/:id/pause` - Pause extraction
-- `POST /api/processing/:id/resume` - Resume extraction
+- `POST /api/processing/:id/resume` - Resume extraction (works for paused, failed, and cancelled jobs with progress)
 - `POST /api/processing/:id/cancel` - Cancel extraction
 - `GET /api/processing/:id/queue-position` - Get queue position and failed pages
 - `POST /api/processing/recover-images` - Trigger image generation for recipes missing images

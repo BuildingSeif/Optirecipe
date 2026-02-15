@@ -201,18 +201,32 @@ processingRouter.post("/:id/resume", async (c) => {
     return c.json({ error: { message: "Processing job not found" } }, 404);
   }
 
-  if (job.status !== "paused") {
-    return c.json({ error: { message: "Job is not paused" } }, 400);
+  const resumableStatuses = ["paused", "failed", "cancelled"];
+  if (!resumableStatuses.includes(job.status)) {
+    return c.json({ error: { message: "Job is not paused, failed, or cancelled" } }, 400);
   }
 
-  // Remove from paused set
+  // For failed/cancelled jobs, require that some progress was made (currentPage > 0)
+  if ((job.status === "failed" || job.status === "cancelled") && (job.currentPage ?? 0) === 0) {
+    return c.json({ error: { message: "Job has no progress to resume from. Use re-extract instead." } }, 400);
+  }
+
+  // Remove from paused set (no-op if not paused, but safe to call)
   resumeProcessingJob(id);
 
   // Update job status
   await prisma.processingJob.update({
     where: { id },
-    data: { status: "processing" },
+    data: { status: "processing", completedAt: null },
   });
+
+  // Clear cookbook error message when resuming from failed/cancelled
+  if (job.status === "failed" || job.status === "cancelled") {
+    await prisma.cookbook.update({
+      where: { id: job.cookbookId },
+      data: { status: "processing", errorMessage: null },
+    });
+  }
 
   // Re-launch extraction from where it left off (currentPage is tracked in DB)
   extractRecipesFromPDF(id).catch((error) => {

@@ -237,8 +237,16 @@ IMPORTANT:
 - Si une information n'est pas disponible, utilise null (pas de string vide)
 - Les quantites DOIVENT etre des nombres, jamais du texte
 - REFORMULE vraiment les instructions, ne copie pas mot pour mot
-- Si la page semble etre la CONTINUATION d'une recette (pas de titre, commence par des instructions), indique-le dans le champ "notes" avec le prefixe "CONTINUATION:" suivi du contenu
-- Extrais CHAQUE recette separement, meme si elles sont petites ou partielles
+- RECETTES SUR PLUSIEURS PAGES: Si la page continue une recette commencee sur une page precedente (pas de nouveau titre, commence directement par des instructions, des ingredients supplementaires, ou la suite d'une preparation):
+  * Mettre "found_recipe": true
+  * Dans le tableau "recipes", creer une entree avec:
+    - "title": le titre de la recette precedente si visible, sinon "CONTINUATION"
+    - "is_continuation": true (champ special)
+    - Les ingredients SUPPLEMENTAIRES trouves sur cette page uniquement
+    - Les instructions SUPPLEMENTAIRES trouvees sur cette page uniquement
+    - Tous les autres champs disponibles sur cette page
+  * NE PAS mettre found_recipe: false pour les continuations - elles contiennent des donnees precieuses
+- PLUSIEURS RECETTES PAR PAGE: Si une page contient plusieurs recettes (meme petites ou partielles), extraire CHAQUE recette dans le tableau "recipes"
 - Pour les temperatures de cuisson, inclus le champ temperature_celsius et temperature_fahrenheit dans chaque instruction (null si pas de temperature)
 - Pour difficulty, evalue la difficulte globale: "facile", "moyen", ou "difficile"
 - Pour dietary_flags, analyse les ingredients pour determiner les flags alimentaires:
@@ -272,6 +280,7 @@ interface ExtractedRecipe {
   description?: string;
   category?: string;
   sub_category?: string;
+  is_continuation?: boolean;
   ingredients: Ingredient[];
   instructions: Instruction[];
   servings?: number;
@@ -817,6 +826,9 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
       // Pre-create buffer once to avoid copying for every batch
       const pdfNodeBuffer = Buffer.from(pdfBuffer);
 
+      // Track last created recipe ID for merging multi-page continuations
+      let lastCreatedRecipeId: string | null = null;
+
       // Process pages in batches of BATCH_SIZE (concurrent per batch, like Python version)
       for (let batchStart = startPage; batchStart <= totalPages; batchStart += BATCH_SIZE) {
         // Check if job was cancelled
@@ -919,6 +931,59 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
             for (const recipe of result.recipes) {
               if (recipesExtracted >= MAX_RECIPES_PER_PDF) break;
 
+              // Handle multi-page recipe continuations
+              if (recipe.is_continuation && lastCreatedRecipeId) {
+                // Merge with the last created recipe
+                try {
+                  const existingRecipe = await prisma.recipe.findUnique({ where: { id: lastCreatedRecipeId } });
+                  if (existingRecipe) {
+                    const existingIngredients: any[] = JSON.parse(existingRecipe.ingredients as string || '[]');
+                    const existingInstructions: any[] = JSON.parse(existingRecipe.instructions as string || '[]');
+
+                    // Merge ingredients (add new ones)
+                    const mergedIngredients = [...existingIngredients, ...(recipe.ingredients || [])];
+
+                    // Merge instructions (continue step numbering)
+                    const maxStep = existingInstructions.reduce((max: number, i: any) => Math.max(max, i.step || 0), 0);
+                    const newInstructions = (recipe.instructions || []).map((inst, idx) => ({
+                      ...inst,
+                      step: maxStep + idx + 1,
+                    }));
+                    const mergedInstructions = [...existingInstructions, ...newInstructions];
+
+                    // Update times if the continuation has them and the original doesn't
+                    const updateData: any = {
+                      ingredients: JSON.stringify(mergedIngredients),
+                      instructions: JSON.stringify(mergedInstructions),
+                    };
+                    if (recipe.prep_time_minutes && !existingRecipe.prepTimeMinutes) {
+                      updateData.prepTimeMinutes = recipe.prep_time_minutes;
+                    }
+                    if (recipe.cook_time_minutes && !existingRecipe.cookTimeMinutes) {
+                      updateData.cookTimeMinutes = recipe.cook_time_minutes;
+                    }
+                    if (recipe.tips && !existingRecipe.tips) {
+                      updateData.tips = recipe.tips;
+                    }
+                    if (recipe.servings && !existingRecipe.servings) {
+                      updateData.servings = recipe.servings;
+                    }
+
+                    await prisma.recipe.update({
+                      where: { id: lastCreatedRecipeId },
+                      data: updateData,
+                    });
+
+                    processingLog.push(`Page ${pageNum}: Continuation fusionnee avec "${existingRecipe.title}"`);
+                    console.log(`[Extraction] Page ${pageNum}: Merged continuation with recipe "${existingRecipe.title}"`);
+                  }
+                } catch (mergeErr) {
+                  console.error(`[Extraction] Failed to merge continuation on page ${pageNum}:`, mergeErr);
+                  // Fall through to create as separate recipe
+                }
+                continue; // Skip creating a new recipe
+              }
+
               processingLog.push(`Page ${pageNum}: Recette trouvee - ${recipe.title}`);
 
               const createdRecipe = await prisma.recipe.create({
@@ -960,6 +1025,8 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
                 },
               });
 
+              // Track this recipe as the last created for potential continuation merging
+              lastCreatedRecipeId = createdRecipe.id;
               recipesExtracted++;
 
               // Queue image generation (throttled, non-blocking)
@@ -977,6 +1044,14 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
               failedPages++;
               continue;
             }
+
+            // Handle old-style CONTINUATION notes - merge with last recipe
+            if (result.notes?.startsWith('CONTINUATION:') && lastCreatedRecipeId) {
+              processingLog.push(`Page ${pageNum}: Continuation (ancien format) detectee`);
+              console.log(`[Extraction] Page ${pageNum}: Old-style continuation detected, skipping storage as NonRecipeContent`);
+              continue; // Don't store as non-recipe content
+            }
+
             const notes = result.notes ? ` - ${result.notes}` : "";
             processingLog.push(`Page ${pageNum}: Pas de recette (${pageType}${notes})`);
 

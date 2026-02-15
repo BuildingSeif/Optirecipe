@@ -82,6 +82,13 @@ export default function CookbookDetailPage() {
     },
   });
 
+  const reExtractMutation = useMutation({
+    mutationFn: () => api.post("/api/processing/re-extract", { cookbookId: id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cookbook", id] });
+    },
+  });
+
   const latestJob = cookbook?.processingJobs?.[0];
 
   const pauseMutation = useMutation({
@@ -186,10 +193,24 @@ export default function CookbookDetailPage() {
     rejected: recipes.filter((r) => r.status === "rejected").length,
   };
 
+  const isFailedOrCancelled = cookbook.status === "failed" || cookbook.status === "cancelled";
+  const hasPartialProgress = isFailedOrCancelled && latestJob && latestJob.currentPage > 0;
+  const hasRecipes = cookbook.totalRecipesFound > 0;
+
   const headerRightContent = (
     <div className="flex items-center gap-2">
       <StatusBadge status={cookbook.status} />
-      {cookbook.status !== "processing" && cookbook.status !== "paused" ? (
+      {cookbook.status !== "processing" && cookbook.status !== "paused" && !isFailedOrCancelled ? (
+        <GlassButton
+          size="sm"
+          onClick={() => reprocessMutation.mutate()}
+          disabled={reprocessMutation.isPending}
+        >
+          <RefreshCw className={`mr-2 h-4 w-4 ${reprocessMutation.isPending ? "animate-spin" : ""}`} />
+          Retraiter
+        </GlassButton>
+      ) : null}
+      {isFailedOrCancelled && !hasRecipes ? (
         <GlassButton
           size="sm"
           onClick={() => reprocessMutation.mutate()}
@@ -275,6 +296,99 @@ export default function CookbookDetailPage() {
               <Play className="mr-2 h-3 w-3" />
               Reprendre l'extraction
             </GlassButton>
+          </div>
+        ) : null}
+
+        {/* Failed/Cancelled State with Partial Progress */}
+        {isFailedOrCancelled && hasPartialProgress && hasRecipes ? (
+          <div className="ct-card p-5 space-y-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-red-400" />
+                <span className="text-sm text-white">
+                  Interrompu a la page {latestJob.currentPage} / {cookbook.totalPages ?? "?"} — {cookbook.totalRecipesFound} recette{cookbook.totalRecipesFound > 1 ? "s" : ""} extraite{cookbook.totalRecipesFound > 1 ? "s" : ""}
+                </span>
+              </div>
+            </div>
+            <Progress value={processingProgress} className="h-1.5" />
+            {cookbook.errorMessage ? (
+              <p className="text-xs text-red-400/80">{cookbook.errorMessage}</p>
+            ) : null}
+            <p className="text-xs text-white/50">
+              L'extraction a ete interrompue. {cookbook.totalRecipesFound} recette{cookbook.totalRecipesFound > 1 ? "s" : ""} {cookbook.totalRecipesFound > 1 ? "ont" : "a"} ete trouvee{cookbook.totalRecipesFound > 1 ? "s" : ""} sur {latestJob.currentPage} page{latestJob.currentPage > 1 ? "s" : ""} traitee{latestJob.currentPage > 1 ? "s" : ""}. Vous pouvez reprendre l'extraction ou recommencer depuis le debut.
+            </p>
+            <div className="flex gap-2">
+              <GlassButton
+                size="sm"
+                onClick={handleResume}
+                disabled={resumeMutation.isPending}
+                variant="primary"
+                className="flex-1"
+              >
+                <Play className="mr-2 h-3 w-3" />
+                {resumeMutation.isPending ? "Reprise en cours..." : "Reprendre l'extraction"}
+              </GlassButton>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (window.confirm("Recommencer l'extraction depuis le debut ? Les recettes existantes seront supprimees.")) {
+                    reExtractMutation.mutate();
+                  }
+                }}
+                disabled={reExtractMutation.isPending}
+                className="text-white/60 hover:text-white border-white/10 hover:border-white/20"
+              >
+                <RefreshCw className={`mr-2 h-3 w-3 ${reExtractMutation.isPending ? "animate-spin" : ""}`} />
+                Retraiter depuis le debut
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Failed/Cancelled State without Recipes but with some progress */}
+        {isFailedOrCancelled && hasPartialProgress && !hasRecipes ? (
+          <div className="ct-card p-5 space-y-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-red-400" />
+                <span className="text-sm text-white">
+                  Interrompu a la page {latestJob.currentPage} / {cookbook.totalPages ?? "?"} — aucune recette extraite
+                </span>
+              </div>
+            </div>
+            <Progress value={processingProgress} className="h-1.5" />
+            {cookbook.errorMessage ? (
+              <p className="text-xs text-red-400/80">{cookbook.errorMessage}</p>
+            ) : null}
+            <p className="text-xs text-white/50">
+              L'extraction a ete interrompue avant de trouver des recettes. Vous pouvez relancer l'extraction.
+            </p>
+            <GlassButton
+              size="sm"
+              onClick={() => reprocessMutation.mutate()}
+              disabled={reprocessMutation.isPending}
+              variant="primary"
+              className="w-full"
+            >
+              <RefreshCw className={`mr-2 h-3 w-3 ${reprocessMutation.isPending ? "animate-spin" : ""}`} />
+              {reprocessMutation.isPending ? "Relance en cours..." : "Retraiter"}
+            </GlassButton>
+          </div>
+        ) : null}
+
+        {/* Failed/Cancelled State with no progress */}
+        {isFailedOrCancelled && !hasPartialProgress ? (
+          <div className="ct-card p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-red-400" />
+              <span className="text-sm text-white">
+                {cookbook.status === "failed" ? "L'extraction a echoue" : "L'extraction a ete annulee"}
+              </span>
+            </div>
+            {cookbook.errorMessage ? (
+              <p className="text-xs text-red-400/80">{cookbook.errorMessage}</p>
+            ) : null}
           </div>
         ) : null}
 
