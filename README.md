@@ -16,14 +16,23 @@ Recipe extraction platform for institutional food service in France (schools, ho
 ### PDF Upload & Extraction
 - Upload PDFs up to 500MB (chunked upload for large files)
 - Options screen before processing: select recipe type (Prive/Collectivite) and toggle image generation
-- MuPDF renders each page as JPEG at 2x resolution
-- GPT-5.2 Vision extracts recipes with ingredients, instructions, dietary flags, difficulty
+- MuPDF renders each page as JPEG with adaptive resolution
+- GPT-5.2 Vision extracts recipes with ingredients, instructions, dietary flags, difficulty, confidence score
 - Temperature detection: Celsius, Fahrenheit, and French thermostat (1-10) with automatic conversion
 - Batch processing: 5 pages concurrently with single PDF doc open per batch (memory efficient)
-- Pre-allocated PDF buffer: single Buffer.from() copy reused across all batches (eliminates ~30GB of copies on 900-page PDFs)
+- **Memory-safe streaming**: PDFs downloaded to temp file on disk, never held fully in memory (supports 500MB+ PDFs)
+- **Adaptive rendering**: Scale and JPEG quality adjust based on PDF size (<50 pages: 2x/90, 50-200: 1.8x/85, 200-500: 1.5x/80, 500+: 1.3x/75)
+- **Intelligent page pre-filter**: GPT-4o-mini classifies pages as recipe/skip/uncertain before full extraction — skips blank pages, TOC, copyright, ads (saves 40-60% API cost)
+- **Pipeline architecture**: While batch N is analyzed by OpenAI, batch N+1 is pre-rendered by MuPDF (30-40% faster)
+- **Recipe quality validation**: Each recipe checked for minimum ingredients, instructions, title validity. Quality score (0-100). Invalid recipes flagged as "needs_review"
+- **Confidence scoring**: GPT-5.2 rates extraction confidence (0-100). Low confidence (<50) recipes auto-flagged for review
+- **Recipe deduplication**: After extraction, fuzzy title matching (Jaccard similarity >80%) removes duplicates, keeping the most complete version
+- **Page-range re-extraction**: Re-extract specific pages without re-processing the entire PDF (POST /api/processing/re-extract-pages)
+- **Cost tracking**: Tracks OpenAI API calls, pre-filter calls, pages skipped, estimated cost per extraction job
+- **Real-time SSE progress**: Server-Sent Events push live updates (recipe found, progress, errors) — polling falls back to 30s when SSE connected
+- **Extraction summary dashboard**: Shows pages analyzed, pages filtered, recipes extracted, needs review, duplicates removed, estimated cost
 - 90-second timeout per OpenAI API call to prevent hung jobs
 - Forced progress saves after every batch for crash recovery on large PDFs (500+ pages)
-- Dynamic JPEG quality (80 for large PDFs >100 pages, 90 for small) to reduce memory pressure
 - Max 2000 recipes per PDF (supports large institutional cookbooks)
 - Memory monitoring: heap/RSS logged every 20 pages for large PDFs
 - Processing log capped at 200 entries to prevent unbounded JSON growth
@@ -130,6 +139,8 @@ Recipe extraction platform for institutional food service in France (schools, ho
 - `POST /api/processing/:id/resume` - Resume extraction (works for paused, failed, and cancelled jobs with progress)
 - `POST /api/processing/:id/cancel` - Cancel extraction
 - `GET /api/processing/:id/queue-position` - Get queue position and failed pages
+- `POST /api/processing/re-extract-pages` - Re-extract specific page range (partial re-extraction)
+- `GET /api/processing/stream/:id` - SSE endpoint for real-time extraction progress
 - `POST /api/processing/recover-images` - Trigger image generation for recipes missing images
 - `POST /api/export` - Export recipes (JSON/CSV) with stats summary
 

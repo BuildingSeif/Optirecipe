@@ -3,6 +3,9 @@ import { env } from "../env";
 import { createVibecodeSDK } from "@vibecodeapp/backend-sdk";
 import type { Ingredient, Instruction } from "../types";
 import { sendExtractionCompleteEmail } from "./email";
+import { progressEmitter } from "./progress-emitter";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 // PDF rendering - MuPDF (same engine as PyMuPDF used in working Python version)
 import * as mupdf from "mupdf";
@@ -10,7 +13,10 @@ import * as mupdf from "mupdf";
 // Initialize Vibecode SDK for file access
 const vibecode = createVibecodeSDK();
 
-// Image generation helper using FAL AI Flux Pro v1.1
+// ==================== UPGRADE #3: Intelligent Page Pre-filter Toggle ====================
+const ENABLE_PAGE_PREFILTER = true;
+
+// ==================== Image generation helper using FAL AI Flux Pro v1.1 ====================
 async function generateRecipeImage(title: string, description?: string): Promise<string | null> {
   const apiKey = process.env.FAL_KEY;
   if (!apiKey) {
@@ -64,7 +70,7 @@ async function generateRecipeImage(title: string, description?: string): Promise
   }
 }
 
-// Extraction prompt for GPT-4 Vision
+// ==================== UPGRADE #5: Extraction Prompt V2 (augmented with confidence_score) ====================
 const EXTRACTION_PROMPT = `Tu es un expert en extraction de recettes de cuisine pour une base de donnees professionnelle de restauration collective francaise.
 
 CONTEXTE: Cette recette sera utilisee dans OptiMenu, un systeme de planification de repas pour les cantines scolaires, hopitaux, et restaurants d'entreprise en France. Les quantites doivent etre precises pour calculer les couts et generer les commandes.
@@ -76,6 +82,7 @@ TACHE:
 4. REFORMULER le titre et les instructions dans tes propres mots (eviter le plagiat)
 5. Convertir TOUTES les quantites en grammes/ml exacts
 6. Generer une description appetissante de 2-3 phrases
+7. Evaluer ta confiance dans l'extraction (confidence_score)
 
 REGLES DE CONVERSION (OBLIGATOIRES):
 - 1 pomme de terre moyenne = 150g
@@ -150,23 +157,23 @@ NIVEAUX DE DIFFICULTE:
 
 DETECTION ET CONVERSION DES TEMPERATURES:
 Detecte TOUTES les temperatures dans le texte, y compris les formats suivants:
-- "180°C" → temperature_celsius: 180, temperature_fahrenheit: 356
-- "four a 180 degres" → temperature_celsius: 180, temperature_fahrenheit: 356
-- "350°F" → temperature_celsius: 177, temperature_fahrenheit: 350
+- "180\u00b0C" \u2192 temperature_celsius: 180, temperature_fahrenheit: 356
+- "four a 180 degres" \u2192 temperature_celsius: 180, temperature_fahrenheit: 356
+- "350\u00b0F" \u2192 temperature_celsius: 177, temperature_fahrenheit: 350
 - Thermostat (conversion obligatoire):
-  Thermostat 1 = 30°C = 86°F
-  Thermostat 2 = 60°C = 140°F
-  Thermostat 3 = 90°C = 194°F
-  Thermostat 4 = 120°C = 248°F
-  Thermostat 5 = 150°C = 302°F
-  Thermostat 6 = 180°C = 356°F
-  Thermostat 7 = 210°C = 410°F
-  Thermostat 8 = 240°C = 464°F
-  Thermostat 9 = 270°C = 518°F
-  Thermostat 10 = 300°C = 572°F
+  Thermostat 1 = 30\u00b0C = 86\u00b0F
+  Thermostat 2 = 60\u00b0C = 140\u00b0F
+  Thermostat 3 = 90\u00b0C = 194\u00b0F
+  Thermostat 4 = 120\u00b0C = 248\u00b0F
+  Thermostat 5 = 150\u00b0C = 302\u00b0F
+  Thermostat 6 = 180\u00b0C = 356\u00b0F
+  Thermostat 7 = 210\u00b0C = 410\u00b0F
+  Thermostat 8 = 240\u00b0C = 464\u00b0F
+  Thermostat 9 = 270\u00b0C = 518\u00b0F
+  Thermostat 10 = 300\u00b0C = 572\u00b0F
 
 CHAQUE instruction contenant une temperature DOIT inclure temperature_celsius ET temperature_fahrenheit.
-Formule de conversion: °F = (°C × 9/5) + 32, arrondi a l'entier le plus proche.
+Formule de conversion: \u00b0F = (\u00b0C \u00d7 9/5) + 32, arrondi a l'entier le plus proche.
 
 FORMAT DE SORTIE (JSON STRICT):
 
@@ -181,6 +188,7 @@ Si une recette est trouvee:
       "category": "plat",
       "sub_category": "viandes",
       "difficulty": "facile",
+      "confidence_score": 85,
       "ingredients": [
         {
           "name": "boeuf (rumsteck)",
@@ -205,7 +213,7 @@ Si une recette est trouvee:
       "country": "France",
       "season": "hiver",
       "diet_tags": [],
-      "meal_type": "diner",  // "petit_dejeuner", "dejeuner", "diner", ou "collation"
+      "meal_type": "diner",
       "tips": "Conseils du chef si presents dans le texte.",
       "dietary_flags": {
         "is_vegetarian": false,
@@ -223,6 +231,12 @@ Si une recette est trouvee:
     }
   ]
 }
+
+CONFIDENCE_SCORE: Evalue ta confiance dans cette extraction de 0 a 100.
+- 100 = extraction parfaite, clairement une recette bien structuree
+- 70-99 = bonne extraction, quelques informations peuvent manquer
+- 50-69 = extraction incertaine, format inhabituel ou page partielle
+- En dessous de 50 = tres incertain, pourrait ne pas etre une vraie recette
 
 Si AUCUNE recette n'est trouvee (page d'intro, sommaire, etc.):
 {
@@ -281,6 +295,7 @@ interface ExtractedRecipe {
   category?: string;
   sub_category?: string;
   is_continuation?: boolean;
+  confidence_score?: number;
   ingredients: Ingredient[];
   instructions: Instruction[];
   servings?: number;
@@ -332,11 +347,11 @@ const MAX_RETRIES = 3;
 const MAX_RECIPES_PER_PDF = 2000;
 const BATCH_SIZE = 5; // Pages per batch for OpenAI PDF processing
 
-// Global extraction queue — smart concurrency for multi-user scale
+// Global extraction queue -- smart concurrency for multi-user scale
 const extractionQueue: string[] = [];
 let largeRunning = 0;
 let smallRunning = 0;
-const SMALL_PDF_THRESHOLD = 20; // Pages — PDFs this size or smaller use the fast lane
+const SMALL_PDF_THRESHOLD = 20; // Pages -- PDFs this size or smaller use the fast lane
 const MAX_LARGE_CONCURRENT = 2;  // Max large PDFs extracting at once (reduced for memory safety)
 const MAX_SMALL_CONCURRENT = 5;  // Max small PDFs extracting at once
 
@@ -373,9 +388,19 @@ function normalizeFilename(name: string): string {
     .replace(/[^a-z0-9]/g, ''); // Keep only alphanumeric
 }
 
-// Fetch PDF file from storage
-async function fetchPDFFromStorage(filePath: string, fileUrl?: string | null): Promise<ArrayBuffer> {
-  console.log(`Fetching PDF with filePath: ${filePath}, fileUrl: ${fileUrl || 'not provided'}`);
+// ==================== UPGRADE #8: Memory-Safe Streaming for 500MB+ PDFs ====================
+// Downloads PDF to a temp file on disk instead of holding entire ArrayBuffer in memory.
+// Returns the file path string.
+async function fetchPDFFromStorage(filePath: string, fileUrl?: string | null, jobId?: string): Promise<string> {
+  const tempPath = path.join("/tmp", `pdf-extract-${jobId || Date.now()}.pdf`);
+  console.log(`Fetching PDF with filePath: ${filePath}, fileUrl: ${fileUrl || 'not provided'}, tempPath: ${tempPath}`);
+
+  // Helper: stream response body to temp file
+  async function downloadToFile(response: Response): Promise<string> {
+    const arrayBuffer = await response.arrayBuffer();
+    fs.writeFileSync(tempPath, Buffer.from(arrayBuffer));
+    return tempPath;
+  }
 
   // If we have a direct URL, use it
   if (fileUrl) {
@@ -384,7 +409,7 @@ async function fetchPDFFromStorage(filePath: string, fileUrl?: string | null): P
     if (!response.ok) {
       throw new Error(`Failed to fetch PDF from URL: ${response.statusText}`);
     }
-    return await response.arrayBuffer();
+    return await downloadToFile(response);
   }
 
   // Otherwise, list files to find the one matching our path
@@ -425,7 +450,7 @@ async function fetchPDFFromStorage(filePath: string, fileUrl?: string | null): P
       if (!response.ok) {
         throw new Error(`Failed to fetch PDF: ${response.statusText}`);
       }
-      return await response.arrayBuffer();
+      return await downloadToFile(response);
     }
 
     throw new Error(`PDF file not found in storage: ${filePath}. Available files: ${files.map(f => f.originalFilename).join(', ')}`);
@@ -439,7 +464,32 @@ async function fetchPDFFromStorage(filePath: string, fileUrl?: string | null): P
     throw new Error(`Failed to fetch PDF: ${response.statusText}`);
   }
 
-  return await response.arrayBuffer();
+  return await downloadToFile(response);
+}
+
+// Cleanup temp file helper
+function cleanupTempFile(tempPath: string): void {
+  try {
+    if (fs.existsSync(tempPath)) {
+      fs.unlinkSync(tempPath);
+      console.log(`[Cleanup] Deleted temp file: ${tempPath}`);
+    }
+  } catch (err) {
+    console.error(`[Cleanup] Failed to delete temp file ${tempPath}:`, err);
+  }
+}
+
+// ==================== UPGRADE #1: Adaptive Rendering Quality ====================
+function getAdaptiveScale(pageNum: number, totalPages: number, fileSize: number): { scale: number; jpegQuality: number } {
+  if (totalPages < 50) {
+    return { scale: 2.0, jpegQuality: 90 };
+  } else if (totalPages < 200) {
+    return { scale: 1.8, jpegQuality: 85 };
+  } else if (totalPages < 500) {
+    return { scale: 1.5, jpegQuality: 80 };
+  } else {
+    return { scale: 1.3, jpegQuality: 75 };
+  }
 }
 
 // Render a single PDF page to a JPEG base64 string using MuPDF
@@ -457,14 +507,22 @@ function renderPageToJpegBase64(pdfBuffer: ArrayBuffer, pageNum: number): string
 }
 
 // Render multiple pages from an already-opened document (batch-aware, avoids reopening PDF per page)
-function renderPagesFromDoc(doc: mupdf.Document, pageNums: number[], jpegQuality: number = 90): Map<number, string> {
+// UPGRADE #1: Now uses adaptive scale/quality based on PDF size
+function renderPagesFromDoc(
+  doc: mupdf.Document,
+  pageNums: number[],
+  totalPages: number,
+  fileSize: number,
+  jpegQualityOverride?: number,
+): Map<number, string> {
   const results = new Map<number, string>();
-  const scale = 2.0;
   for (const pageNum of pageNums) {
     try {
+      const { scale, jpegQuality: adaptiveQuality } = getAdaptiveScale(pageNum, totalPages, fileSize);
+      const quality = jpegQualityOverride ?? adaptiveQuality;
       const page = doc.loadPage(pageNum - 1); // 0-indexed
       const pixmap = page.toPixmap(mupdf.Matrix.scale(scale, scale), mupdf.ColorSpace.DeviceRGB);
-      const jpegBuffer = pixmap.asJPEG(jpegQuality);
+      const jpegBuffer = pixmap.asJPEG(quality);
       results.set(pageNum, Buffer.from(jpegBuffer).toString("base64"));
     } catch (err) {
       console.error(`[Extraction] Failed to render page ${pageNum}:`, err);
@@ -474,12 +532,74 @@ function renderPagesFromDoc(doc: mupdf.Document, pageNums: number[], jpegQuality
 }
 
 // Get total page count from PDF using MuPDF
-function getPdfPageCount(pdfBuffer: ArrayBuffer): number {
-  const doc = mupdf.Document.openDocument(Buffer.from(pdfBuffer), "application/pdf");
+function getPdfPageCount(pdfBuffer: Buffer): number {
+  const doc = mupdf.Document.openDocument(pdfBuffer, "application/pdf");
   try {
     return doc.countPages();
   } finally {
     doc.destroy();
+  }
+}
+
+// ==================== UPGRADE #3: Intelligent Page Pre-filter ====================
+async function classifyPageCheap(imageBase64: string, pageNum: number): Promise<"recipe" | "skip" | "uncertain"> {
+  if (!env.OPENAI_API_KEY) {
+    return "uncertain"; // Can't classify without API key, proceed with full extraction
+  }
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Is this a cookbook recipe page? Answer ONLY: recipe, skip, or uncertain. Skip = table of contents, blank, copyright, ads, section dividers, index.',
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:image/jpeg;base64,${imageBase64}`,
+                  detail: 'low',
+                },
+              },
+            ],
+          },
+        ],
+        max_completion_tokens: 10,
+        temperature: 0,
+      }),
+      signal: AbortSignal.timeout(15000), // 15 second timeout for pre-filter
+    });
+
+    if (!response.ok) {
+      // If pre-filter fails, proceed with full extraction
+      return "uncertain";
+    }
+
+    const data = await response.json() as {
+      choices?: Array<{
+        message?: {
+          content?: string;
+        };
+      }>;
+    };
+
+    const content = data.choices?.[0]?.message?.content?.trim().toLowerCase() || "";
+    if (content.includes("skip")) return "skip";
+    if (content.includes("recipe")) return "recipe";
+    return "uncertain";
+  } catch (err) {
+    console.error(`[PreFilter] Error classifying page ${pageNum}:`, err);
+    return "uncertain"; // On error, proceed with full extraction
   }
 }
 
@@ -532,7 +652,7 @@ async function callOpenAIVision(imageBase64: string, pageNum: number): Promise<E
           continue;
         }
 
-        // Credit exhaustion — no point retrying, fail fast with clear message
+        // Credit exhaustion -- no point retrying, fail fast with clear message
         if (response.status === 402) {
           const msg = `OpenAI API credit exhaustion (402) on page ${pageNum}. Top up your API credits and re-extract.`;
           console.error(msg);
@@ -593,6 +713,171 @@ async function callOpenAIVision(imageBase64: string, pageNum: number): Promise<E
     page_type: 'error',
     notes: `Failed to process page ${pageNum} after retries`,
   };
+}
+
+// ==================== UPGRADE #10: Automatic Quality Checks ====================
+interface RecipeValidationResult {
+  valid: boolean;
+  issues: string[];
+  qualityScore: number;
+}
+
+function validateRecipe(recipe: ExtractedRecipe): RecipeValidationResult {
+  const issues: string[] = [];
+  let qualityScore = 100;
+  let valid = true;
+
+  // Must have at least 1 ingredient
+  if (!recipe.ingredients || recipe.ingredients.length === 0) {
+    issues.push("No ingredients found");
+    valid = false;
+  }
+
+  // Must have at least 1 instruction step
+  if (!recipe.instructions || recipe.instructions.length === 0) {
+    issues.push("No instructions found");
+    valid = false;
+  }
+
+  // Title must not be empty or "CONTINUATION"
+  if (!recipe.title || recipe.title.trim() === "" || recipe.title === "CONTINUATION") {
+    issues.push("Title is empty or is a continuation marker");
+    valid = false;
+  }
+
+  // Check ingredient quantities (flag if not valid, but still valid overall)
+  if (recipe.ingredients) {
+    const hasQuantityIssues = recipe.ingredients.some(i => !i.quantity || i.quantity <= 0);
+    if (hasQuantityIssues) {
+      issues.push("Some ingredients have missing or zero quantities");
+    }
+  }
+
+  // Check for placeholder instructions like "voir page X"
+  if (recipe.instructions) {
+    const placeholderPattern = /^voir\s+page/i;
+    const hasPlaceholders = recipe.instructions.some(i => placeholderPattern.test(i.text));
+    if (hasPlaceholders) {
+      issues.push("Instructions contain page references instead of real steps");
+    }
+  }
+
+  // Quality score deductions for missing fields
+  if (!recipe.description) {
+    qualityScore -= 20;
+    issues.push("Missing description (-20)");
+  }
+  if (!recipe.category) {
+    qualityScore -= 20;
+    issues.push("Missing category (-20)");
+  }
+  if (!recipe.servings) {
+    qualityScore -= 20;
+    issues.push("Missing servings (-20)");
+  }
+  if (!recipe.difficulty) {
+    qualityScore -= 20;
+    issues.push("Missing difficulty (-20)");
+  }
+
+  // Ensure score does not go below 0
+  qualityScore = Math.max(0, qualityScore);
+
+  return { valid, issues, qualityScore };
+}
+
+// ==================== UPGRADE #4: Recipe Deduplication Engine ====================
+function normalizeForDedup(text: string): string {
+  const stopWords = new Set(["de", "la", "le", "du", "des", "aux", "a", "au", "les", "un", "une", "et", "en", "l"]);
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove accents
+    .replace(/[^a-z0-9\s]/g, "") // Remove non-alphanumeric except spaces
+    .split(/\s+/)
+    .filter(w => w.length > 0 && !stopWords.has(w))
+    .join(" ");
+}
+
+function jaccardSimilarity(a: string, b: string): number {
+  const wordsA = new Set(a.split(/\s+/).filter(w => w.length > 0));
+  const wordsB = new Set(b.split(/\s+/).filter(w => w.length > 0));
+  if (wordsA.size === 0 && wordsB.size === 0) return 1;
+  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+
+  let intersection = 0;
+  for (const word of wordsA) {
+    if (wordsB.has(word)) intersection++;
+  }
+  const union = wordsA.size + wordsB.size - intersection;
+  return union > 0 ? intersection / union : 0;
+}
+
+async function deduplicateRecipes(cookbookId: string): Promise<number> {
+  const recipes = await prisma.recipe.findMany({
+    where: { cookbookId },
+    select: {
+      id: true,
+      title: true,
+      ingredients: true,
+      instructions: true,
+    },
+  });
+
+  if (recipes.length < 2) return 0;
+
+  // Normalize titles for comparison
+  const normalizedRecipes = recipes.map(r => ({
+    ...r,
+    normalizedTitle: normalizeForDedup(r.title),
+  }));
+
+  const toDelete = new Set<string>();
+
+  for (let i = 0; i < normalizedRecipes.length; i++) {
+    const recipeA = normalizedRecipes[i]!;
+    if (toDelete.has(recipeA.id)) continue;
+
+    for (let j = i + 1; j < normalizedRecipes.length; j++) {
+      const recipeB = normalizedRecipes[j]!;
+      if (toDelete.has(recipeB.id)) continue;
+
+      const similarity = jaccardSimilarity(recipeA.normalizedTitle, recipeB.normalizedTitle);
+
+      if (similarity > 0.8) {
+        // Keep the one with more content (ingredients + instructions)
+        let ingredientsA: unknown[] = [];
+        let ingredientsB: unknown[] = [];
+        let instructionsA: unknown[] = [];
+        let instructionsB: unknown[] = [];
+        try { ingredientsA = JSON.parse(recipeA.ingredients); } catch {}
+        try { ingredientsB = JSON.parse(recipeB.ingredients); } catch {}
+        try { instructionsA = JSON.parse(recipeA.instructions); } catch {}
+        try { instructionsB = JSON.parse(recipeB.instructions); } catch {}
+
+        const scoreA = ingredientsA.length + instructionsA.length;
+        const scoreB = ingredientsB.length + instructionsB.length;
+
+        if (scoreA >= scoreB) {
+          toDelete.add(recipeB.id);
+          console.log(`[Dedup] Removing duplicate "${recipeB.title}" (keeping "${recipeA.title}", similarity=${(similarity * 100).toFixed(0)}%)`);
+        } else {
+          toDelete.add(recipeA.id);
+          console.log(`[Dedup] Removing duplicate "${recipeA.title}" (keeping "${recipeB.title}", similarity=${(similarity * 100).toFixed(0)}%)`);
+          break; // recipeA is now marked for deletion, stop comparing it
+        }
+      }
+    }
+  }
+
+  if (toDelete.size > 0) {
+    await prisma.recipe.deleteMany({
+      where: { id: { in: Array.from(toDelete) } },
+    });
+    console.log(`[Dedup] Removed ${toDelete.size} duplicate recipe(s) from cookbook ${cookbookId}`);
+  }
+
+  return toDelete.size;
 }
 
 // Throttled image generation queue
@@ -696,11 +981,11 @@ export async function extractRecipesFromPDF(jobId: string): Promise<void> {
     // Small PDFs use capped fast lane (max MAX_SMALL_CONCURRENT at once)
     if (isSmallByPages || isSmallBySize) {
       if (smallRunning >= MAX_SMALL_CONCURRENT) {
-        // Fast lane full — queue it with large PDFs instead of dropping
+        // Fast lane full -- queue it with large PDFs instead of dropping
         console.log(`[Queue] Small PDF fast lane full (${smallRunning}/${MAX_SMALL_CONCURRENT}), queuing "${job?.cookbook?.name}"`);
       } else {
         const reason = isSmallByPages ? `${pageCount} pages` : `${(fileSize / 1024 / 1024).toFixed(1)}MB`;
-        console.log(`[Queue] Small PDF "${job?.cookbook?.name}" (${reason}) — fast lane (${smallRunning + 1}/${MAX_SMALL_CONCURRENT})`);
+        console.log(`[Queue] Small PDF "${job?.cookbook?.name}" (${reason}) -- fast lane (${smallRunning + 1}/${MAX_SMALL_CONCURRENT})`);
         smallRunning++;
         extractRecipesFromPDFInternal(jobId)
           .catch((err) => {
@@ -724,8 +1009,29 @@ export async function extractRecipesFromPDF(jobId: string): Promise<void> {
   });
 }
 
+// ==================== UPGRADE #9: Cost Tracking ====================
+interface CostTracker {
+  openaiCalls: number;
+  prefilterCalls: number;
+  pagesSkipped: number;
+  recipesValidated: number;
+  recipesNeedsReview: number;
+  duplicatesRemoved: number;
+}
+
 async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
   console.log(`Starting processing for job: ${jobId}`);
+  let tempFilePath: string | null = null;
+
+  // UPGRADE #9: Cost tracking
+  const costTracker: CostTracker = {
+    openaiCalls: 0,
+    prefilterCalls: 0,
+    pagesSkipped: 0,
+    recipesValidated: 0,
+    recipesNeedsReview: 0,
+    duplicatesRemoved: 0,
+  };
 
   try {
     // Get the job and cookbook
@@ -793,16 +1099,20 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
     }
 
     try {
-      // Fetch PDF from storage
+      // UPGRADE #8: Fetch PDF to temp file on disk
       processingLog.push("Telechargement du PDF...");
       await updateJobProgress(job.id, job.cookbookId, 0, 0, processingLog, false, failedPages);
 
-      let pdfBuffer = await fetchPDFFromStorage(job.cookbook.filePath, job.cookbook.fileUrl);
-      processingLog.push(`PDF telecharge: ${(pdfBuffer.byteLength / 1024 / 1024).toFixed(2)} MB`);
+      tempFilePath = await fetchPDFFromStorage(job.cookbook.filePath, job.cookbook.fileUrl, job.id);
+      const fileStats = fs.statSync(tempFilePath);
+      const fileSizeMB = fileStats.size / 1024 / 1024;
+      processingLog.push(`PDF telecharge: ${fileSizeMB.toFixed(2)} MB`);
 
-      // Get page count using MuPDF
+      // Get page count using MuPDF (read from temp file per batch)
       processingLog.push("Analyse du PDF...");
-      const totalPages = getPdfPageCount(pdfBuffer);
+      const pdfNodeBuffer = fs.readFileSync(tempFilePath);
+      const totalPages = getPdfPageCount(pdfNodeBuffer);
+      const fileSize = fileStats.size;
 
       processingLog.push(`PDF charge: ${totalPages} pages detectees`);
       await updateJobProgress(job.id, job.cookbookId, 0, recipesExtracted, processingLog, false, failedPages);
@@ -817,17 +1127,17 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
         data: { totalPages },
       });
 
-      // Determine JPEG quality based on PDF size (lower quality for large PDFs to reduce memory)
-      const jpegQuality = totalPages > 100 ? 80 : 90;
-      if (totalPages > 100) {
-        console.log(`[Extraction] Job ${job.id}: Large PDF (${totalPages} pages), using JPEG quality ${jpegQuality}`);
+      // UPGRADE #1: Adaptive quality based on PDF size
+      const { jpegQuality: adaptiveJpegQuality } = getAdaptiveScale(1, totalPages, fileSize);
+      if (totalPages > 50) {
+        console.log(`[Extraction] Job ${job.id}: PDF (${totalPages} pages), using adaptive JPEG quality ${adaptiveJpegQuality}`);
       }
-
-      // Pre-create buffer once to avoid copying for every batch
-      const pdfNodeBuffer = Buffer.from(pdfBuffer);
 
       // Track last created recipe ID for merging multi-page continuations
       let lastCreatedRecipeId: string | null = null;
+
+      // UPGRADE #2: Pipeline Architecture - Pre-render first batch before the loop
+      let preRenderedPages: Map<number, string> | null = null;
 
       // Process pages in batches of BATCH_SIZE (concurrent per batch, like Python version)
       for (let batchStart = startPage; batchStart <= totalPages; batchStart += BATCH_SIZE) {
@@ -845,6 +1155,15 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
             where: { id: job.id },
             data: { status: "paused" },
           });
+          try {
+            progressEmitter.emit({
+              type: "paused",
+              jobId: job.id,
+              cookbookId: job.cookbookId,
+              data: { currentPage: batchStart - 1, recipesExtracted },
+              timestamp: Date.now(),
+            });
+          } catch {}
           return;
         }
 
@@ -869,29 +1188,100 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
         processingLog.push(`Traitement des pages ${batchStart}-${batchEnd}/${totalPages}...`);
         await updateJobProgress(job.id, job.cookbookId, batchStart, recipesExtracted, processingLog, false, failedPages);
 
-        // Render all pages in this batch with a single doc open (avoids reopening PDF per page)
+        // UPGRADE #2: Pipeline Architecture
+        // Use pre-rendered pages from previous iteration, or render this batch now
         let renderedPages: Map<number, string>;
-        try {
-          const doc = mupdf.Document.openDocument(pdfNodeBuffer, "application/pdf");
+        if (preRenderedPages !== null) {
+          renderedPages = preRenderedPages;
+          preRenderedPages = null;
+        } else {
+          // First batch or fallback: render synchronously
           try {
-            renderedPages = renderPagesFromDoc(doc, batchPages, jpegQuality);
-          } finally {
-            doc.destroy();
+            const batchBuffer = fs.readFileSync(tempFilePath);
+            const doc = mupdf.Document.openDocument(batchBuffer, "application/pdf");
+            try {
+              renderedPages = renderPagesFromDoc(doc, batchPages, totalPages, fileSize);
+            } finally {
+              doc.destroy();
+            }
+          } catch (err) {
+            const errMsg = `Failed to open PDF for pages ${batchStart}-${batchEnd}: ${err instanceof Error ? err.message : String(err)}`;
+            console.error(`[Extraction] ${errMsg}`);
+            errorLog.push(errMsg);
+            continue; // Skip this batch, try next
           }
-        } catch (err) {
-          const errMsg = `Failed to open PDF for pages ${batchStart}-${batchEnd}: ${err instanceof Error ? err.message : String(err)}`;
-          console.error(`[Extraction] ${errMsg}`);
-          errorLog.push(errMsg);
-          continue; // Skip this batch, try next
+        }
+
+        // UPGRADE #3: Intelligent Page Pre-filter
+        // Classify pages cheaply before sending to full GPT-5.2
+        let pagesToProcess = batchPages;
+        if (ENABLE_PAGE_PREFILTER) {
+          const classificationResults = await Promise.allSettled(
+            batchPages.map(async (pageNum) => {
+              const imageBase64 = renderedPages.get(pageNum);
+              if (!imageBase64) return { pageNum, classification: "uncertain" as const };
+              costTracker.prefilterCalls++;
+              const classification = await classifyPageCheap(imageBase64, pageNum);
+              return { pageNum, classification };
+            })
+          );
+
+          const skipPages = new Set<number>();
+          for (const settled of classificationResults) {
+            if (settled.status === "fulfilled" && settled.value.classification === "skip") {
+              skipPages.add(settled.value.pageNum);
+              costTracker.pagesSkipped++;
+              console.log(`[PreFilter] Page ${settled.value.pageNum}: skipped (non-recipe content)`);
+              processingLog.push(`Page ${settled.value.pageNum}: Pre-filtre - contenu non-recette, ignore`);
+              try {
+                progressEmitter.emit({
+                  type: "page_skipped",
+                  jobId: job.id,
+                  cookbookId: job.cookbookId,
+                  data: { page: settled.value.pageNum, reason: "pre-filter" },
+                  timestamp: Date.now(),
+                });
+              } catch {}
+            }
+          }
+
+          if (skipPages.size > 0) {
+            pagesToProcess = batchPages.filter(p => !skipPages.has(p));
+          }
+        }
+
+        // UPGRADE #2: Pipeline - Start rendering next batch while analyzing current batch
+        const nextBatchStart = batchStart + BATCH_SIZE;
+        const nextBatchEnd = Math.min(nextBatchStart + BATCH_SIZE - 1, totalPages);
+        let renderNextBatchPromise: Promise<Map<number, string>> | null = null;
+
+        if (nextBatchStart <= totalPages) {
+          const nextBatchPages = Array.from({ length: nextBatchEnd - nextBatchStart + 1 }, (_, i) => nextBatchStart + i);
+          const capturedTempFilePath = tempFilePath;
+          renderNextBatchPromise = (async () => {
+            try {
+              const nextBuffer = fs.readFileSync(capturedTempFilePath);
+              const doc = mupdf.Document.openDocument(nextBuffer, "application/pdf");
+              try {
+                return renderPagesFromDoc(doc, nextBatchPages, totalPages, fileSize);
+              } finally {
+                doc.destroy();
+              }
+            } catch (err) {
+              console.error(`[Pipeline] Failed to pre-render next batch:`, err);
+              return new Map<number, string>();
+            }
+          })();
         }
 
         // Send rendered pages to OpenAI concurrently (like Python's asyncio.gather)
-        const extractionPromises = batchPages.map(async (pageNum) => {
+        const extractionPromises = pagesToProcess.map(async (pageNum) => {
           const imageBase64 = renderedPages.get(pageNum);
           if (!imageBase64) {
             return { pageNum, result: { found_recipe: false, page_type: 'error', notes: `Failed to render page ${pageNum}` } as ExtractionResult, durationMs: 0 };
           }
           try {
+            costTracker.openaiCalls++;
             const startTime = Date.now();
             const result = await callOpenAIVision(imageBase64, pageNum);
             const durationMs = Date.now() - startTime;
@@ -900,7 +1290,19 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
             return { pageNum, result: { found_recipe: false, page_type: 'error', notes: `API error: ${err instanceof Error ? err.message : String(err)}` } as ExtractionResult, durationMs: 0 };
           }
         });
-        const results = await Promise.allSettled(extractionPromises);
+
+        // UPGRADE #2: Pipeline - Wait for both extraction and pre-rendering simultaneously
+        let results: PromiseSettledResult<{ pageNum: number; result: ExtractionResult; durationMs: number }>[];
+        if (renderNextBatchPromise) {
+          const [extractionResults, nextBatchRendered] = await Promise.all([
+            Promise.allSettled(extractionPromises),
+            renderNextBatchPromise,
+          ]);
+          results = extractionResults;
+          preRenderedPages = nextBatchRendered;
+        } else {
+          results = await Promise.allSettled(extractionPromises);
+        }
 
         // Clear rendered pages from memory
         renderedPages.clear();
@@ -915,6 +1317,15 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
           if (settled.status === "rejected") {
             errorLog.push(`Page: Erreur - ${settled.reason instanceof Error ? settled.reason.message : String(settled.reason)}`);
             failedPages++;
+            try {
+              progressEmitter.emit({
+                type: "error",
+                jobId: job.id,
+                cookbookId: job.cookbookId,
+                data: { error: settled.reason instanceof Error ? settled.reason.message : String(settled.reason) },
+                timestamp: Date.now(),
+              });
+            } catch {}
             continue;
           }
 
@@ -937,14 +1348,14 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
                 try {
                   const existingRecipe = await prisma.recipe.findUnique({ where: { id: lastCreatedRecipeId } });
                   if (existingRecipe) {
-                    const existingIngredients: any[] = JSON.parse(existingRecipe.ingredients as string || '[]');
-                    const existingInstructions: any[] = JSON.parse(existingRecipe.instructions as string || '[]');
+                    const existingIngredients: unknown[] = JSON.parse(existingRecipe.ingredients as string || '[]');
+                    const existingInstructions: unknown[] = JSON.parse(existingRecipe.instructions as string || '[]');
 
                     // Merge ingredients (add new ones)
                     const mergedIngredients = [...existingIngredients, ...(recipe.ingredients || [])];
 
                     // Merge instructions (continue step numbering)
-                    const maxStep = existingInstructions.reduce((max: number, i: any) => Math.max(max, i.step || 0), 0);
+                    const maxStep = existingInstructions.reduce((max: number, i: unknown) => Math.max(max, (i as { step?: number }).step || 0), 0);
                     const newInstructions = (recipe.instructions || []).map((inst, idx) => ({
                       ...inst,
                       step: maxStep + idx + 1,
@@ -952,7 +1363,7 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
                     const mergedInstructions = [...existingInstructions, ...newInstructions];
 
                     // Update times if the continuation has them and the original doesn't
-                    const updateData: any = {
+                    const updateData: Record<string, unknown> = {
                       ingredients: JSON.stringify(mergedIngredients),
                       instructions: JSON.stringify(mergedInstructions),
                     };
@@ -982,6 +1393,28 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
                   // Fall through to create as separate recipe
                 }
                 continue; // Skip creating a new recipe
+              }
+
+              // UPGRADE #10: Validate recipe quality
+              const validation = validateRecipe(recipe);
+              costTracker.recipesValidated++;
+
+              // UPGRADE #5: Low confidence check
+              const confidenceScore = recipe.confidence_score ?? 100;
+              const isLowConfidence = confidenceScore < 50;
+
+              // Determine status based on validation and confidence
+              let recipeStatus = "approved";
+              if (!validation.valid || isLowConfidence) {
+                recipeStatus = "needs_review";
+                costTracker.recipesNeedsReview++;
+              }
+
+              if (validation.issues.length > 0) {
+                processingLog.push(`Page ${pageNum}: Validation "${recipe.title}" - score=${validation.qualityScore}, issues=[${validation.issues.join('; ')}]`);
+              }
+              if (isLowConfidence) {
+                processingLog.push(`Page ${pageNum}: Confiance faible (${confidenceScore}/100) pour "${recipe.title}"`);
               }
 
               processingLog.push(`Page ${pageNum}: Recette trouvee - ${recipe.title}`);
@@ -1021,13 +1454,23 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
                   is_mediterranean: recipe.dietary_flags?.is_mediterranean ?? false,
                   is_whole30: recipe.dietary_flags?.is_whole30 ?? false,
                   is_low_sodium: recipe.dietary_flags?.is_low_sodium ?? false,
-                  status: "approved",
+                  status: recipeStatus,
                 },
               });
 
               // Track this recipe as the last created for potential continuation merging
               lastCreatedRecipeId = createdRecipe.id;
               recipesExtracted++;
+
+              try {
+                progressEmitter.emit({
+                  type: "recipe_found",
+                  jobId: job.id,
+                  cookbookId: job.cookbookId,
+                  data: { title: recipe.title, page: pageNum, recipesExtracted },
+                  timestamp: Date.now(),
+                });
+              } catch {}
 
               // Queue image generation (throttled, non-blocking)
               imageGenerationQueue.push({
@@ -1042,6 +1485,15 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
             if (pageType === "error") {
               errorLog.push(`Page ${pageNum}: ${result.notes || "Erreur de traitement"}`);
               failedPages++;
+              try {
+                progressEmitter.emit({
+                  type: "error",
+                  jobId: job.id,
+                  cookbookId: job.cookbookId,
+                  data: { page: pageNum, error: result.notes || "Erreur de traitement" },
+                  timestamp: Date.now(),
+                });
+              } catch {}
               continue;
             }
 
@@ -1089,9 +1541,22 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
         await delay(RATE_LIMIT_DELAY_MS);
       }
 
-      // Help GC reclaim memory from large PDF buffers
-      // @ts-ignore - intentional dereference for memory management
-      pdfBuffer = null;
+      // UPGRADE #4: Recipe Deduplication Engine
+      processingLog.push("Deduplication des recettes...");
+      const duplicatesRemoved = await deduplicateRecipes(job.cookbookId);
+      costTracker.duplicatesRemoved = duplicatesRemoved;
+      if (duplicatesRemoved > 0) {
+        recipesExtracted -= duplicatesRemoved;
+        processingLog.push(`Deduplication: ${duplicatesRemoved} doublon(s) supprime(s)`);
+      } else {
+        processingLog.push("Deduplication: aucun doublon detecte");
+      }
+
+      // UPGRADE #8: Clean up temp file
+      if (tempFilePath) {
+        cleanupTempFile(tempFilePath);
+        tempFilePath = null;
+      }
 
       // Process queued image generations (non-blocking)
       processImageQueue().catch((err) => {
@@ -1106,6 +1571,44 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
         });
       }, 30000); // 30s delay to let the immediate queue finish first
 
+      // UPGRADE #9: Cost Tracking Summary
+      const totalPagesProcessed = cancelledJobs.has(job.id) ? 0 : (await prisma.processingJob.findUnique({ where: { id: job.id }, select: { totalPages: true } }))?.totalPages ?? 0;
+      const estimatedGPT52Cost = costTracker.openaiCalls * 0.01;
+      const estimatedPrefilterCost = costTracker.prefilterCalls * 0.0001;
+      const totalEstimatedCost = estimatedGPT52Cost + estimatedPrefilterCost;
+
+      const costSummary = [
+        `--- Resume du traitement ---`,
+        `Pages totales: ${totalPagesProcessed}`,
+        `Pages ignorees (pre-filtre): ${costTracker.pagesSkipped}`,
+        `Appels GPT-5.2: ${costTracker.openaiCalls}`,
+        `Appels pre-filtre (GPT-4o-mini): ${costTracker.prefilterCalls}`,
+        `Recettes extraites: ${recipesExtracted}`,
+        `Recettes a revoir: ${costTracker.recipesNeedsReview}`,
+        `Doublons supprimes: ${costTracker.duplicatesRemoved}`,
+        `Cout estime: $${totalEstimatedCost.toFixed(2)} (GPT-5.2: $${estimatedGPT52Cost.toFixed(2)}, pre-filtre: $${estimatedPrefilterCost.toFixed(4)})`,
+      ];
+      costSummary.forEach(line => processingLog.push(line));
+      console.log(`[CostTracker] Job ${job.id}: ${costSummary.join(' | ')}`);
+
+      try {
+        progressEmitter.emit({
+          type: "cost_update",
+          jobId: job.id,
+          cookbookId: job.cookbookId,
+          data: {
+            openaiCalls: costTracker.openaiCalls,
+            prefilterCalls: costTracker.prefilterCalls,
+            pagesSkipped: costTracker.pagesSkipped,
+            recipesExtracted,
+            recipesNeedsReview: costTracker.recipesNeedsReview,
+            duplicatesRemoved: costTracker.duplicatesRemoved,
+            estimatedCost: totalEstimatedCost,
+          },
+          timestamp: Date.now(),
+        });
+      } catch {}
+
       // Mark job as completed
       const finalStatus = cancelledJobs.has(job.id) ? "cancelled" : "completed";
       await prisma.processingJob.update({
@@ -1113,7 +1616,7 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
         data: {
           status: finalStatus,
           completedAt: new Date(),
-          currentPage: totalPages,
+          currentPage: totalPagesProcessed,
           recipesExtracted,
           failedPages,
           processingLog: JSON.stringify(processingLog),
@@ -1126,13 +1629,29 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
         where: { id: job.cookbookId },
         data: {
           status: finalStatus === "cancelled" ? "failed" : "completed",
-          processedPages: totalPages,
+          processedPages: totalPagesProcessed,
           totalRecipesFound: recipesExtracted,
           errorMessage: finalStatus === "cancelled" ? "Traitement annule par l'utilisateur" : null,
         },
       });
 
-      console.log(`Processing completed for job ${job.id}: ${recipesExtracted} recipes extracted from ${totalPages} pages`);
+      console.log(`Processing completed for job ${job.id}: ${recipesExtracted} recipes extracted from ${totalPagesProcessed} pages`);
+
+      try {
+        progressEmitter.emit({
+          type: "completed",
+          jobId: job.id,
+          cookbookId: job.cookbookId,
+          data: {
+            status: finalStatus,
+            recipesExtracted,
+            totalPages: totalPagesProcessed,
+            failedPages,
+            duplicatesRemoved: costTracker.duplicatesRemoved,
+          },
+          timestamp: Date.now(),
+        });
+      } catch {}
 
       // Send email notification if extraction was successful (not cancelled)
       if (finalStatus === "completed" && recipesExtracted > 0) {
@@ -1144,7 +1663,7 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
               user.email,
               job.cookbook.name,
               recipesExtracted,
-              totalPages,
+              totalPagesProcessed,
               appUrl
             );
           }
@@ -1156,6 +1675,8 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
 
     } catch (pdfError) {
       const errorMsg = `Erreur PDF: ${pdfError instanceof Error ? pdfError.message : String(pdfError)}`;
+      const processingLog: string[] = [];
+      const errorLog: string[] = [];
       errorLog.push(errorMsg);
       processingLog.push(errorMsg);
 
@@ -1208,13 +1729,263 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
       });
     }
   } finally {
+    // UPGRADE #8: Always clean up temp file
+    if (tempFilePath) {
+      cleanupTempFile(tempFilePath);
+    }
     cancelledJobs.delete(jobId);
     pausedJobs.delete(jobId);
     lastProgressUpdate.delete(jobId);
   }
 }
 
-// Throttled progress updates — avoid hammering SQLite with writes
+// ==================== UPGRADE #7: Page-Range Re-extraction ====================
+export async function extractPageRange(jobId: string, startPage: number, endPage: number): Promise<void> {
+  console.log(`[PageRange] Starting page-range re-extraction for job ${jobId}: pages ${startPage}-${endPage}`);
+  let tempFilePath: string | null = null;
+
+  try {
+    const job = await prisma.processingJob.findUnique({
+      where: { id: jobId },
+      include: { cookbook: true },
+    });
+
+    if (!job || !job.cookbook) {
+      throw new Error("Job or cookbook not found");
+    }
+
+    // Delete recipes from those specific pages
+    const deletedRecipes = await prisma.recipe.deleteMany({
+      where: {
+        cookbookId: job.cookbookId,
+        sourcePage: { gte: startPage, lte: endPage },
+      },
+    });
+    console.log(`[PageRange] Deleted ${deletedRecipes.count} existing recipes from pages ${startPage}-${endPage}`);
+
+    // Also delete non-recipe content from those pages
+    await prisma.nonRecipeContent.deleteMany({
+      where: {
+        cookbookId: job.cookbookId,
+        page: { gte: startPage, lte: endPage },
+      },
+    });
+
+    // Update job status to processing
+    const existingLog: string[] = (() => { try { return JSON.parse(job.processingLog); } catch { return []; } })();
+    const existingErrorLog: string[] = (() => { try { return JSON.parse(job.errorLog); } catch { return []; } })();
+    existingLog.push(`Re-extraction des pages ${startPage}-${endPage}...`);
+
+    await prisma.processingJob.update({
+      where: { id: jobId },
+      data: {
+        status: "processing",
+        processingLog: JSON.stringify(existingLog),
+      },
+    });
+
+    // Fetch PDF to temp file
+    tempFilePath = await fetchPDFFromStorage(job.cookbook.filePath, job.cookbook.fileUrl, `${jobId}-reextract`);
+    const fileStats = fs.statSync(tempFilePath);
+    const fileSize = fileStats.size;
+
+    // Read buffer for MuPDF
+    const pdfNodeBuffer = fs.readFileSync(tempFilePath);
+    const totalPages = getPdfPageCount(pdfNodeBuffer);
+
+    let recipesExtracted = 0;
+    let failedPages = 0;
+
+    // Process pages in batches
+    for (let batchStart = startPage; batchStart <= endPage; batchStart += BATCH_SIZE) {
+      const batchEnd = Math.min(batchStart + BATCH_SIZE - 1, endPage);
+      const batchPages = Array.from({ length: batchEnd - batchStart + 1 }, (_, i) => batchStart + i);
+
+      // Render pages
+      let renderedPages: Map<number, string>;
+      try {
+        const batchBuffer = fs.readFileSync(tempFilePath);
+        const doc = mupdf.Document.openDocument(batchBuffer, "application/pdf");
+        try {
+          renderedPages = renderPagesFromDoc(doc, batchPages, totalPages, fileSize);
+        } finally {
+          doc.destroy();
+        }
+      } catch (err) {
+        console.error(`[PageRange] Failed to render pages ${batchStart}-${batchEnd}:`, err);
+        existingErrorLog.push(`Failed to render pages ${batchStart}-${batchEnd}: ${err instanceof Error ? err.message : String(err)}`);
+        continue;
+      }
+
+      // Pre-filter if enabled
+      let pagesToProcess = batchPages;
+      if (ENABLE_PAGE_PREFILTER) {
+        const classificationResults = await Promise.allSettled(
+          batchPages.map(async (pageNum) => {
+            const imageBase64 = renderedPages.get(pageNum);
+            if (!imageBase64) return { pageNum, classification: "uncertain" as const };
+            const classification = await classifyPageCheap(imageBase64, pageNum);
+            return { pageNum, classification };
+          })
+        );
+
+        const skipPages = new Set<number>();
+        for (const settled of classificationResults) {
+          if (settled.status === "fulfilled" && settled.value.classification === "skip") {
+            skipPages.add(settled.value.pageNum);
+            existingLog.push(`Page ${settled.value.pageNum}: Pre-filtre - contenu non-recette, ignore`);
+          }
+        }
+        if (skipPages.size > 0) {
+          pagesToProcess = batchPages.filter(p => !skipPages.has(p));
+        }
+      }
+
+      // Extract recipes
+      const extractionResults = await Promise.allSettled(
+        pagesToProcess.map(async (pageNum) => {
+          const imageBase64 = renderedPages.get(pageNum);
+          if (!imageBase64) {
+            return { pageNum, result: { found_recipe: false, page_type: 'error', notes: `Failed to render page ${pageNum}` } as ExtractionResult };
+          }
+          const result = await callOpenAIVision(imageBase64, pageNum);
+          return { pageNum, result };
+        })
+      );
+
+      renderedPages.clear();
+
+      // Process results
+      for (const settled of extractionResults) {
+        if (settled.status === "rejected") {
+          failedPages++;
+          continue;
+        }
+
+        const { pageNum, result } = settled.value;
+
+        if (result.found_recipe && result.recipes && result.recipes.length > 0) {
+          for (const recipe of result.recipes) {
+            if (recipe.is_continuation) continue; // Skip continuations in page-range mode
+
+            const validation = validateRecipe(recipe);
+            const confidenceScore = recipe.confidence_score ?? 100;
+            const recipeStatus = (!validation.valid || confidenceScore < 50) ? "needs_review" : "approved";
+
+            const createdRecipe = await prisma.recipe.create({
+              data: {
+                cookbookId: job.cookbookId,
+                userId: job.userId,
+                title: recipe.title,
+                originalTitle: recipe.original_title,
+                description: recipe.description,
+                sourcePage: pageNum,
+                sourceType: "pdf",
+                category: recipe.category,
+                subCategory: recipe.sub_category,
+                ingredients: JSON.stringify(recipe.ingredients),
+                instructions: JSON.stringify(recipe.instructions),
+                prepTimeMinutes: recipe.prep_time_minutes,
+                cookTimeMinutes: recipe.cook_time_minutes,
+                servings: recipe.servings || 4,
+                difficulty: recipe.difficulty,
+                type: job.cookbook.type || "both",
+                region: recipe.region,
+                country: recipe.country || "France",
+                season: recipe.season,
+                dietTags: JSON.stringify(recipe.diet_tags || []),
+                mealType: recipe.meal_type,
+                tips: recipe.tips,
+                is_vegetarian: recipe.dietary_flags?.is_vegetarian ?? false,
+                is_vegan: recipe.dietary_flags?.is_vegan ?? false,
+                is_gluten_free: recipe.dietary_flags?.is_gluten_free ?? false,
+                is_lactose_free: recipe.dietary_flags?.is_lactose_free ?? false,
+                is_halal: recipe.dietary_flags?.is_halal ?? false,
+                is_low_carb: recipe.dietary_flags?.is_low_carb ?? false,
+                is_low_fat: recipe.dietary_flags?.is_low_fat ?? false,
+                is_high_protein: recipe.dietary_flags?.is_high_protein ?? false,
+                is_mediterranean: recipe.dietary_flags?.is_mediterranean ?? false,
+                is_whole30: recipe.dietary_flags?.is_whole30 ?? false,
+                is_low_sodium: recipe.dietary_flags?.is_low_sodium ?? false,
+                status: recipeStatus,
+              },
+            });
+
+            recipesExtracted++;
+            existingLog.push(`Page ${pageNum}: Recette trouvee - ${recipe.title}`);
+
+            // Queue image generation
+            imageGenerationQueue.push({
+              recipeId: createdRecipe.id,
+              title: recipe.title,
+              description: recipe.description,
+            });
+          }
+        } else if (result.page_type === "error") {
+          existingErrorLog.push(`Page ${pageNum}: ${result.notes || "Erreur de traitement"}`);
+          failedPages++;
+        }
+      }
+
+      await delay(RATE_LIMIT_DELAY_MS);
+    }
+
+    // Clean up temp file
+    if (tempFilePath) {
+      cleanupTempFile(tempFilePath);
+      tempFilePath = null;
+    }
+
+    // Update job with results
+    existingLog.push(`Re-extraction terminee: ${recipesExtracted} recettes extraites des pages ${startPage}-${endPage}`);
+
+    // Recount total recipes for the cookbook
+    const totalRecipes = await prisma.recipe.count({ where: { cookbookId: job.cookbookId } });
+
+    await prisma.processingJob.update({
+      where: { id: jobId },
+      data: {
+        status: "completed",
+        recipesExtracted: totalRecipes,
+        processingLog: JSON.stringify(existingLog),
+        errorLog: JSON.stringify(existingErrorLog),
+      },
+    });
+
+    await prisma.cookbook.update({
+      where: { id: job.cookbookId },
+      data: {
+        totalRecipesFound: totalRecipes,
+      },
+    });
+
+    // Process queued images
+    processImageQueue().catch((err) => {
+      console.error("[ImageGen] Queue processing error:", err);
+    });
+
+    console.log(`[PageRange] Completed: ${recipesExtracted} recipes extracted from pages ${startPage}-${endPage}`);
+
+  } catch (error) {
+    console.error(`[PageRange] Error for job ${jobId}:`, error);
+
+    await prisma.processingJob.update({
+      where: { id: jobId },
+      data: {
+        status: "failed",
+        errorLog: JSON.stringify([`Page-range re-extraction failed: ${String(error)}`]),
+      },
+    });
+
+    throw error;
+  } finally {
+    if (tempFilePath) {
+      cleanupTempFile(tempFilePath);
+    }
+  }
+}
+
+// Throttled progress updates -- avoid hammering SQLite with writes
 const lastProgressUpdate = new Map<string, number>();
 const PROGRESS_UPDATE_INTERVAL_MS = 3000; // Write progress at most every 3s per job
 
@@ -1230,7 +2001,7 @@ async function updateJobProgress(
   const now = Date.now();
   const lastUpdate = lastProgressUpdate.get(jobId) || 0;
 
-  // Skip if we updated recently (unless forced — completion, errors, pauses)
+  // Skip if we updated recently (unless forced -- completion, errors, pauses)
   if (!force && now - lastUpdate < PROGRESS_UPDATE_INTERVAL_MS) {
     return;
   }
@@ -1253,9 +2024,19 @@ async function updateJobProgress(
       totalRecipesFound: recipesExtracted,
     },
   });
+
+  try {
+    progressEmitter.emit({
+      type: "progress",
+      jobId,
+      cookbookId,
+      data: { currentPage, recipesExtracted, failedPages },
+      timestamp: Date.now(),
+    });
+  } catch {}
 }
 
-// Graceful shutdown — save checkpoint for any running jobs
+// Graceful shutdown -- save checkpoint for any running jobs
 export async function gracefulShutdown(): Promise<void> {
   console.log("[Shutdown] Saving extraction state...");
   // The extraction loop checks cancelledJobs each iteration, so marking all as cancelled

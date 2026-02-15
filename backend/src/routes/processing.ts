@@ -1,9 +1,11 @@
 import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
 import { zValidator } from "@hono/zod-validator";
 import { prisma } from "../prisma";
 import { auth } from "../auth";
-import { StartProcessingSchema } from "../types";
-import { extractRecipesFromPDF, pauseProcessingJob, resumeProcessingJob, recoverMissingImages } from "../services/extraction";
+import { StartProcessingSchema, ReExtractPagesSchema } from "../types";
+import { extractRecipesFromPDF, pauseProcessingJob, resumeProcessingJob, recoverMissingImages, extractPageRange } from "../services/extraction";
+import { progressEmitter } from "../services/progress-emitter";
 
 const processingRouter = new Hono<{
   Variables: {
@@ -35,6 +37,90 @@ processingRouter.get("/", async (c) => {
   }));
 
   return c.json({ data: parsedJobs });
+});
+
+// SSE endpoint for real-time progress
+// Supports auth via middleware (Bearer header) OR query param (EventSource fallback)
+processingRouter.get("/stream/:id", async (c) => {
+  let userId = c.get("user")?.id;
+
+  // Fallback: accept token from query param (EventSource can't set headers)
+  if (!userId) {
+    const queryToken = c.req.query("token");
+    if (queryToken) {
+      try {
+        const dbSession = await prisma.session.findUnique({
+          where: { token: queryToken },
+          select: { userId: true, expiresAt: true },
+        });
+        if (dbSession && new Date(dbSession.expiresAt) > new Date()) {
+          userId = dbSession.userId;
+        }
+      } catch {}
+    }
+  }
+
+  if (!userId) return c.json({ error: { message: "Unauthorized" } }, 401);
+
+  const { id } = c.req.param();
+
+  // Verify job belongs to user
+  const job = await prisma.processingJob.findFirst({
+    where: { id, userId },
+  });
+  if (!job) {
+    return c.json({ error: { message: "Processing job not found" } }, 404);
+  }
+
+  // Set SSE headers
+  return streamSSE(c, async (stream) => {
+    // Send initial state
+    await stream.writeSSE({
+      data: JSON.stringify({
+        type: "connected",
+        jobId: id,
+        currentPage: job.currentPage,
+        totalPages: job.totalPages,
+        recipesExtracted: job.recipesExtracted,
+        status: job.status,
+      }),
+      event: "connected",
+    });
+
+    // Subscribe to progress events
+    const unsubscribe = progressEmitter.subscribe(id, async (event) => {
+      try {
+        await stream.writeSSE({
+          data: JSON.stringify(event.data),
+          event: event.type,
+        });
+      } catch {
+        // Stream closed
+        unsubscribe();
+      }
+    });
+
+    // Keep connection alive with heartbeat
+    const heartbeat = setInterval(async () => {
+      try {
+        await stream.writeSSE({ data: "", event: "heartbeat" });
+      } catch {
+        clearInterval(heartbeat);
+        unsubscribe();
+      }
+    }, 15000);
+
+    // Wait for stream to close
+    stream.onAbort(() => {
+      clearInterval(heartbeat);
+      unsubscribe();
+    });
+
+    // Keep stream open until aborted
+    await new Promise<void>((resolve) => {
+      stream.onAbort(() => resolve());
+    });
+  });
 });
 
 // Get single processing job
@@ -333,6 +419,64 @@ processingRouter.get("/:id/queue-position", async (c) => {
       failedPages: job.failedPages,
     },
   });
+});
+
+// Re-extract specific page range from a cookbook
+processingRouter.post("/re-extract-pages", zValidator("json", ReExtractPagesSchema), async (c) => {
+  const user = c.get("user");
+  if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
+
+  const { cookbookId, startPage, endPage } = c.req.valid("json");
+
+  // Validate endPage >= startPage
+  if (endPage < startPage) {
+    return c.json({ error: { message: "endPage must be greater than or equal to startPage" } }, 400);
+  }
+
+  // Verify cookbook ownership
+  const cookbook = await prisma.cookbook.findFirst({
+    where: { id: cookbookId, userId: user.id },
+  });
+
+  if (!cookbook) {
+    return c.json({ error: { message: "Cookbook not found" } }, 404);
+  }
+
+  // Block if there's already an active processing job
+  const activeJob = await prisma.processingJob.findFirst({
+    where: {
+      cookbookId,
+      status: { in: ["pending", "processing"] },
+    },
+  });
+
+  if (activeJob) {
+    return c.json({ error: { message: "Cookbook is already being processed" } }, 400);
+  }
+
+  // Find the most recent completed/failed job for this cookbook to re-use
+  const existingJob = await prisma.processingJob.findFirst({
+    where: { cookbookId },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!existingJob) {
+    return c.json({ error: { message: "No existing processing job found for this cookbook. Use full extraction first." } }, 400);
+  }
+
+  console.log(`[Re-extract-pages] Starting page-range re-extraction for cookbook ${cookbookId}, pages ${startPage}-${endPage}`);
+
+  // Start async page-range extraction (non-blocking)
+  extractPageRange(existingJob.id, startPage, endPage).catch((error) => {
+    console.error("[Re-extract-pages] Processing error:", error);
+  });
+
+  return c.json({
+    data: {
+      jobId: existingJob.id,
+      message: `Re-extraction of pages ${startPage}-${endPage} started.`,
+    },
+  }, 201);
 });
 
 // Trigger image recovery for recipes missing images

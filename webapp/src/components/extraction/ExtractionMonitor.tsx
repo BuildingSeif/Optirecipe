@@ -16,6 +16,8 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { api } from "@/lib/api";
+import { useExtractionSSE } from "@/hooks/use-extraction-sse";
+import ExtractionSummary from "./ExtractionSummary";
 import {
   Loader2,
   CheckCircle2,
@@ -181,6 +183,7 @@ function CookbookMonitor({ cookbookId }: { cookbookId: string }) {
     new Set()
   );
   const [showLogs, setShowLogs] = useState(false);
+  const sseConnectedRef = useRef(false);
 
   const { data: cookbook } = useQuery({
     queryKey: ["cookbook", cookbookId],
@@ -188,7 +191,7 @@ function CookbookMonitor({ cookbookId }: { cookbookId: string }) {
       api.get<CookbookDetail>(`/api/cookbooks/${cookbookId}`),
     refetchInterval: (query) => {
       const data = query.state.data;
-      if (data?.status === "processing") return 5000;
+      if (data?.status === "processing") return sseConnectedRef.current ? 30000 : 5000;
       if (data?.status === "paused") return 15000;
       return false;
     },
@@ -197,6 +200,15 @@ function CookbookMonitor({ cookbookId }: { cookbookId: string }) {
   });
 
   const latestJob = cookbook?.processingJobs?.[0];
+
+  const { costData, connected: sseConnected } = useExtractionSSE({
+    jobId: latestJob?.id,
+    cookbookId,
+    enabled: cookbook?.status === "processing",
+  });
+
+  // Keep ref in sync for the refetchInterval callback
+  sseConnectedRef.current = sseConnected;
 
   const pauseMutation = useMutation({
     mutationFn: () =>
@@ -329,17 +341,25 @@ function CookbookMonitor({ cookbookId }: { cookbookId: string }) {
               </div>
             ) : null}
             <div>
-              <p className="text-white font-semibold text-sm">
-                {isProcessing
-                  ? "Extraction en cours..."
-                  : isPaused
-                    ? "Extraction en pause"
-                    : isCompleted
-                      ? "Extraction terminee"
-                      : isFailed
-                        ? "Extraction echouee"
-                        : "En attente"}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-white font-semibold text-sm">
+                  {isProcessing
+                    ? "Extraction en cours..."
+                    : isPaused
+                      ? "Extraction en pause"
+                      : isCompleted
+                        ? "Extraction terminee"
+                        : isFailed
+                          ? "Extraction echouee"
+                          : "En attente"}
+                </p>
+                {sseConnected ? (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-[9px] text-emerald-400">
+                    <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
+                    Live
+                  </span>
+                ) : null}
+              </div>
               <p className="text-white/50 text-xs">
                 {totalPages > 0
                   ? `Page ${processedPages} / ${totalPages}`
@@ -483,6 +503,16 @@ function CookbookMonitor({ cookbookId }: { cookbookId: string }) {
           <ProcessingLogView logs={parsedLogs} />
         </CollapsibleContent>
       </Collapsible>
+
+      {/* Extraction Summary - shown after completion or failure */}
+      {(isCompleted || isFailed) ? (
+        <ExtractionSummary
+          processingLog={parsedLogs}
+          totalPages={totalPages}
+          recipesExtracted={cookbook.totalRecipesFound}
+          costData={costData}
+        />
+      ) : null}
     </div>
   );
 }

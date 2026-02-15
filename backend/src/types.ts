@@ -194,6 +194,14 @@ export const StartProcessingSchema = z.object({
 
 export type StartProcessingInput = z.infer<typeof StartProcessingSchema>;
 
+export const ReExtractPagesSchema = z.object({
+  cookbookId: z.string(),
+  startPage: z.coerce.number().min(1),
+  endPage: z.coerce.number().min(1),
+});
+
+export type ReExtractPagesInput = z.infer<typeof ReExtractPagesSchema>;
+
 // ==================== Export Schemas ====================
 export const ExportFormatSchema = z.enum(["json", "csv"]);
 export type ExportFormat = z.infer<typeof ExportFormatSchema>;
