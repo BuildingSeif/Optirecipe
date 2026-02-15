@@ -7,9 +7,9 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy package files
-COPY package.json bun.lock* ./
-COPY prisma ./prisma/
+# Copy package files (paths relative to repo root since Dockerfile is referenced from root)
+COPY backend/package.json backend/bun.lock* ./
+COPY backend/prisma ./prisma/
 
 # Remove Vibecode-specific packages that aren't available outside Vibecode
 # and install dependencies
@@ -26,8 +26,12 @@ RUN cat package.json | \
 # Generate Prisma client for PostgreSQL
 RUN DATABASE_URL="postgresql://placeholder:placeholder@placeholder:5432/placeholder" bunx prisma generate --schema=prisma/schema.production.prisma
 
-# Copy app source
-COPY . .
+# Copy backend source
+COPY backend/src ./src/
+COPY backend/tsconfig.json ./
+
+# Copy prisma seed data for data migration
+COPY backend/prisma ./prisma/
 
 # Create uploads directory
 RUN mkdir -p /app/uploads /tmp/pdf-chunks
