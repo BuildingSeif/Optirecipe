@@ -36,6 +36,9 @@ const allowed = [
   /^https:\/\/[a-z0-9-]+\.dev\.vibecode\.run$/,
   /^https:\/\/[a-z0-9-]+\.vibecode\.run$/,
   /^https:\/\/[a-z0-9-]+\.vibecodeapp\.com$/,
+  /^https:\/\/[a-z0-9-]+\.share\.sandbox\.dev$/,
+  /^https:\/\/[a-z0-9-]+\.vibecodecloud\.com$/,
+  /^https:\/\/[a-z0-9.-]+\.vibecode[a-z]*\.[a-z]+$/,
 ];
 
 app.use(
