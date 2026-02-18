@@ -209,21 +209,26 @@ app.route("/api/categories", categoriesRouter);
 app.route("/api/countries", countriesRouter);
 
 // Serve frontend static files on Railway (built webapp bundled into /app/public)
+// Hono's Bun serveStatic prepends "./" so we need a relative path from WORKDIR (/app)
 const STATIC_DIR = "/app/public";
+const STATIC_DIR_RELATIVE = "./public";
 if (existsSync(STATIC_DIR)) {
+  console.log("[Static] Serving frontend from /app/public");
+
   // Serve static assets (JS, CSS, images, etc.)
-  app.use("/*", serveStatic({ root: STATIC_DIR }));
+  app.use("/*", serveStatic({ root: STATIC_DIR_RELATIVE }));
 
   // SPA fallback: serve index.html for any non-API, non-file route
   app.get("*", async (c) => {
-    const path = c.req.path;
-    // Skip API routes and health check
-    if (path.startsWith("/api/") || path === "/health" || path.startsWith("/uploads/")) {
+    const reqPath = c.req.path;
+    if (reqPath.startsWith("/api/") || reqPath === "/health" || reqPath.startsWith("/uploads/")) {
       return c.notFound();
     }
     const html = await readFile(join(STATIC_DIR, "index.html"), "utf-8");
     return c.html(html);
   });
+} else {
+  console.log("[Static] No frontend build found at /app/public, API-only mode");
 }
 
 // Recover orphaned processing jobs on startup
