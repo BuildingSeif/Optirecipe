@@ -1,3 +1,20 @@
+## Stage 1: Build the frontend webapp
+FROM oven/bun:1.2 AS frontend-builder
+WORKDIR /webapp
+
+# Copy webapp package files and install dependencies
+COPY webapp/package.json webapp/bun.lock* ./
+RUN bun install
+
+# Copy webapp source
+COPY webapp/ ./
+
+# Build with the Railway backend URL as same-origin (empty = same-origin)
+# The frontend's api.ts already tries same-origin first, so this just works
+RUN VITE_BACKEND_URL="" bun run build
+
+
+## Stage 2: Build the backend + bundle frontend
 FROM oven/bun:1.2 AS base
 WORKDIR /app
 
@@ -33,6 +50,9 @@ COPY backend/tsconfig.json ./
 
 # Copy prisma seed data for data migration
 COPY backend/prisma ./prisma/
+
+# Copy built frontend from Stage 1 into /app/public
+COPY --from=frontend-builder /webapp/dist /app/public
 
 # Create uploads directory
 RUN mkdir -p /app/uploads /tmp/pdf-chunks

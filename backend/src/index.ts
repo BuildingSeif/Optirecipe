@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { bodyLimit } from "hono/body-limit";
+import { serveStatic } from "hono/bun";
 import { readFile } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
@@ -206,6 +207,24 @@ app.route("/api/user", userRouter);
 app.route("/api/non-recipe-content", nonRecipeContentRouter);
 app.route("/api/categories", categoriesRouter);
 app.route("/api/countries", countriesRouter);
+
+// Serve frontend static files on Railway (built webapp bundled into /app/public)
+const STATIC_DIR = "/app/public";
+if (existsSync(STATIC_DIR)) {
+  // Serve static assets (JS, CSS, images, etc.)
+  app.use("/*", serveStatic({ root: STATIC_DIR }));
+
+  // SPA fallback: serve index.html for any non-API, non-file route
+  app.get("*", async (c) => {
+    const path = c.req.path;
+    // Skip API routes and health check
+    if (path.startsWith("/api/") || path === "/health" || path.startsWith("/uploads/")) {
+      return c.notFound();
+    }
+    const html = await readFile(join(STATIC_DIR, "index.html"), "utf-8");
+    return c.html(html);
+  });
+}
 
 // Recover orphaned processing jobs on startup
 // If the server crashed/restarted, jobs stuck in "processing" need to be detected
