@@ -10,7 +10,8 @@ backend/prisma/dev.db-wal
 backend/prisma/dev.db-shm
 backend/server.log
 backend/studio.log
-webapp/
+webapp/node_modules
+webapp/dist
 .git
 .cache
 coverage
