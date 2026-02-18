@@ -401,8 +401,13 @@ async function fetchPDFFromStorage(filePath: string, fileUrl?: string | null, jo
 
   // If we have a direct URL, use it
   if (fileUrl) {
-    console.log(`Using direct URL: ${fileUrl}`);
-    const response = await fetch(fileUrl);
+    // Ensure URL has protocol prefix
+    let fetchUrl = fileUrl;
+    if (!fetchUrl.startsWith("http://") && !fetchUrl.startsWith("https://")) {
+      fetchUrl = `https://${fetchUrl}`;
+    }
+    console.log(`Using direct URL: ${fetchUrl}`);
+    const response = await fetch(fetchUrl);
     if (!response.ok) {
       throw new Error(`Failed to fetch PDF from URL: ${response.statusText}`);
     }

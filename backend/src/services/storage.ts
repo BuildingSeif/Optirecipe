@@ -14,6 +14,15 @@ interface StorageListResult {
   files: StorageFile[];
 }
 
+function getBaseUrl(): string {
+  const raw = process.env.BACKEND_URL || process.env.RAILWAY_STATIC_URL || "http://localhost:3000";
+  // Ensure URL has protocol
+  if (!raw.startsWith("http://") && !raw.startsWith("https://")) {
+    return `https://${raw}`;
+  }
+  return raw;
+}
+
 class StorageService {
   private vibecode: any = null;
 
@@ -47,7 +56,7 @@ class StorageService {
     const buffer = Buffer.from(await file.arrayBuffer());
     await writeFile(filePath, buffer);
 
-    const baseUrl = process.env.BACKEND_URL || process.env.RAILWAY_STATIC_URL || "http://localhost:3000";
+    const baseUrl = getBaseUrl();
     const url = `${baseUrl}/uploads/${fileName}`;
 
     return { id: fileName, url };
@@ -61,7 +70,7 @@ class StorageService {
     const files: StorageFile[] = [];
     if (existsSync(UPLOADS_DIR)) {
       const entries = await readdir(UPLOADS_DIR);
-      const baseUrl = process.env.BACKEND_URL || process.env.RAILWAY_STATIC_URL || "http://localhost:3000";
+      const baseUrl = getBaseUrl();
       for (const entry of entries.slice(0, options?.limit || 50)) {
         files.push({
           id: entry,
