@@ -7,6 +7,7 @@ import {
   CreateRecipeSchema,
   UpdateRecipeSchema,
   RecipeFiltersSchema,
+  BulkStatusUpdateSchema,
   type Ingredient,
   type Instruction,
 } from "../types";
@@ -231,6 +232,28 @@ recipesRouter.patch("/bulk/status", zValidator("json", BulkUpdateSchema), async 
       reviewNotes: reviewNotes || null,
       reviewedById: user.id,
       reviewedAt: new Date(),
+    },
+  });
+
+  return c.json({ data: { updated: result.count } });
+});
+
+// Bulk status update (POST)
+recipesRouter.post("/bulk/status", zValidator("json", BulkStatusUpdateSchema), async (c) => {
+  const user = c.get("user");
+  if (!user) return c.json({ error: { message: "Unauthorized" } }, 401);
+
+  const { recipeIds, status } = c.req.valid("json");
+
+  const result = await prisma.recipe.updateMany({
+    where: {
+      id: { in: recipeIds },
+      userId: user.id,
+    },
+    data: {
+      status,
+      reviewedById: status === "approved" || status === "rejected" ? user.id : undefined,
+      reviewedAt: status === "approved" || status === "rejected" ? new Date() : undefined,
     },
   });
 

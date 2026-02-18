@@ -155,6 +155,14 @@ export const RecipeFiltersSchema = z.object({
 
 export type RecipeFilters = z.infer<typeof RecipeFiltersSchema>;
 
+// ==================== Bulk Status Update Schema ====================
+export const BulkStatusUpdateSchema = z.object({
+  recipeIds: z.array(z.string()).min(1),
+  status: z.enum(["approved", "rejected", "pending"]),
+});
+
+export type BulkStatusUpdateInput = z.infer<typeof BulkStatusUpdateSchema>;
+
 // ==================== Cookbook Schemas ====================
 export const CookbookStatusSchema = z.enum(["uploaded", "processing", "completed", "failed"]);
 export type CookbookStatus = z.infer<typeof CookbookStatusSchema>;

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 import { ChefHat, Search, Loader2, CheckCircle2, XCircle, Trash2, SlidersHorizontal, X } from "lucide-react";
 import type { Recipe, Cookbook } from "../../../backend/src/types";
 
@@ -94,6 +95,7 @@ function TogglePill({
 
 export default function RecipesPage() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(false);
@@ -182,11 +184,15 @@ export default function RecipesPage() {
 
   const bulkStatusMutation = useMutation({
     mutationFn: async ({ ids, status }: { ids: string[]; status: string }) => {
-      return api.patch<{ updated: number }>("/api/recipes/bulk/status", { ids, status });
+      return api.post<{ updated: number }>("/api/recipes/bulk/status", { recipeIds: ids, status });
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["recipes"] });
       setSelectedIds(new Set());
+      toast({
+        title: variables.status === "approved" ? "Recettes approuvees" : "Recettes rejetees",
+        description: `${variables.ids.length} recette${variables.ids.length > 1 ? "s" : ""} ${variables.status === "approved" ? "approuvee" : "rejetee"}${variables.ids.length > 1 ? "s" : ""} avec succes.`,
+      });
     },
   });
 
@@ -194,9 +200,13 @@ export default function RecipesPage() {
     mutationFn: async (ids: string[]) => {
       await Promise.all(ids.map((id) => api.delete(`/api/recipes/${id}`)));
     },
-    onSuccess: () => {
+    onSuccess: (_data, ids) => {
       queryClient.invalidateQueries({ queryKey: ["recipes"] });
       setSelectedIds(new Set());
+      toast({
+        title: "Recettes supprimees",
+        description: `${ids.length} recette${ids.length > 1 ? "s" : ""} supprimee${ids.length > 1 ? "s" : ""} avec succes.`,
+      });
     },
   });
 
