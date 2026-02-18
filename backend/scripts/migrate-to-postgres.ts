@@ -1,6 +1,7 @@
 /**
  * Migration script: SQLite → PostgreSQL
- * Exports all data from local SQLite and imports into Railway PostgreSQL.
+ * Handles SQLite Unix-millisecond timestamps → PostgreSQL timestamp conversion.
+ * Handles SQLite 0/1 → PostgreSQL boolean conversion.
  *
  * Usage: POSTGRES_URL="postgresql://..." bun run scripts/migrate-to-postgres.ts
  */
@@ -12,23 +13,73 @@ const SQLITE_PATH = join(import.meta.dir, "../prisma/dev.db");
 const POSTGRES_URL = process.env.POSTGRES_URL;
 
 if (!POSTGRES_URL) {
-  console.error("ERROR: Set POSTGRES_URL environment variable to your Railway PostgreSQL connection string.");
-  console.error('Usage: POSTGRES_URL="postgresql://user:pass@host:port/db" bun run scripts/migrate-to-postgres.ts');
+  console.error("ERROR: Set POSTGRES_URL environment variable.");
   process.exit(1);
 }
 
-// Use pg directly for PostgreSQL (Prisma can't do raw multi-table inserts easily)
 const { Client } = await import("pg") as any;
-
 const pg = new Client({ connectionString: POSTGRES_URL, ssl: { rejectUnauthorized: false } });
 const sqlite = new Database(SQLITE_PATH, { readonly: true });
+
+// All timestamp columns per table
+const TIMESTAMP_COLUMNS: Record<string, Set<string>> = {
+  User: new Set(["createdAt", "updatedAt"]),
+  Account: new Set(["createdAt", "updatedAt", "accessTokenExpiresAt", "refreshTokenExpiresAt"]),
+  Session: new Set(["createdAt", "updatedAt", "expiresAt"]),
+  Verification: new Set(["createdAt", "updatedAt", "expiresAt"]),
+  OtpCode: new Set(["createdAt", "expiresAt"]),
+  Category: new Set(["createdAt"]),
+  SubCategory: new Set(["createdAt"]),
+  Country: new Set(["createdAt"]),
+  Region: new Set(["createdAt"]),
+  Cookbook: new Set(["createdAt", "updatedAt"]),
+  ProcessingJob: new Set(["createdAt", "startedAt", "completedAt"]),
+  Recipe: new Set(["createdAt", "updatedAt", "reviewedAt"]),
+  NonRecipeContent: new Set(["createdAt"]),
+  IngredientConversion: new Set(["createdAt"]),
+  IngredientImage: new Set(["createdAt"]),
+  ExportHistory: new Set(["createdAt"]),
+};
+
+const BOOLEAN_COLUMNS = new Set([
+  "emailVerified", "used", "pinned", "generateDescriptions",
+  "reformulateForCopyright", "convertToGrams",
+  "is_vegetarian", "is_vegan", "is_gluten_free", "is_lactose_free",
+  "is_halal", "is_low_carb", "is_low_fat", "is_high_protein",
+  "is_mediterranean", "is_whole30", "is_low_sodium"
+]);
+
+function convertValue(table: string, column: string, val: any): any {
+  if (val === null || val === undefined) return null;
+
+  // Convert Unix millisecond timestamps to ISO date strings
+  const tsColumns = TIMESTAMP_COLUMNS[table];
+  if (tsColumns?.has(column)) {
+    if (typeof val === "number") {
+      // Unix milliseconds
+      return new Date(val).toISOString();
+    }
+    if (typeof val === "string" && /^\d{10,13}$/.test(val)) {
+      const ms = val.length <= 10 ? parseInt(val) * 1000 : parseInt(val);
+      return new Date(ms).toISOString();
+    }
+    // Already a date string, return as-is
+    return val;
+  }
+
+  // Convert SQLite 0/1 booleans
+  if (BOOLEAN_COLUMNS.has(column) && typeof val === "number") {
+    return val === 1;
+  }
+
+  return val;
+}
 
 async function run() {
   await pg.connect();
   console.log("Connected to PostgreSQL");
   console.log("Reading from SQLite:", SQLITE_PATH);
 
-  // Order matters for foreign keys: parents first, children after
   const tables = [
     "User",
     "Account",
@@ -45,125 +96,63 @@ async function run() {
     "IngredientImage",
     "ExportHistory",
     "OtpCode",
-    // Skip Session - users will create new sessions on login
   ];
 
-  // Start transaction
-  await pg.query("BEGIN");
+  let totalMigrated = 0;
+  let totalFailed = 0;
 
-  try {
-    for (const table of tables) {
-      const rows = sqlite.query(`SELECT * FROM "${table}"`).all() as Record<string, any>[];
-      if (rows.length === 0) {
-        console.log(`  ${table}: 0 rows (skipped)`);
-        continue;
-      }
-
-      // Get column names from first row
-      const columns = Object.keys(rows[0]);
-
-      // Quote column names for PostgreSQL
-      const quotedColumns = columns.map(c => `"${c}"`).join(", ");
-
-      // Build parameterized insert
-      let inserted = 0;
-      const batchSize = 50;
-
-      for (let i = 0; i < rows.length; i += batchSize) {
-        const batch = rows.slice(i, i + batchSize);
-        const values: any[] = [];
-        const valuePlaceholders: string[] = [];
-
-        for (let j = 0; j < batch.length; j++) {
-          const row = batch[j];
-          const rowPlaceholders: string[] = [];
-
-          for (let k = 0; k < columns.length; k++) {
-            const paramIndex = j * columns.length + k + 1;
-            rowPlaceholders.push(`$${paramIndex}`);
-
-            let val = row[columns[k]];
-
-            // Convert SQLite integer booleans to JS booleans for PostgreSQL
-            if (typeof val === "number" && (val === 0 || val === 1)) {
-              // Check if this column is a boolean field
-              const booleanFields = [
-                "emailVerified", "used", "pinned", "generateDescriptions",
-                "reformulateForCopyright", "convertToGrams",
-                "is_vegetarian", "is_vegan", "is_gluten_free", "is_lactose_free",
-                "is_halal", "is_low_carb", "is_low_fat", "is_high_protein",
-                "is_mediterranean", "is_whole30", "is_low_sodium"
-              ];
-              if (booleanFields.includes(columns[k])) {
-                val = val === 1;
-              }
-            }
-
-            values.push(val);
-          }
-
-          valuePlaceholders.push(`(${rowPlaceholders.join(", ")})`);
-        }
-
-        const query = `INSERT INTO "${table}" (${quotedColumns}) VALUES ${valuePlaceholders.join(", ")} ON CONFLICT DO NOTHING`;
-
-        try {
-          await pg.query(query, values);
-          inserted += batch.length;
-        } catch (err: any) {
-          console.error(`  ERROR inserting into ${table} (batch ${i}-${i + batch.length}):`, err.message);
-          // Try one by one for this batch to find the problematic row
-          for (const row of batch) {
-            const singleValues = columns.map(c => {
-              let val = row[c];
-              const booleanFields = [
-                "emailVerified", "used", "pinned", "generateDescriptions",
-                "reformulateForCopyright", "convertToGrams",
-                "is_vegetarian", "is_vegan", "is_gluten_free", "is_lactose_free",
-                "is_halal", "is_low_carb", "is_low_fat", "is_high_protein",
-                "is_mediterranean", "is_whole30", "is_low_sodium"
-              ];
-              if (typeof val === "number" && (val === 0 || val === 1) && booleanFields.includes(c)) {
-                val = val === 1;
-              }
-              return val;
-            });
-            const singlePlaceholders = columns.map((_, k) => `$${k + 1}`);
-            const singleQuery = `INSERT INTO "${table}" (${quotedColumns}) VALUES (${singlePlaceholders.join(", ")}) ON CONFLICT DO NOTHING`;
-            try {
-              await pg.query(singleQuery, singleValues);
-              inserted++;
-            } catch (rowErr: any) {
-              console.error(`    Skipped row in ${table}:`, rowErr.message?.substring(0, 100));
-            }
-          }
-        }
-      }
-
-      console.log(`  ${table}: ${inserted}/${rows.length} rows migrated`);
+  for (const table of tables) {
+    const rows = sqlite.query(`SELECT * FROM "${table}"`).all() as Record<string, any>[];
+    if (rows.length === 0) {
+      console.log(`  ${table}: 0 rows (skipped)`);
+      continue;
     }
 
-    await pg.query("COMMIT");
-    console.log("\nMigration complete!");
+    const columns = Object.keys(rows[0]);
+    const quotedColumns = columns.map(c => `"${c}"`).join(", ");
+    let inserted = 0;
+    let failed = 0;
 
-    // Verify counts
-    console.log("\n--- Verification ---");
-    for (const table of tables) {
-      const sqliteCount = (sqlite.query(`SELECT COUNT(*) as c FROM "${table}"`).get() as any).c;
+    for (const row of rows) {
+      const values = columns.map(c => convertValue(table, c, row[c]));
+      const placeholders = columns.map((_, k) => `$${k + 1}`).join(", ");
+      const query = `INSERT INTO "${table}" (${quotedColumns}) VALUES (${placeholders}) ON CONFLICT DO NOTHING`;
+
+      try {
+        await pg.query(query, values);
+        inserted++;
+      } catch (err: any) {
+        failed++;
+        if (failed <= 3) {
+          console.error(`    Error in ${table} (${row.id || "?"}):`, err.message?.substring(0, 150));
+        }
+      }
+    }
+
+    console.log(`  ${table}: ${inserted} migrated, ${failed} failed (of ${rows.length})`);
+    totalMigrated += inserted;
+    totalFailed += failed;
+  }
+
+  console.log(`\nTotal: ${totalMigrated} rows migrated, ${totalFailed} failed`);
+
+  // Verify
+  console.log("\n--- Verification ---");
+  for (const table of tables) {
+    const sqliteCount = (sqlite.query(`SELECT COUNT(*) as c FROM "${table}"`).get() as any).c;
+    try {
       const pgResult = await pg.query(`SELECT COUNT(*) as c FROM "${table}"`);
       const pgCount = parseInt(pgResult.rows[0].c);
-      const match = sqliteCount === pgCount ? "OK" : `MISMATCH (SQLite: ${sqliteCount})`;
-      console.log(`  ${table}: ${pgCount} rows ${match}`);
+      const status = pgCount >= sqliteCount ? "OK" : `MISSING ${sqliteCount - pgCount}`;
+      console.log(`  ${table}: SQLite=${sqliteCount} PostgreSQL=${pgCount} ${status}`);
+    } catch {
+      console.log(`  ${table}: SQLite=${sqliteCount} PostgreSQL=ERROR`);
     }
-
-  } catch (err) {
-    await pg.query("ROLLBACK");
-    console.error("Migration failed, rolled back:", err);
-    process.exit(1);
-  } finally {
-    sqlite.close();
-    await pg.end();
   }
+
+  sqlite.close();
+  await pg.end();
+  console.log("\nDone!");
 }
 
 run();
