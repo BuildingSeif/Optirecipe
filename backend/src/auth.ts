@@ -5,7 +5,7 @@ import { env } from "./env";
 
 const isPostgres = (process.env.DATABASE_URL || "").startsWith("postgres");
 const isRailway = !!process.env.RAILWAY_ENVIRONMENT;
-const baseURL = process.env.BACKEND_URL || (isRailway ? "https://optirecipe.up.railway.app" : "http://localhost:3000");
+const baseURL = process.env.BACKEND_URL || (isRailway ? "https://optirecipe-production.up.railway.app" : "http://localhost:3000");
 
 export const auth = betterAuth({
   baseURL,
