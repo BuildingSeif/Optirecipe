@@ -61,7 +61,23 @@ This workspace contains a mobile app and backend server.
   - DO NOT forget to push — if it's not on GitHub, it's not live for Nicolas
   - Railway auto-deploys from the main branch on every push
   - Production database: PostgreSQL on Railway (see DATABASE_PUBLIC_URL in backend/.env)
+  - Railway volume "optirecipe-volume" mounted at /data/uploads for persistent PDF storage
 </deployment_rule>
+
+<railway_api_rule>
+  CRITICAL SELF-SERVICE RULE — DO EVERYTHING YOURSELF:
+  - Railway API token is stored in /.railway-token (gitignored, NEVER commit to repo)
+  - NEVER ask the user to do Railway tasks manually — use the Railway GraphQL API
+  - API endpoint: https://backboard.railway.com/graphql/v2
+  - Auth header: Project-Access-Token (NOT Bearer)
+  - Project ID: c30116c5-de38-4f77-8a7b-42b48d93a183
+  - Environment ID: 1a7bebcf-7b44-460d-9039-3ba47d9ec68c
+  - Service ID: d77329c6-d4a7-42f3-b3b5-189ff355a024
+  - Volume ID: f423327f-54cf-4a0e-abe9-45de80b11a64 (mounted at /data/uploads)
+  - Use the API to: create volumes, trigger redeploys, check deployment status, manage variables
+  - If you need a token or API key to do something, ask the user for it ONCE, save it in a gitignored file, and use it forever
+  - The goal: user should never need to touch Railway dashboard — you handle everything
+</railway_api_rule>
 
 <locked_checkpoint date="2026-02-14">
   CRITICAL: The following systems are WORKING PERFECTLY. DO NOT modify these files
