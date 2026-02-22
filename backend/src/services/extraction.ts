@@ -673,6 +673,17 @@ async function callOpenAIVision(imageBase64: string, pageNum: number): Promise<E
           };
         }
 
+        // Invalid API key -- no point retrying, fail fast with clear message
+        if (response.status === 401) {
+          const msg = `Cle API OpenAI invalide (401). Veuillez verifier votre cle API.`;
+          console.error(`[Extraction] ${msg} (page ${pageNum})`);
+          return {
+            found_recipe: false,
+            page_type: 'error',
+            notes: msg,
+          };
+        }
+
         throw new Error(`OpenAI API error (${response.status}): ${errorText}`);
       }
 
@@ -1544,6 +1555,68 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
           }
         }
 
+        // SAFETY CHECK: If ALL pages in the first batch failed, this is likely a systemic issue
+        // (bad API key, no credits, etc.). Abort immediately to avoid wasting API calls.
+        if (batchStart === startPage && pagesToProcess.length > 0) {
+          const batchErrorCount = results.filter(r => {
+            if (r.status === "rejected") return true;
+            if (r.status === "fulfilled" && r.value.result.page_type === "error") return true;
+            return false;
+          }).length;
+
+          if (batchErrorCount === pagesToProcess.length) {
+            const abortMsg = "Toutes les pages ont echoue. Verifiez votre cle API OpenAI ou vos credits.";
+            console.error(`[Extraction] Job ${job.id}: ALL pages in first batch failed (${batchErrorCount}/${pagesToProcess.length}). Aborting extraction.`);
+            processingLog.push(abortMsg);
+            errorLog.push(abortMsg);
+
+            await prisma.processingJob.update({
+              where: { id: job.id },
+              data: {
+                status: "failed",
+                completedAt: new Date(),
+                currentPage: batchEnd,
+                recipesExtracted,
+                failedPages,
+                processingLog: JSON.stringify(processingLog),
+                errorLog: JSON.stringify(errorLog),
+              },
+            });
+
+            await prisma.cookbook.update({
+              where: { id: job.cookbookId },
+              data: {
+                status: "failed",
+                errorMessage: abortMsg,
+              },
+            });
+
+            try {
+              progressEmitter.emit({
+                type: "completed",
+                jobId: job.id,
+                cookbookId: job.cookbookId,
+                data: {
+                  status: "failed",
+                  recipesExtracted: 0,
+                  totalPages: totalPages,
+                  failedPages,
+                  duplicatesRemoved: 0,
+                },
+                timestamp: Date.now(),
+              });
+            } catch {}
+
+            // Clean up temp file before returning
+            if (tempFilePath) {
+              cleanupTempFile(tempFilePath);
+              tempFilePath = null;
+            }
+
+            return;
+          }
+        }
+
         // FORCE progress write after every batch (critical for crash recovery on large PDFs)
         await updateJobProgress(job.id, job.cookbookId, batchEnd, recipesExtracted, processingLog, true, failedPages);
 
@@ -1619,8 +1692,23 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
         });
       } catch {}
 
-      // Mark job as completed
-      const finalStatus = cancelledJobs.has(job.id) ? "cancelled" : "completed";
+      // Mark job as completed (or failed if all pages errored with zero recipes)
+      let finalStatus: string;
+      let cookbookErrorMessage: string | null = null;
+
+      if (cancelledJobs.has(job.id)) {
+        finalStatus = "cancelled";
+        cookbookErrorMessage = "Traitement annule par l'utilisateur";
+      } else if (recipesExtracted === 0 && failedPages > 0) {
+        // All pages failed and zero recipes extracted -- mark as failed, not completed
+        finalStatus = "failed";
+        cookbookErrorMessage = "Extraction echouee: aucune recette extraite. Verifiez votre cle API OpenAI et reessayez.";
+        processingLog.push(cookbookErrorMessage);
+        console.error(`[Extraction] Job ${job.id}: Marking as FAILED -- 0 recipes extracted, ${failedPages} pages failed`);
+      } else {
+        finalStatus = "completed";
+      }
+
       await prisma.processingJob.update({
         where: { id: job.id },
         data: {
@@ -1635,13 +1723,14 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
       });
 
       // Update cookbook status
+      const cookbookStatus = (finalStatus === "cancelled" || finalStatus === "failed") ? "failed" : "completed";
       await prisma.cookbook.update({
         where: { id: job.cookbookId },
         data: {
-          status: finalStatus === "cancelled" ? "failed" : "completed",
+          status: cookbookStatus,
           processedPages: totalPagesProcessed,
           totalRecipesFound: recipesExtracted,
-          errorMessage: finalStatus === "cancelled" ? "Traitement annule par l'utilisateur" : null,
+          errorMessage: cookbookErrorMessage,
         },
       });
 
