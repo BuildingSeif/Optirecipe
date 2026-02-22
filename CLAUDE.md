@@ -47,6 +47,20 @@ This workspace contains a mobile app and backend server.
   Be concise and don't talk too much.
 </environment>
 
+<deployment_rule>
+  CRITICAL DEPLOYMENT WORKFLOW — ALWAYS FOLLOW THIS:
+  - Editing/development happens in Vibecode (this sandbox)
+  - Production deployment goes through GitHub → Railway (auto-deploy)
+  - After ANY code changes, ALWAYS push to GitHub so Railway picks them up
+  - GitHub repo: BuildingSeif/Optirecipe (main branch)
+  - Use token from backend/.env GITHUB_TOKEN to authenticate
+  - Remote name: "github" (add if missing: git remote add github https://x-access-token:<TOKEN>@github.com/BuildingSeif/Optirecipe.git)
+  - DO NOT tell the user to click Deploy on Vibecode — Vibecode does NOT handle the database
+  - DO NOT forget to push — if it's not on GitHub, it's not live for Nicolas
+  - Railway auto-deploys from the main branch on every push
+  - Production database: PostgreSQL on Railway (see DATABASE_PUBLIC_URL in backend/.env)
+</deployment_rule>
+
 <locked_checkpoint date="2026-02-14">
   CRITICAL: The following systems are WORKING PERFECTLY. DO NOT modify these files
   or their core logic unless explicitly asked. Any upgrade must not regress these.
