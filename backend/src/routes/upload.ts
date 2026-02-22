@@ -17,7 +17,7 @@ const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB max
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
 const CHUNKS_DIR = "/tmp/pdf-chunks";
 const FORM_PARSE_TIMEOUT = 60000; // 1 minute for chunk parsing
-const UPLOAD_TIMEOUT = 300000; // 5 minutes for final upload
+const UPLOAD_TIMEOUT = 600000; // 10 minutes for final upload
 
 // Helper to add timeout to promises
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {

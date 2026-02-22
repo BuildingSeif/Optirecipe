@@ -349,7 +349,7 @@ const extractionQueue: string[] = [];
 let largeRunning = 0;
 let smallRunning = 0;
 const SMALL_PDF_THRESHOLD = 20; // Pages -- PDFs this size or smaller use the fast lane
-const MAX_LARGE_CONCURRENT = 2;  // Max large PDFs extracting at once (reduced for memory safety)
+const MAX_LARGE_CONCURRENT = 3;  // Max large PDFs extracting at once
 const MAX_SMALL_CONCURRENT = 5;  // Max small PDFs extracting at once
 
 async function processExtractionQueue(): Promise<void> {
@@ -1131,9 +1131,12 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
 
       // Get page count using MuPDF (read from temp file per batch)
       processingLog.push("Analyse du PDF...");
-      const pdfNodeBuffer = fs.readFileSync(tempFilePath);
+      let pdfNodeBuffer: Buffer | null = fs.readFileSync(tempFilePath);
       const totalPages = getPdfPageCount(pdfNodeBuffer);
       const fileSize = fileStats.size;
+
+      // Adaptive batch size: larger PDFs use bigger batches to reduce overhead
+      const adaptiveBatchSize = totalPages > 500 ? 10 : totalPages > 200 ? 8 : BATCH_SIZE;
 
       processingLog.push(`PDF charge: ${totalPages} pages detectees`);
       await updateJobProgress(job.id, job.cookbookId, 0, recipesExtracted, processingLog, false, failedPages);
@@ -1161,7 +1164,7 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
       let preRenderedPages: Map<number, string> | null = null;
 
       // Process pages in batches of BATCH_SIZE (concurrent per batch, like Python version)
-      for (let batchStart = startPage; batchStart <= totalPages; batchStart += BATCH_SIZE) {
+      for (let batchStart = startPage; batchStart <= totalPages; batchStart += adaptiveBatchSize) {
         // Check if job was cancelled
         if (cancelledJobs.has(job.id)) {
           processingLog.push(`Traitement annule par l'utilisateur`);
@@ -1194,14 +1197,14 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
           break;
         }
 
-        const batchEnd = Math.min(batchStart + BATCH_SIZE - 1, totalPages);
+        const batchEnd = Math.min(batchStart + adaptiveBatchSize - 1, totalPages);
         const batchPages = Array.from({ length: batchEnd - batchStart + 1 }, (_, i) => batchStart + i);
 
         console.log(`[Extraction] Job ${job.id}: Processing pages ${batchStart}-${batchEnd}/${totalPages} (${recipesExtracted} recipes so far)`);
 
-        // Cap processing log to last 200 entries to prevent unbounded growth on large PDFs
-        if (processingLog.length > 200) {
-          const removed = processingLog.length - 150;
+        // Cap processing log to last 100 entries to prevent unbounded growth on large PDFs
+        if (processingLog.length > 100) {
+          const removed = processingLog.length - 50;
           processingLog.splice(0, removed);
           processingLog.unshift(`[...${removed} entrees precedentes supprimees]`);
         }
@@ -1218,8 +1221,7 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
         } else {
           // First batch or fallback: render synchronously
           try {
-            const batchBuffer = fs.readFileSync(tempFilePath);
-            const doc = mupdf.Document.openDocument(batchBuffer, "application/pdf");
+            const doc = mupdf.Document.openDocument(pdfNodeBuffer!, "application/pdf");
             try {
               renderedPages = renderPagesFromDoc(doc, batchPages, totalPages, fileSize);
             } finally {
@@ -1272,17 +1274,15 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
         }
 
         // UPGRADE #2: Pipeline - Start rendering next batch while analyzing current batch
-        const nextBatchStart = batchStart + BATCH_SIZE;
-        const nextBatchEnd = Math.min(nextBatchStart + BATCH_SIZE - 1, totalPages);
+        const nextBatchStart = batchStart + adaptiveBatchSize;
+        const nextBatchEnd = Math.min(nextBatchStart + adaptiveBatchSize - 1, totalPages);
         let renderNextBatchPromise: Promise<Map<number, string>> | null = null;
 
         if (nextBatchStart <= totalPages) {
           const nextBatchPages = Array.from({ length: nextBatchEnd - nextBatchStart + 1 }, (_, i) => nextBatchStart + i);
-          const capturedTempFilePath = tempFilePath;
           renderNextBatchPromise = (async () => {
             try {
-              const nextBuffer = fs.readFileSync(capturedTempFilePath);
-              const doc = mupdf.Document.openDocument(nextBuffer, "application/pdf");
+              const doc = mupdf.Document.openDocument(pdfNodeBuffer!, "application/pdf");
               try {
                 return renderPagesFromDoc(doc, nextBatchPages, totalPages, fileSize);
               } finally {
@@ -1623,6 +1623,10 @@ async function extractRecipesFromPDFInternal(jobId: string): Promise<void> {
         // Small delay between batches to respect rate limits
         await delay(RATE_LIMIT_DELAY_MS);
       }
+
+      // Free PDF buffer from memory after extraction is complete
+      // @ts-ignore - allow reassignment for GC
+      pdfNodeBuffer = null;
 
       // UPGRADE #4: Recipe Deduplication Engine
       processingLog.push("Deduplication des recettes...");
