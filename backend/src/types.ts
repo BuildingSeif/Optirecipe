@@ -413,6 +413,10 @@ export interface OptiRecipeExportRecipe {
   sub_category: string | null;
   country: string;
   region: string | null;
+  tips: string | null;
+  season: string | null;
+  meal_type: string | null;
+  diet_tags: string[];
   dietary: {
     vegetarian: boolean;
     vegan: boolean;

@@ -123,6 +123,18 @@ export default function ExportPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(options),
         });
+        if (!response.ok) {
+          let errorMessage = "Erreur lors de l'export CSV";
+          try {
+            const errorData = await response.json();
+            if (errorData?.error?.message) {
+              errorMessage = errorData.error.message;
+            }
+          } catch {
+            // Response was not JSON, use default message
+          }
+          throw new Error(errorMessage);
+        }
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -162,6 +174,67 @@ export default function ExportPage() {
     // Create a printable HTML document
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
+
+    // Helper: format ingredient quantity display
+    const formatIngredientQty = (ing: OptiRecipeExport["recipes"][0]["ingredients"][0]) => {
+      const hasQty = ing.quantity != null && ing.quantity > 0;
+      const hasUnit = ing.unit != null && ing.unit.trim() !== "";
+      if (hasQty && hasUnit) return `${ing.quantity} ${ing.unit}`;
+      if (hasQty) return `${ing.quantity}`;
+      return "";
+    };
+
+    // Helper: format ingredient name with optional original text
+    const formatIngredientName = (ing: OptiRecipeExport["recipes"][0]["ingredients"][0]) => {
+      const name = ing.name;
+      if (ing.original_text && ing.original_text.trim() !== "" && ing.original_text.trim().toLowerCase() !== name.trim().toLowerCase()) {
+        return `${name} <span class="original-text">(${ing.original_text})</span>`;
+      }
+      return name;
+    };
+
+    // Helper: build nutrition row HTML
+    const buildNutritionRow = (nutrition: OptiRecipeExport["recipes"][0]["nutrition"]) => {
+      const parts: string[] = [];
+      if (nutrition.calories != null) parts.push(`${nutrition.calories} kcal`);
+      if (nutrition.proteins != null) parts.push(`Prot: ${nutrition.proteins}g`);
+      if (nutrition.carbs != null) parts.push(`Gluc: ${nutrition.carbs}g`);
+      if (nutrition.fats != null) parts.push(`Lip: ${nutrition.fats}g`);
+      if (parts.length === 0) return "";
+      return `<div class="nutrition-row">${parts.join(" &middot; ")}</div>`;
+    };
+
+    // Helper: build dietary tags HTML
+    const buildDietaryTags = (dietary: OptiRecipeExport["recipes"][0]["dietary"]) => {
+      const labelMap: Record<string, string> = {
+        vegetarian: "Vegetarien",
+        vegan: "Vegan",
+        gluten_free: "Sans gluten",
+        lactose_free: "Sans lactose",
+        halal: "Halal",
+        low_carb: "Pauvre en glucides",
+        low_fat: "Pauvre en graisses",
+        high_protein: "Riche en proteines",
+        mediterranean: "Mediterraneen",
+        whole30: "Whole30",
+        low_sodium: "Pauvre en sel",
+      };
+      const activeTags: string[] = [];
+      for (const [key, label] of Object.entries(labelMap)) {
+        if (dietary[key as keyof typeof dietary]) {
+          activeTags.push(label);
+        }
+      }
+      if (activeTags.length === 0) return "";
+      return `<div class="dietary-tags">${activeTags.map((tag) => `<span class="diet-badge">${tag}</span>`).join("")}</div>`;
+    };
+
+    // Helper: build tips box HTML
+    const buildTipsBox = (recipe: OptiRecipeExport["recipes"][0]) => {
+      const tips = recipe.tips;
+      if (!tips || tips.trim() === "") return "";
+      return `<div class="tips-box"><div class="tips-label">Conseils</div><p class="tips-text">${tips}</p></div>`;
+    };
 
     const html = `
       <!DOCTYPE html>
@@ -215,6 +288,39 @@ export default function ExportPage() {
             gap: 6px;
           }
 
+          .nutrition-row {
+            display: flex;
+            gap: 8px;
+            font-size: 13px;
+            color: #4b5563;
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 6px;
+            padding: 8px 14px;
+            margin-top: 12px;
+            margin-bottom: 4px;
+          }
+
+          .dietary-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+            margin-bottom: 4px;
+          }
+
+          .diet-badge {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 600;
+            color: #065f46;
+            background: #d1fae5;
+            border: 1px solid #a7f3d0;
+            border-radius: 999px;
+            padding: 2px 10px;
+            letter-spacing: 0.2px;
+          }
+
           .section-title {
             font-size: 16px;
             font-weight: 600;
@@ -241,7 +347,8 @@ export default function ExportPage() {
           }
 
           .ingredient-name { font-weight: 500; }
-          .ingredient-qty { color: #6b7280; }
+          .ingredient-qty { color: #6b7280; white-space: nowrap; margin-left: 8px; }
+          .original-text { font-size: 12px; color: #9ca3af; font-weight: 400; }
 
           .instructions {
             margin-bottom: 24px;
@@ -270,6 +377,30 @@ export default function ExportPage() {
           .step-text {
             font-size: 14px;
             color: #374151;
+          }
+
+          .tips-box {
+            background: #fefce8;
+            border: 1px solid #fde68a;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+          }
+
+          .tips-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #92400e;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+          }
+
+          .tips-text {
+            font-size: 14px;
+            color: #78350f;
+            font-style: italic;
+            line-height: 1.5;
           }
 
           .cover-page {
@@ -344,18 +475,23 @@ export default function ExportPage() {
                 ${recipe.servings ? `<span>Portions: ${recipe.servings}</span>` : ""}
                 ${recipe.category ? `<span>${recipe.category}</span>` : ""}
               </div>
+              ${buildNutritionRow(recipe.nutrition)}
+              ${buildDietaryTags(recipe.dietary)}
             </div>
 
             ${recipe.description ? `<p style="margin-bottom: 24px; color: #4b5563; font-style: italic;">${recipe.description}</p>` : ""}
 
             <div class="section-title">Ingredients</div>
             <div class="ingredients-grid">
-              ${recipe.ingredients.map((ing) => `
+              ${recipe.ingredients.map((ing) => {
+                const qty = formatIngredientQty(ing);
+                return `
                 <div class="ingredient">
-                  <span class="ingredient-name">${ing.name}</span>
-                  <span class="ingredient-qty">${ing.quantity} ${ing.unit}</span>
+                  <span class="ingredient-name">${formatIngredientName(ing)}</span>
+                  ${qty ? `<span class="ingredient-qty">${qty}</span>` : ""}
                 </div>
-              `).join("")}
+              `;
+              }).join("")}
             </div>
 
             <div class="section-title">Instructions</div>
@@ -367,6 +503,8 @@ export default function ExportPage() {
                 </div>
               `).join("")}
             </div>
+
+            ${buildTipsBox(recipe)}
           </div>
         `).join("")}
       </body>
@@ -376,10 +514,19 @@ export default function ExportPage() {
     printWindow.document.write(html);
     printWindow.document.close();
 
-    // Wait for fonts to load then print
-    setTimeout(() => {
+    // Wait for fonts and content to load, then print
+    let hasPrinted = false;
+    const triggerPrint = () => {
+      if (hasPrinted) return;
+      hasPrinted = true;
       printWindow.print();
-    }, 500);
+    };
+
+    // Listen for the load event (fires when fonts, images, etc. are ready)
+    printWindow.addEventListener("load", triggerPrint);
+
+    // Fallback timeout in case load never fires (popup blockers, edge cases)
+    setTimeout(triggerPrint, 2000);
   };
 
   const filteredRecipes = recipesData?.recipes || [];

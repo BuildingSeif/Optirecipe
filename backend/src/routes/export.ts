@@ -75,10 +75,22 @@ exportRouter.post("/", zValidator("json", ExportOptionsSchema), async (c) => {
   }
   if (category) filtersApplied.category = category;
 
+  // Safe JSON parse helper - prevents a single malformed recipe from crashing the export
+  function safeParseJsonArray<T>(raw: string | null | undefined): T[] {
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
   // Build export in OptiRecipe format
   const exportRecipes: OptiRecipeExportRecipe[] = recipes.map((recipe) => {
-    const ingredients = JSON.parse(recipe.ingredients || "[]") as Ingredient[];
-    const instructions = JSON.parse(recipe.instructions || "[]") as Instruction[];
+    const ingredients = safeParseJsonArray<Ingredient>(recipe.ingredients);
+    const instructions = safeParseJsonArray<Instruction>(recipe.instructions);
+    const dietTags = safeParseJsonArray<string>(recipe.dietTags);
 
     return {
       title: recipe.title,
@@ -94,6 +106,10 @@ exportRouter.post("/", zValidator("json", ExportOptionsSchema), async (c) => {
       sub_category: recipe.subCategory,
       country: recipe.country,
       region: recipe.region,
+      tips: recipe.tips ?? null,
+      season: recipe.season ?? null,
+      meal_type: recipe.mealType ?? null,
+      diet_tags: dietTags,
       dietary: {
         vegetarian: recipe.is_vegetarian,
         vegan: recipe.is_vegan,
@@ -210,6 +226,10 @@ exportRouter.post("/", zValidator("json", ExportOptionsSchema), async (c) => {
       "type",
       "country",
       "region",
+      "season",
+      "meal_type",
+      "diet_tags",
+      "tips",
       "vegetarian",
       "vegan",
       "gluten_free",
@@ -229,8 +249,30 @@ exportRouter.post("/", zValidator("json", ExportOptionsSchema), async (c) => {
       "instructions",
     ].join(","));
 
+    // Helper: format a single ingredient for CSV display
+    function formatIngredient(i: { name: string; quantity: number; unit: string }): string {
+      const name = i.name || "";
+      const hasQuantity = i.quantity != null && i.quantity !== 0;
+      const hasUnit = i.unit != null && i.unit !== "";
+      if (hasQuantity && hasUnit) return `${i.quantity}${i.unit} ${name}`;
+      if (hasQuantity) return `${i.quantity} ${name}`;
+      return name;
+    }
+
     // Data rows
     for (const recipe of exportRecipes) {
+      // Format ingredients with null safety
+      const ingredientsStr = recipe.ingredients
+        .map(formatIngredient)
+        .filter((s) => s.trim() !== "")
+        .join("; ");
+
+      // Format instructions - skip entries with null/undefined text
+      const instructionsStr = recipe.instructions
+        .filter((i) => i.text != null && i.text !== "")
+        .map((i) => `${i.step}. ${i.text}`)
+        .join(" ");
+
       const row = [
         `"${(recipe.title || "").replace(/"/g, '""')}"`,
         `"${(recipe.original_title || "").replace(/"/g, '""')}"`,
@@ -245,6 +287,10 @@ exportRouter.post("/", zValidator("json", ExportOptionsSchema), async (c) => {
         `"${recipe.type || ""}"`,
         `"${recipe.country || ""}"`,
         `"${recipe.region || ""}"`,
+        `"${recipe.season || ""}"`,
+        `"${recipe.meal_type || ""}"`,
+        `"${(recipe.diet_tags || []).join("; ").replace(/"/g, '""')}"`,
+        `"${(recipe.tips || "").replace(/"/g, '""')}"`,
         recipe.dietary.vegetarian,
         recipe.dietary.vegan,
         recipe.dietary.gluten_free,
@@ -260,13 +306,14 @@ exportRouter.post("/", zValidator("json", ExportOptionsSchema), async (c) => {
         recipe.nutrition.proteins || "",
         recipe.nutrition.carbs || "",
         recipe.nutrition.fats || "",
-        `"${recipe.ingredients.map((i) => `${i.quantity}${i.unit} ${i.name}`).join("; ").replace(/"/g, '""')}"`,
-        `"${recipe.instructions.map((i) => `${i.step}. ${i.text}`).join(" ").replace(/"/g, '""')}"`,
+        `"${ingredientsStr.replace(/"/g, '""')}"`,
+        `"${instructionsStr.replace(/"/g, '""')}"`,
       ];
       csvRows.push(row.join(","));
     }
 
-    const csv = csvRows.join("\n");
+    // Prepend UTF-8 BOM so Excel correctly reads French accents (e, e, e, etc.)
+    const csv = "\uFEFF" + csvRows.join("\n");
 
     return c.text(csv, 200, {
       "Content-Type": "text/csv; charset=utf-8",
