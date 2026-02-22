@@ -53,8 +53,10 @@ This workspace contains a mobile app and backend server.
   - Production deployment goes through GitHub → Railway (auto-deploy)
   - After ANY code changes, ALWAYS push to GitHub so Railway picks them up
   - GitHub repo: BuildingSeif/Optirecipe (main branch)
-  - Use token from backend/.env GITHUB_TOKEN to authenticate
-  - Remote name: "github" (add if missing: git remote add github https://x-access-token:<TOKEN>@github.com/BuildingSeif/Optirecipe.git)
+  - GitHub token is stored in /.github-token (gitignored, NEVER commit to repo)
+  - NEVER put GITHUB_TOKEN in backend/.env — GitHub secret scanning will revoke it
+  - Remote "github" is configured with the token in its URL
+  - To update token: git remote set-url github "https://x-access-token:<TOKEN>@github.com/BuildingSeif/Optirecipe.git"
   - DO NOT tell the user to click Deploy on Vibecode — Vibecode does NOT handle the database
   - DO NOT forget to push — if it's not on GitHub, it's not live for Nicolas
   - Railway auto-deploys from the main branch on every push
