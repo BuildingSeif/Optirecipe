@@ -124,7 +124,8 @@ app.use("*", async (c, next) => {
 });
 
 // Serve uploaded files (for Railway local storage fallback)
-const UPLOADS_DIR = process.env.UPLOADS_DIR || "/app/uploads";
+const isRailwayEnv = !!process.env.RAILWAY_STATIC_URL || !!process.env.RAILWAY_ENVIRONMENT;
+const UPLOADS_DIR = process.env.UPLOADS_DIR || (isRailwayEnv ? "/data/uploads" : "/app/uploads");
 app.get("/uploads/:filename", async (c) => {
   const filename = c.req.param("filename");
   // Sanitize filename to prevent directory traversal
