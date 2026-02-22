@@ -2,8 +2,8 @@ import { writeFile, readFile, unlink, readdir, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 
-const UPLOADS_DIR = process.env.UPLOADS_DIR || "/app/uploads";
 const isRailway = !!process.env.RAILWAY_STATIC_URL || !!process.env.RAILWAY_ENVIRONMENT;
+const UPLOADS_DIR = process.env.UPLOADS_DIR || (isRailway ? "/data/uploads" : "/app/uploads");
 
 interface StorageFile {
   id: string;

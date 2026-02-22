@@ -55,7 +55,7 @@ COPY backend/prisma ./prisma/
 COPY --from=frontend-builder /webapp/dist /app/public
 
 # Create uploads directory
-RUN mkdir -p /app/uploads /tmp/pdf-chunks
+RUN mkdir -p /app/uploads /data/uploads /tmp/pdf-chunks
 
 # Set Railway environment flag
 ENV RAILWAY_ENVIRONMENT=production
