@@ -79,7 +79,7 @@ This workspace contains a mobile app and backend server.
   - The goal: user should never need to touch Railway dashboard — you handle everything
 </railway_api_rule>
 
-<locked_checkpoint date="2026-02-14">
+<locked_checkpoint date="2026-02-22">
   CRITICAL: The following systems are WORKING PERFECTLY. DO NOT modify these files
   or their core logic unless explicitly asked. Any upgrade must not regress these.
 
@@ -148,22 +148,54 @@ This workspace contains a mobile app and backend server.
   - renderPageToJpegBase64(): MuPDF renders at 2x scale, outputs JPEG quality 90, doc.destroy() in finally
   - getPdfPageCount(): MuPDF page count with doc.destroy() in finally
   - callOpenAIVision(): Sends JPEG base64 as image_url to GPT-5.2, temperature 0.1
+    - 401 (invalid API key) fails fast — no retries, clear French error message
     - 402 (credit exhaustion) fails fast — no retries, clear error message
     - 429 (rate limit) retries with 5s * attempt backoff
     - Other errors retry up to MAX_RETRIES=3 with 2s * attempt backoff
-  - Batch processing: BATCH_SIZE=5 pages concurrently via Promise.allSettled
+  - Batch processing: BATCH_SIZE=5 base, adaptive (8 for 200+ pages, 10 for 500+ pages)
+  - PDF buffer read ONCE from disk, reused across all batches, freed after extraction
+  - Pipeline architecture: pre-renders next batch while current batch processes via OpenAI
+  - Pre-filter: classifyPageCheap() uses GPT-4o-mini to skip non-recipe pages
+  - First-batch all-fail detection: aborts immediately if ALL pages in first batch fail (bad API key)
+  - Zero-recipes final check: marks job as "failed" if 0 recipes and failed pages > 0
   - Error pages: page_type="error" goes to errorLog, NOT stored as NonRecipeContent
   - Image generation: FAL AI Flux Pro v1.1 via throttled queue (2 at a time, 1s between batches)
   - Email notification: Resend API after extraction completes (non-blocking)
   - Re-extract endpoint: POST /api/processing/re-extract cleans old data and re-runs
   - Pause/Resume: pausedJobs Set controls loop, resume re-launches from currentPage
-  - Constants: MAX_RETRIES=3, BATCH_SIZE=5, MAX_RECIPES_PER_PDF=500, RATE_LIMIT_DELAY_MS=500
+  - Recipe deduplication: Jaccard similarity > 0.8 on normalized titles, keeps richer version
+  - Recipe validation: checks ingredients, instructions, title, category, servings
+  - Multi-page continuations: is_continuation merges with previous recipe
+  - Processing log cap: 100 entries max, keeps last 50 when trimming
+  - Constants: MAX_RETRIES=3, BATCH_SIZE=5, MAX_RECIPES_PER_PDF=2000, RATE_LIMIT_DELAY_MS=500
   - DO NOT replace MuPDF with pdfjs-dist or canvas — they crash in Bun
   - DO NOT send raw PDF to OpenAI — send rendered JPEG images per page
   - DO NOT remove doc.destroy() calls — causes memory leaks on large PDFs
   - DO NOT fire image generation synchronously — must use the throttled queue
-  - DO NOT retry 402 errors — they indicate credit exhaustion, not transient failure
+  - DO NOT retry 401 or 402 errors — they indicate permanent failures, not transient
   - DO NOT store error pages as NonRecipeContent — they pollute real content
+  - DO NOT re-read the PDF file from disk on every batch — use the single buffer
+  - DO NOT remove the pre-filter — it saves significant OpenAI costs on large PDFs
+  - DO NOT remove first-batch abort — it prevents wasting API calls on bad keys
+  - DO NOT remove the pipeline pre-rendering — it overlaps I/O with API calls
+  - DO NOT change adaptive batch sizing — it's tuned for 1000-page PDFs
+
+  ## Storage & File Serving (Railway Volume)
+  - backend/src/services/storage.ts: Saves uploads to /data/uploads on Railway, /app/uploads locally
+  - backend/src/index.ts: Serves /uploads/:filename from the SAME directory as storage
+  - Both use isRailway detection: !!process.env.RAILWAY_STATIC_URL || !!process.env.RAILWAY_ENVIRONMENT
+  - Railway volume "optirecipe-volume" (ID: f423327f-54cf-4a0e-abe9-45de80b11a64) mounted at /data/uploads
+  - backend/Dockerfile: mkdir -p /app/uploads /data/uploads /tmp/pdf-chunks
+  - DO NOT change the upload directory without also changing the serving directory — they MUST match
+  - DO NOT use /app/uploads on Railway — it's ephemeral and wiped on every deploy
+  - DO NOT remove the Railway volume — uploaded PDFs will be lost permanently
+
+  ## Export System
+  - backend/src/routes/export.ts: CSV (UTF-8 BOM for Excel), JSON (OptiRecipe format), PDF (client-side)
+  - CSV: proper escaping, ingredient formatting, nutrition info, dietary tags, tips
+  - JSON: safe JSON parsing with try/catch for ingredients/instructions
+  - webapp/src/pages/ExportPage.tsx: CSV error handling, PDF print with load event + 2s fallback
+  - DO NOT remove UTF-8 BOM from CSV — Excel will show garbled French characters
 
   ## Ingredient Image System
   - backend/src/routes/ingredient-images.ts: POST /batch generates + caches ingredient photos
